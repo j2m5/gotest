@@ -1,0 +1,80 @@
+body {
+    background-color: #001020;
+    color: #ffc200;
+    margin: 0 auto;
+    max-width: 480px;
+}
+
+a {
+    color: #ffc200;
+}
+
+#app {
+    border: 1px solid #3e3d38;
+}
+
+header {
+    text-align: center;
+}
+
+main {
+    padding: 10px;
+}
+
+main h1, main form {
+    text-align: center;
+}
+
+main form {
+    margin-top: 20px;
+}
+
+input[type=text], input[type=password] {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    padding: 0 5px;
+    height: 23px;
+    width: 200px;
+}
+
+textarea {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    overflow-y: hidden;
+}
+
+select {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    height: 25px;
+    width: 205px;
+}
+
+.btn-primary {
+    background-color: #5cc508;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    padding: 5px 10px;
+}
+
+.btn-primary:hover {
+    background-color: #559e1a;
+}
+
+.block {
+    display: block;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.form-item {
+    margin: 10px 0;
+}

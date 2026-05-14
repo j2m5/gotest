@@ -1,29 +1,21 @@
 {{ define "content" }}
 
-<h1>Register</h1>
+<h1>Регистрация</h1>
+
+<div>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Beatae blanditiis consequatur corporis dicta dignissimos dolorem doloremque eaque enim eveniet explicabo id, illo ipsam iste laboriosam modi nulla officia omnis optio quaerat quam recusandae sed, sunt totam vel, vero voluptas voluptatem! Dolorem eius illum neque rem repellendus sed. Aliquam cum cumque error eum eveniet, incidunt laudantium libero nemo possimus quas sed suscipit ut veniam. A perferendis placeat, provident quae quasi qui repellendus sequi suscipit! A ab dolorem eos officiis, qui reiciendis rerum soluta! Consequatur cupiditate deserunt dolor doloremque dolores earum enim eum inventore molestiae numquam, optio, quaerat qui reiciendis vel vitae.</div>
 
 <form method="POST" action="/register">
-
-    <div>
-        <input
-                type="text"
-                name="username"
-                placeholder="Username"
-        >
+    <div class="text-center form-item">
+        <label class="block text-light-orange" for="username">Имя пользователя</label>
+        <input id="username" type="text" name="username" placeholder="Имя пользователя">
     </div>
-
-    <div>
-        <input
-                type="password"
-                name="password"
-                placeholder="Password"
-        >
+    <div class="text-center form-item">
+        <label class="block text-light-orange" for="password">Пароль</label>
+        <input id="password" type="password" name="password" placeholder="Пароль">
     </div>
-
-    <button type="submit">
-        Register
+    <button type="submit" class="btn-primary">
+        Регистрация
     </button>
-
 </form>
 
 {{ end }}

@@ -14,6 +14,10 @@ func main() {
 
 	routes.Register()
 
+	fs := http.FileServer(http.Dir("static"))
+
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	log.Println("Listening on port 8081")
 
 	err := http.ListenAndServe(":8081", nil)

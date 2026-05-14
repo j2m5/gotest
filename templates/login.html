@@ -1,29 +1,19 @@
 {{ define "content" }}
 
-<h1>Login</h1>
+<h1>Вход</h1>
 
 <form method="POST" action="/login">
-
-    <div>
-        <input
-                type="text"
-                name="username"
-                placeholder="Username"
-        >
+    <div class="text-center form-item">
+        <label class="block text-light-orange" for="username">Имя</label>
+        <input id="username" type="text" name="username" placeholder="Имя">
     </div>
-
-    <div>
-        <input
-                type="password"
-                name="password"
-                placeholder="Password"
-        >
+    <div class="text-center form-item">
+        <label class="block text-light-orange" for="password">Пароль</label>
+        <input id="password" type="password" name="password" placeholder="Пароль">
     </div>
-
-    <button type="submit">
-        Login
+    <button type="submit" class="btn-primary">
+        Войти
     </button>
-
 </form>
 
 {{ end }}

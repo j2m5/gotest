@@ -1,10 +1,18 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
     <title>{{ .Title }}</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    {{ template "content" . }}
+    <div id="app">
+        <header>
+            <a href="/">Logo</a>
+        </header>
+        <main>
+            {{ template "content" . }}
+        </main>
+    </div>
 </body>
 </html>

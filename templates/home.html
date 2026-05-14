@@ -2,6 +2,14 @@
 
 <h1>Go Test</h1>
 
+{{ if .User }}
+    <p>Хрю, {{ .User.Username }}</p>
+
+    <a href="/logout">Выйти</a>
+{{ else }}
+    <p>Не хрю</p>
+{{ end }}
+
 <p>Роботоет</p>
 
 {{ end }}

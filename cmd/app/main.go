@@ -14,6 +14,8 @@ func main() {
 
 	http.HandleFunc("/", handlers.Home)
 	http.HandleFunc("/register", handlers.Register)
+	http.HandleFunc("/login", handlers.Login)
+	http.HandleFunc("/logout", handlers.Logout)
 
 	log.Println("Listening on port 8081")
 

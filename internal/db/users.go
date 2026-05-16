@@ -17,7 +17,7 @@ func CreateUser(pool *pgxpool.Pool, email string, login string, password string)
 
 func FindUserByEmail(pool *pgxpool.Pool, email string) (*models.User, error) {
 	query := `
-		SELECT id, role_id, name, email, login, password, created_at, updated_at
+		SELECT id, role_id, name, email, login, password, email_verified_at, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -26,7 +26,7 @@ func FindUserByEmail(pool *pgxpool.Pool, email string) (*models.User, error) {
 
 	user := &models.User{}
 
-	err := row.Scan(&user.ID, &user.RoleID, &user.Name, &user.Email, &user.Login, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+	err := row.Scan(&user.ID, &user.RoleID, &user.Name, &user.Email, &user.Login, &user.Password, &user.EmailVerifiedAt, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"gotest/internal/db"
 	"gotest/internal/templates"
 	"net/http"
@@ -31,6 +32,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		user, err := db.FindUserByEmail(db.Pool, email)
 
 		if err != nil {
+			fmt.Println(email)
+			fmt.Println(password)
+			fmt.Println(err)
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 
 			return

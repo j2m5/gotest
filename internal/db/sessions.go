@@ -26,10 +26,13 @@ func DeleteSession(pool *pgxpool.Pool, token string) error {
 func FindUserBySessionToken(pool *pgxpool.Pool, token string) (*models.User, error) {
 	query := `
 		SELECT
-			users.id,
-			users.username,
+		    users.id,
+			users.role_id,
+			users.name,
+			users.email,
+			users.login,
 			users.password,
-			users.role,
+			users.email_verified_at,
 			users.created_at,
 			users.updated_at
 		FROM sessions
@@ -43,7 +46,7 @@ func FindUserBySessionToken(pool *pgxpool.Pool, token string) (*models.User, err
 
 	user := &models.User{}
 
-	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	err := row.Scan(&user.ID, &user.RoleID, &user.Name, &user.Email, &user.Login, &user.Password, &user.EmailVerifiedAt, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
 		return nil, err

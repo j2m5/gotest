@@ -1,11 +1,11 @@
 CREATE TABLE users (
-                       id SERIAL PRIMARY KEY,
-
-                       username VARCHAR(32) NOT NULL UNIQUE,
-                       password TEXT NOT NULL,
-
-                       role VARCHAR(16) NOT NULL DEFAULT 'user',
-
-                       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    id SERIAL PRIMARY KEY,
+    role_id SMALLINT NOT NULL DEFAULT 1,
+    name VARCHAR(32),
+    email VARCHAR(32) NOT NULL UNIQUE,
+    login VARCHAR(32) NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    email_verified_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

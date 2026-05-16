@@ -23,10 +23,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		username := r.FormValue("username")
+		email := r.PostFormValue("email")
+		login := r.FormValue("login")
 		password := r.FormValue("password")
 
-		err := db.CreateUser(db.Pool, username, password, "user")
+		err := db.CreateUser(db.Pool, email, login, password, "user")
 
 		if err != nil {
 			return

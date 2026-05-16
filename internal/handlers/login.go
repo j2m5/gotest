@@ -25,10 +25,10 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		username := r.FormValue("username")
+		email := r.FormValue("email")
 		password := r.FormValue("password")
 
-		user, err := db.FindUserByUsername(db.Pool, username)
+		user, err := db.FindUserByEmail(db.Pool, email)
 
 		if err != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)

@@ -1,7 +1,8 @@
-CREATE TABLE sessions (
+CREATE TABLE email_verifications (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token TEXT NOT NULL UNIQUE,
+    expired_at TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '1 day'),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
+)

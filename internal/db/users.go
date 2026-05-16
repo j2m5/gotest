@@ -7,26 +7,26 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateUser(pool *pgxpool.Pool, username string, password string, role string) error {
-	query := "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)"
+func CreateUser(pool *pgxpool.Pool, email string, login string, password string) error {
+	query := "INSERT INTO users (email, login, password) VALUES ($1, $2, $3)"
 
-	_, err := pool.Exec(context.Background(), query, username, password, role)
+	_, err := pool.Exec(context.Background(), query, email, login, password)
 
 	return err
 }
 
-func FindUserByUsername(pool *pgxpool.Pool, username string) (*models.User, error) {
+func FindUserByEmail(pool *pgxpool.Pool, email string) (*models.User, error) {
 	query := `
-		SELECT id, username, password, role, created_at, updated_at
+		SELECT id, role_id, name, email, login, password, created_at, updated_at
 		FROM users
-		WHERE username = $1
+		WHERE email = $1
 	`
 
-	row := pool.QueryRow(context.Background(), query, username)
+	row := pool.QueryRow(context.Background(), query, email)
 
 	user := &models.User{}
 
-	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	err := row.Scan(&user.ID, &user.RoleID, &user.Name, &user.Email, &user.Login, &user.Password, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
 		return nil, err

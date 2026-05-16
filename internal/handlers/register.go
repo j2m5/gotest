@@ -27,7 +27,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		login := r.FormValue("login")
 		password := r.FormValue("password")
 
-		err := db.CreateUser(db.Pool, email, login, password, "user")
+		err := db.CreateUser(db.Pool, email, login, password)
 
 		if err != nil {
 			return

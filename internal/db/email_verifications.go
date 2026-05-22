@@ -24,7 +24,7 @@ func DeleteEmailVerification(pool *pgxpool.Pool, token string) error {
 }
 
 func FindEmailVerificationByToken(pool *pgxpool.Pool, token string) (*models.EmailVerification, error) {
-	query := "SELECT id, user_id, token, expired_at, created_at FROM email_verifications WHERE token = $1"
+	query := "SELECT id, user_id, token, expired_at, created_at, updated_at FROM email_verifications WHERE token = $1"
 
 	row := pool.QueryRow(context.Background(), query, token)
 

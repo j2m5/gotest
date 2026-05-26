@@ -81,6 +81,15 @@ select {
     }
 }
 
+.flash-error {
+    background-color: #c0392b;
+    color: var(--white);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
 .bold {
     font-weight: bold;
 }

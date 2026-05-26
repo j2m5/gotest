@@ -4,6 +4,7 @@ import (
 	"gotest/internal/auth"
 	"gotest/internal/config"
 	"gotest/internal/db"
+	"gotest/internal/flash"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
 	"gotest/internal/routes"
@@ -24,7 +25,8 @@ func main() {
 	storage := db.NewStorage(pool)
 	a := auth.NewAuth(storage)
 	m := middleware.NewMiddleware(a)
-	handler := handlers.NewHandler(storage, a)
+	f := flash.NewFlash(cfg.FlashSecret)
+	handler := handlers.NewHandler(storage, a, f)
 	defer pool.Close()
 
 	routes.Register(handler, m)

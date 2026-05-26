@@ -6,16 +6,22 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-var store = sessions.NewCookieStore([]byte("secret"))
+type Flash struct {
+	store *sessions.CookieStore
+}
 
-func Set(w http.ResponseWriter, r *http.Request, kind string, message string) {
-	session, _ := store.Get(r, "flash")
+func NewFlash(secret string) *Flash {
+	return &Flash{store: sessions.NewCookieStore([]byte(secret))}
+}
+
+func (f *Flash) Set(w http.ResponseWriter, r *http.Request, kind string, message string) {
+	session, _ := f.store.Get(r, "flash")
 	session.AddFlash(message, kind)
 	session.Save(r, w)
 }
 
-func Get(w http.ResponseWriter, r *http.Request, kind string) []string {
-	session, _ := store.Get(r, "flash")
+func (f *Flash) Get(w http.ResponseWriter, r *http.Request, kind string) []string {
+	session, _ := f.store.Get(r, "flash")
 	flashes := session.Flashes(kind)
 	session.Save(r, w)
 

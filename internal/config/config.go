@@ -9,13 +9,15 @@ type Config struct {
 	DatabaseURL string
 	AppPort     string
 	AppEnv      string
+	FlashSecret string
 }
 
 func Load() *Config {
 	cfg := &Config{
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:123@localhost:5432/gotest"),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
 		AppPort:     getEnv("APP_PORT", "8081"),
 		AppEnv:      getEnv("APP_ENV", "local"),
+		FlashSecret: getEnv("FLASH_SECRET", ""),
 	}
 
 	return cfg

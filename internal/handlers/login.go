@@ -32,7 +32,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		user, err := h.storage.FindUserByEmail(email)
 
 		if err != nil {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			h.flash.Set(w, r, "error", "Неверный email или пароль")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
 		}
@@ -40,7 +41,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 
 		if err != nil {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			h.flash.Set(w, r, "error", "Неверный email или пароль")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
 		}
@@ -50,7 +52,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		err = h.storage.CreateSession(user.ID, token)
 
 		if err != nil {
-			http.Error(w, "Cannot create session", http.StatusInternalServerError)
+			h.serverError(w, r, err)
 
 			return
 		}

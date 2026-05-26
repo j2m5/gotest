@@ -30,19 +30,22 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		password := r.FormValue("password")
 
 		if email == "" {
-			http.Error(w, "Поле Email обязательно для заполнения", http.StatusUnprocessableEntity)
+			h.flash.Set(w, r, "error", "Поле Email обязательно для заполнения")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
 		}
 
 		if login == "" {
-			http.Error(w, "Поле Логин обязательно для заполнения", http.StatusUnprocessableEntity)
+			h.flash.Set(w, r, "error", "Поле Логин обязательно для заполнения")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
 		}
 
 		if password == "" {
-			http.Error(w, "Поле Пароль обязательно для заполнения", http.StatusUnprocessableEntity)
+			h.flash.Set(w, r, "error", "Поле Пароль обязательно для заполнения")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
 		}
@@ -50,7 +53,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 		if err != nil {
-			http.Error(w, "Cannot hash password", http.StatusInternalServerError)
+			h.serverError(w, r, err)
 
 			return
 		}
@@ -58,7 +61,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		user, err := h.storage.CreateUser(email, login, string(hash))
 
 		if err != nil {
-			http.Error(w, "Cannot create user", http.StatusInternalServerError)
+			h.serverError(w, r, err)
 
 			return
 		}
@@ -68,7 +71,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		err = h.storage.CreateEmailVerification(user.ID, token)
 
 		if err != nil {
-			http.Error(w, "Cannot create email verification", http.StatusInternalServerError)
+			h.serverError(w, r, err)
 
 			return
 		}
@@ -76,7 +79,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		err = makeEmailMessage(token)
 
 		if err != nil {
-			http.Error(w, "Cannot create email message", http.StatusInternalServerError)
+			h.serverError(w, r, err)
 
 			return
 		}
@@ -89,7 +92,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.flash.Set(w, r, "error", "")
+		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 		return
 	}
@@ -97,7 +101,8 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
 	if token == "" {
-		http.Error(w, "Missing token", http.StatusUnprocessableEntity)
+		h.flash.Set(w, r, "error", "Токен не найден")
+		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 		return
 	}
@@ -105,7 +110,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	emailVerification, err := h.storage.FindEmailVerificationByToken(token)
 
 	if err != nil {
-		http.Error(w, "Invalid verification token", http.StatusInternalServerError)
+		h.serverError(w, r, err)
 
 		return
 	}
@@ -113,7 +118,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	err = h.storage.UpdateEmailVerifiedAt(emailVerification.UserID)
 
 	if err != nil {
-		http.Error(w, "Cannot verify email", http.StatusInternalServerError)
+		h.serverError(w, r, err)
 
 		return
 	}
@@ -121,7 +126,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	err = h.storage.DeleteEmailVerification(emailVerification.Token)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.serverError(w, r, err)
 
 		return
 	}

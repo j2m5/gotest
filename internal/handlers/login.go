@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"gotest/internal/templates"
 	"net/http"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +37,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if user.Password != password {
+		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+
+		if err != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 
 			return

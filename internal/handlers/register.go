@@ -4,6 +4,8 @@ import (
 	"gotest/internal/templates"
 	"net/http"
 	"os"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +47,15 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := h.storage.CreateUser(email, login, password)
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+		if err != nil {
+			http.Error(w, "Cannot hash password", http.StatusInternalServerError)
+
+			return
+		}
+
+		user, err := h.storage.CreateUser(email, login, string(hash))
 
 		if err != nil {
 			http.Error(w, "Cannot create user", http.StatusInternalServerError)

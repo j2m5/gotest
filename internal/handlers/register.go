@@ -16,8 +16,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]any{
-			"Title":  "Register",
-			"Errors": h.flash.Get(w, r, "error"),
+			"Title":   "Register",
+			"Success": h.flash.Get(w, r, "success"),
+			"Errors":  h.flash.Get(w, r, "error"),
 		}
 
 		templates.Render(w, files, data)
@@ -85,6 +86,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		h.flash.Set(w, r, "success", "Успешная регистрация, проверьте указанный email для верификации аккаунта")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 		return
@@ -132,6 +134,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.flash.Set(w, r, "success", "Аккаунт успешно верифицирован")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	return

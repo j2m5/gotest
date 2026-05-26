@@ -11,10 +11,16 @@
             <a href="/">Logo</a>
         </header>
         <main>
+            {{ if .Success }}
+                <div class="flash-success">
+                    {{ .Success }}
+                </div>
+            {{ end }}
+
             {{ if .Errors }}
                 <div class="flash-errors">
                     {{ range .Errors }}
-                    <div class="flash-error">{{ . }}</div>
+                        <div class="flash-error">{{ . }}</div>
                     {{ end }}
                 </div>
             {{ end }}

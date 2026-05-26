@@ -81,6 +81,15 @@ select {
     }
 }
 
+.flash-success {
+    background-color: #1a900d;
+    color: var(--white);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
 .flash-error {
     background-color: #c0392b;
     color: var(--white);

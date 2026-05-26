@@ -1,15 +1,23 @@
 package main
 
 import (
+	"gotest/internal/config"
 	"gotest/internal/db"
 	"gotest/internal/routes"
 	"log"
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	pool := db.New()
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found")
+	}
 
+	cfg := config.Load()
+
+	pool := db.New(cfg.DatabaseURL)
 	defer pool.Close()
 
 	routes.Register()
@@ -18,11 +26,9 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	log.Println("Listening on port 8081")
+	log.Printf("Listening on port %s", cfg.AppPort)
 
-	err := http.ListenAndServe(":8081", nil)
-
-	if err != nil {
+	if err := http.ListenAndServe(":"+cfg.AppPort, nil); err != nil {
 		log.Fatal(err)
 	}
 }

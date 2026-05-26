@@ -9,9 +9,7 @@ import (
 
 var Pool *pgxpool.Pool
 
-func New() *pgxpool.Pool {
-	connStr := "postgres://postgres:123@localhost:5432/gotest"
-
+func New(connStr string) *pgxpool.Pool {
 	pool, err := pgxpool.New(context.Background(), connStr)
 
 	if err != nil {

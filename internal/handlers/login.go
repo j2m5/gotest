@@ -52,9 +52,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:  "session_token",
-			Value: token,
-			Path:  "/",
+			Name:     "session_token",
+			Value:    token,
+			Path:     "/",
+			HttpOnly: true,
 		})
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)

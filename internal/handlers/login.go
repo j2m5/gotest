@@ -17,7 +17,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]any{
-			"Title": "Login",
+			"Title":  "Login",
+			"Errors": h.flash.Get(w, r, "error"),
 		}
 
 		templates.Render(w, files, data)

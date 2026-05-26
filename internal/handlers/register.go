@@ -16,7 +16,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]any{
-			"Title": "Register",
+			"Title":  "Register",
+			"Errors": h.flash.Get(w, r, "error"),
 		}
 
 		templates.Render(w, files, data)

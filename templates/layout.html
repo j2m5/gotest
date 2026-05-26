@@ -11,6 +11,14 @@
             <a href="/">Logo</a>
         </header>
         <main>
+            {{ if .Errors }}
+                <div class="flash-errors text-center">
+                    {{ range .Errors }}
+                    <div class="flash-error">{{ . }}</div>
+                    {{ end }}
+                </div>
+            {{ end }}
+
             {{ template "content" . }}
         </main>
     </div>

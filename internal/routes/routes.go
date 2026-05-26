@@ -11,5 +11,5 @@ func Register() {
 	http.HandleFunc("/register", middleware.Guest(handlers.Register))
 	http.HandleFunc("/login", middleware.Guest(handlers.Login))
 	http.HandleFunc("/logout", middleware.Auth(handlers.Logout))
-	http.HandleFunc("/verify", middleware.Guest(handlers.VerifyEmail))
+	http.HandleFunc("/verify", handlers.VerifyEmail)
 }

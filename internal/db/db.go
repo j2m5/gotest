@@ -7,8 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var Pool *pgxpool.Pool
-
 func New(connStr string) *pgxpool.Pool {
 	pool, err := pgxpool.New(context.Background(), connStr)
 
@@ -23,8 +21,6 @@ func New(connStr string) *pgxpool.Pool {
 	}
 
 	log.Println("Successfully connected to PostgreSQL")
-
-	Pool = pool
 
 	return pool
 }

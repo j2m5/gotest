@@ -28,9 +28,23 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		login := r.FormValue("login")
 		password := r.FormValue("password")
 
+		if email == "" {
+			http.Error(w, "Поле Email обязательно для заполнения", http.StatusUnprocessableEntity)
+		}
+
+		if login == "" {
+			http.Error(w, "Поле Логин обязательно для заполнения", http.StatusUnprocessableEntity)
+		}
+
+		if password == "" {
+			http.Error(w, "Поле Пароль обязательно для заполнения", http.StatusUnprocessableEntity)
+		}
+
 		user, err := db.CreateUser(db.Pool, email, login, password)
 
 		if err != nil {
+			http.Error(w, "Cannot create user", http.StatusInternalServerError)
+
 			return
 		}
 
@@ -38,7 +52,19 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 		err = db.CreateEmailVerification(db.Pool, user.ID, token)
 
+		if err != nil {
+			http.Error(w, "Cannot create email verification", http.StatusInternalServerError)
+
+			return
+		}
+
 		err = makeEmailMessage(token)
+
+		if err != nil {
+			http.Error(w, "Cannot create email message", http.StatusInternalServerError)
+
+			return
+		}
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
@@ -47,17 +73,36 @@ func Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	token := r.FormValue("token")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+
+	if token == "" {
+		http.Error(w, "Missing token", http.StatusUnprocessableEntity)
+
+		return
+	}
 
 	emailVerification, err := db.FindEmailVerificationByToken(db.Pool, token)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Invalid verification token", http.StatusInternalServerError)
 
 		return
 	}
 
 	err = db.UpdateEmailVerifiedAt(db.Pool, emailVerification.UserID)
+
+	if err != nil {
+		http.Error(w, "Cannot verify email", http.StatusInternalServerError)
+
+		return
+	}
+
 	err = db.DeleteEmailVerification(db.Pool, emailVerification.Token)
 
 	if err != nil {

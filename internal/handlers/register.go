@@ -24,20 +24,26 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		email := r.PostFormValue("email")
+		email := r.FormValue("email")
 		login := r.FormValue("login")
 		password := r.FormValue("password")
 
 		if email == "" {
 			http.Error(w, "Поле Email обязательно для заполнения", http.StatusUnprocessableEntity)
+
+			return
 		}
 
 		if login == "" {
 			http.Error(w, "Поле Логин обязательно для заполнения", http.StatusUnprocessableEntity)
+
+			return
 		}
 
 		if password == "" {
 			http.Error(w, "Поле Пароль обязательно для заполнения", http.StatusUnprocessableEntity)
+
+			return
 		}
 
 		user, err := db.CreateUser(db.Pool, email, login, password)

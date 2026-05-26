@@ -3,27 +3,25 @@ package db
 import (
 	"context"
 	"gotest/internal/models"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateSession(pool *pgxpool.Pool, userID int, token string) error {
+func (s *Storage) CreateSession(userID int, token string) error {
 	query := "INSERT INTO sessions (user_id, token) VALUES ($1, $2)"
 
-	_, err := pool.Exec(context.Background(), query, userID, token)
+	_, err := s.pool.Exec(context.Background(), query, userID, token)
 
 	return err
 }
 
-func DeleteSession(pool *pgxpool.Pool, token string) error {
+func (s *Storage) DeleteSession(token string) error {
 	query := "DELETE FROM sessions WHERE token = $1"
 
-	_, err := pool.Exec(context.Background(), query, token)
+	_, err := s.pool.Exec(context.Background(), query, token)
 
 	return err
 }
 
-func FindUserBySessionToken(pool *pgxpool.Pool, token string) (*models.User, error) {
+func (s *Storage) FindUserBySessionToken(token string) (*models.User, error) {
 	query := `
 		SELECT
 		    users.id,
@@ -42,7 +40,7 @@ func FindUserBySessionToken(pool *pgxpool.Pool, token string) (*models.User, err
 		WHERE sessions.token = $1
 	`
 
-	row := pool.QueryRow(context.Background(), query, token)
+	row := s.pool.QueryRow(context.Background(), query, token)
 
 	user := &models.User{}
 

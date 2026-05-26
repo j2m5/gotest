@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	"gotest/internal/db"
 	"gotest/internal/templates"
 	"net/http"
 	"os"
 )
 
-func Register(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		files := []string{
 			"templates/layout.html",
@@ -46,7 +45,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, err := db.CreateUser(db.Pool, email, login, password)
+		user, err := h.storage.CreateUser(email, login, password)
 
 		if err != nil {
 			http.Error(w, "Cannot create user", http.StatusInternalServerError)
@@ -56,7 +55,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 		token := generateToken()
 
-		err = db.CreateEmailVerification(db.Pool, user.ID, token)
+		err = h.storage.CreateEmailVerification(user.ID, token)
 
 		if err != nil {
 			http.Error(w, "Cannot create email verification", http.StatusInternalServerError)
@@ -78,7 +77,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func VerifyEmail(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 
@@ -93,7 +92,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	emailVerification, err := db.FindEmailVerificationByToken(db.Pool, token)
+	emailVerification, err := h.storage.FindEmailVerificationByToken(token)
 
 	if err != nil {
 		http.Error(w, "Invalid verification token", http.StatusInternalServerError)
@@ -101,7 +100,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.UpdateEmailVerifiedAt(db.Pool, emailVerification.UserID)
+	err = h.storage.UpdateEmailVerifiedAt(emailVerification.UserID)
 
 	if err != nil {
 		http.Error(w, "Cannot verify email", http.StatusInternalServerError)
@@ -109,7 +108,7 @@ func VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.DeleteEmailVerification(db.Pool, emailVerification.Token)
+	err = h.storage.DeleteEmailVerification(emailVerification.Token)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

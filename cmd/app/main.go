@@ -1,8 +1,11 @@
 package main
 
 import (
+	"gotest/internal/auth"
 	"gotest/internal/config"
 	"gotest/internal/db"
+	"gotest/internal/handlers"
+	"gotest/internal/middleware"
 	"gotest/internal/routes"
 	"log"
 	"net/http"
@@ -18,9 +21,13 @@ func main() {
 	cfg := config.Load()
 
 	pool := db.New(cfg.DatabaseURL)
+	storage := db.NewStorage(pool)
+	a := auth.NewAuth(storage)
+	m := middleware.NewMiddleware(a)
+	handler := handlers.NewHandler(storage, a)
 	defer pool.Close()
 
-	routes.Register()
+	routes.Register(handler, m)
 
 	fs := http.FileServer(http.Dir("static"))
 

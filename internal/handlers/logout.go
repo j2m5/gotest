@@ -1,15 +1,14 @@
 package handlers
 
 import (
-	"gotest/internal/db"
 	"net/http"
 )
 
-func Logout(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")
 
 	if err == nil {
-		db.DeleteSession(db.Pool, cookie.Value)
+		h.storage.DeleteSession(cookie.Value)
 	}
 
 	http.SetCookie(w, &http.Cookie{

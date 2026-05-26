@@ -3,12 +3,11 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"gotest/internal/db"
 	"gotest/internal/templates"
 	"net/http"
 )
 
-func Login(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		files := []string{
 			"templates/layout.html",
@@ -28,7 +27,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		email := r.FormValue("email")
 		password := r.FormValue("password")
 
-		user, err := db.FindUserByEmail(db.Pool, email)
+		user, err := h.storage.FindUserByEmail(email)
 
 		if err != nil {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -44,7 +43,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 		token := generateToken()
 
-		err = db.CreateSession(db.Pool, user.ID, token)
+		err = h.storage.CreateSession(user.ID, token)
 
 		if err != nil {
 			http.Error(w, "Cannot create session", http.StatusInternalServerError)

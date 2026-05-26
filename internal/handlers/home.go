@@ -1,18 +1,17 @@
 package handlers
 
 import (
-	"gotest/internal/auth"
 	"gotest/internal/templates"
 	"net/http"
 )
 
-func Home(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	files := []string{
 		"templates/layout.html",
 		"templates/home.html",
 	}
 
-	user := auth.CurrentUser(r)
+	user := h.auth.CurrentUser(r)
 
 	data := map[string]any{
 		"Title": "Go Test",

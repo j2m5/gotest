@@ -6,10 +6,10 @@ import (
 	"net/http"
 )
 
-func Register() {
-	http.HandleFunc("/", middleware.Auth(handlers.Home))
-	http.HandleFunc("/register", middleware.Guest(handlers.Register))
-	http.HandleFunc("/login", middleware.Guest(handlers.Login))
-	http.HandleFunc("/logout", middleware.Auth(handlers.Logout))
-	http.HandleFunc("/verify", handlers.VerifyEmail)
+func Register(h *handlers.Handler, m *middleware.Middleware) {
+	http.HandleFunc("/", m.Auth(h.Home))
+	http.HandleFunc("/register", m.Guest(h.Register))
+	http.HandleFunc("/login", m.Guest(h.Login))
+	http.HandleFunc("/logout", m.Auth(h.Logout))
+	http.HandleFunc("/verify", h.VerifyEmail)
 }

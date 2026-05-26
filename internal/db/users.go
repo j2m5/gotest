@@ -3,14 +3,12 @@ package db
 import (
 	"context"
 	"gotest/internal/models"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateUser(pool *pgxpool.Pool, email string, login string, password string) (*models.User, error) {
+func (s *Storage) CreateUser(email string, login string, password string) (*models.User, error) {
 	query := "INSERT INTO users (email, login, password) VALUES ($1, $2, $3) RETURNING id, role_id, name, email, login, password, email_verified_at, created_at, updated_at"
 
-	row := pool.QueryRow(
+	row := s.pool.QueryRow(
 		context.Background(),
 		query,
 		email,
@@ -39,22 +37,22 @@ func CreateUser(pool *pgxpool.Pool, email string, login string, password string)
 	return user, nil
 }
 
-func UpdateEmailVerifiedAt(pool *pgxpool.Pool, id int) error {
+func (s *Storage) UpdateEmailVerifiedAt(id int) error {
 	query := "UPDATE users SET email_verified_at = NOW() WHERE id = $1"
 
-	_, err := pool.Exec(context.Background(), query, id)
+	_, err := s.pool.Exec(context.Background(), query, id)
 
 	return err
 }
 
-func FindUserByEmail(pool *pgxpool.Pool, email string) (*models.User, error) {
+func (s *Storage) FindUserByEmail(email string) (*models.User, error) {
 	query := `
 		SELECT id, role_id, name, email, login, password, email_verified_at, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 
-	row := pool.QueryRow(context.Background(), query, email)
+	row := s.pool.QueryRow(context.Background(), query, email)
 
 	user := &models.User{}
 

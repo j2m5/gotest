@@ -16,7 +16,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{
 		"Title":   "Go Test",
 		"User":    user,
-		"Success": h.flash.Get(w, r, "success"),
+		"Success": h.flash.GetOne(w, r, "success"),
 		"Errors":  h.flash.Get(w, r, "error"),
 	}
 

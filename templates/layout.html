@@ -18,9 +18,9 @@
             {{ end }}
 
             {{ if .Errors }}
-                <div class="flash-errors">
+                <div class="flash-error">
                     {{ range .Errors }}
-                        <div class="flash-error">{{ . }}</div>
+                        <div>{{ . }}</div>
                     {{ end }}
                 </div>
             {{ end }}

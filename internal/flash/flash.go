@@ -32,3 +32,13 @@ func (f *Flash) Get(w http.ResponseWriter, r *http.Request, kind string) []strin
 
 	return messages
 }
+
+func (f *Flash) GetOne(w http.ResponseWriter, r *http.Request, kind string) string {
+	values := f.Get(w, r, kind)
+
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
+}

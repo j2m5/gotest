@@ -17,7 +17,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 		data := map[string]any{
 			"Title":   "Register",
-			"Success": h.flash.Get(w, r, "success"),
+			"Success": h.flash.GetOne(w, r, "success"),
 			"Errors":  h.flash.Get(w, r, "error"),
 		}
 

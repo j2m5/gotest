@@ -7,11 +7,11 @@
 <form method="POST" action="/register">
     <div class="text-center form-item">
         <label class="block text-light-orange" for="email">Электронная почта</label>
-        <input id="email" type="email" name="email" placeholder="Электронная почта">
+        <input id="email" type="email" name="email" value="{{ .Old.Email }}" placeholder="Электронная почта">
     </div>
     <div class="text-center form-item">
         <label class="block text-light-orange" for="login">Имя пользователя</label>
-        <input id="login" type="text" name="login" placeholder="Имя пользователя">
+        <input id="login" type="text" name="login" value="{{ .Old.Login }}" placeholder="Имя пользователя">
     </div>
     <div class="text-center form-item">
         <label class="block text-light-orange" for="password">Пароль</label>

@@ -19,6 +19,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			"Title":   "Register",
 			"Success": h.flash.GetOne(w, r, "success"),
 			"Errors":  h.flash.Get(w, r, "error"),
+			"Old": map[string]string{
+				"Email": h.flash.GetOne(w, r, "old_email"),
+				"Login": h.flash.GetOne(w, r, "old_login"),
+			},
 		}
 
 		templates.Render(w, files, data)
@@ -31,22 +35,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		login := r.FormValue("login")
 		password := r.FormValue("password")
 
-		if email == "" {
-			h.flash.Set(w, r, "error", "Поле Email обязательно для заполнения")
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		if login == "" {
-			h.flash.Set(w, r, "error", "Поле Логин обязательно для заполнения")
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		if password == "" {
-			h.flash.Set(w, r, "error", "Поле Пароль обязательно для заполнения")
+		if errs := validateRegister(email, login, password); len(errs) > 0 {
+			for _, e := range errs {
+				h.flash.Set(w, r, "error", e)
+			}
+			h.flash.Set(w, r, "old_email", email)
+			h.flash.Set(w, r, "old_login", login)
 			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
@@ -138,6 +132,24 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	return
+}
+
+func validateRegister(email string, login string, password string) []string {
+	var errors []string
+
+	if email == "" {
+		errors = append(errors, "Поле Email обязательно для заполнения")
+	}
+
+	if login == "" {
+		errors = append(errors, "Поле Логин обязательно для заполнения")
+	}
+
+	if password == "" {
+		errors = append(errors, "Поле Пароль обязательно для заполнения")
+	}
+
+	return errors
 }
 
 func makeEmailMessage(token string) error {

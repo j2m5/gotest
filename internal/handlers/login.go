@@ -19,6 +19,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		data := map[string]any{
 			"Title":  "Login",
 			"Errors": h.flash.Get(w, r, "error"),
+			"Old": map[string]string{
+				"Email": h.flash.GetOne(w, r, "old_email"),
+			},
 		}
 
 		templates.Render(w, files, data)
@@ -34,6 +37,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			h.flash.Set(w, r, "error", "Неверный email или пароль")
+			h.flash.Set(w, r, "old_email", email)
 			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return
@@ -43,6 +47,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			h.flash.Set(w, r, "error", "Неверный email или пароль")
+			h.flash.Set(w, r, "old_email", email)
 			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 
 			return

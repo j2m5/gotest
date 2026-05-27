@@ -53,6 +53,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if user.EmailVerifiedAt == nil {
+			h.flash.Set(w, r, "error", "Подтвердите email перед входом")
+			h.flash.Set(w, r, "old_email", email)
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+
+			return
+		}
+
 		token := generateToken()
 
 		err = h.storage.CreateSession(user.ID, token)

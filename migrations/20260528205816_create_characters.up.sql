@@ -21,6 +21,7 @@ CREATE TABLE characters (
         defense INT NOT NULL DEFAULT 0,
         shield INT NOT NULL DEFAULT 0,
         absorption INT NOT NULL DEFAULT 0,
+        activated_at TIMESTAMP,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

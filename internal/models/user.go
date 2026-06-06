@@ -5,6 +5,7 @@ import "time"
 type User struct {
 	ID              int
 	RoleID          int
+	CharacterID     int
 	Name            *string
 	Email           string
 	Login           string

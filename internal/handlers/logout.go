@@ -5,9 +5,15 @@ import (
 )
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
+
+		return
+	}
+
 	cookie, err := r.Cookie("session_token")
 
-	if err == nil {
+	if err != nil {
 		h.storage.DeleteSession(cookie.Value)
 	}
 
@@ -18,5 +24,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	})
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	jsonResponse(w, map[string]string{
+		"message": "Logout",
+	}, http.StatusOK)
 }

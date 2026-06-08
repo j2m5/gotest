@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"gotest/internal/auth"
 	"gotest/internal/db"
-	"gotest/internal/flash"
 	"log"
 	"net/http"
 )
@@ -12,11 +11,10 @@ import (
 type Handler struct {
 	storage *db.Storage
 	auth    *auth.Auth
-	flash   *flash.Flash
 }
 
-func NewHandler(storage *db.Storage, auth *auth.Auth, flash *flash.Flash) *Handler {
-	return &Handler{storage: storage, auth: auth, flash: flash}
+func NewHandler(storage *db.Storage, auth *auth.Auth) *Handler {
+	return &Handler{storage: storage, auth: auth}
 }
 
 func jsonResponse(w http.ResponseWriter, data any, status int) {

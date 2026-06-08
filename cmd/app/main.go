@@ -4,7 +4,6 @@ import (
 	"gotest/internal/auth"
 	"gotest/internal/config"
 	"gotest/internal/db"
-	"gotest/internal/flash"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
 	"gotest/internal/routes"
@@ -25,15 +24,10 @@ func main() {
 	storage := db.NewStorage(pool)
 	a := auth.NewAuth(storage)
 	m := middleware.NewMiddleware(a)
-	f := flash.NewFlash(cfg.FlashSecret)
-	handler := handlers.NewHandler(storage, a, f)
+	handler := handlers.NewHandler(storage, a)
 	defer pool.Close()
 
 	routes.Register(handler, m)
-
-	fs := http.FileServer(http.Dir("static"))
-
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	log.Printf("Listening on port %s", cfg.AppPort)
 

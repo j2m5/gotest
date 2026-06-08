@@ -1,96 +1,78 @@
 package handlers
 
 import (
-	"gotest/internal/templates"
+	"encoding/json"
 	"net/http"
 	"os"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		files := []string{
-			"templates/layout.html",
-			"templates/register.html",
-		}
-
-		data := map[string]any{
-			"Title":   "Register",
-			"Success": h.flash.GetOne(w, r, "success"),
-			"Errors":  h.flash.Get(w, r, "error"),
-			"Old": map[string]string{
-				"Email": h.flash.GetOne(w, r, "old_email"),
-				"Login": h.flash.GetOne(w, r, "old_login"),
-			},
-		}
-
-		templates.Render(w, files, data)
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 
 		return
 	}
 
-	if r.Method == http.MethodPost {
-		email := r.FormValue("email")
-		login := r.FormValue("login")
-		password := r.FormValue("password")
+	var request RegisterRequest
 
-		if errs := validateRegister(email, login, password); len(errs) > 0 {
-			for _, e := range errs {
-				h.flash.Set(w, r, "error", e)
-			}
-			h.flash.Set(w, r, "old_email", email)
-			h.flash.Set(w, r, "old_login", login)
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
-		if err != nil {
-			h.serverError(w, r, err)
-
-			return
-		}
-
-		user, err := h.storage.CreateUser(email, login, string(hash))
-
-		if err != nil {
-			h.serverError(w, r, err)
-
-			return
-		}
-
-		token := generateToken()
-
-		err = h.storage.CreateEmailVerification(user.ID, token)
-
-		if err != nil {
-			h.serverError(w, r, err)
-
-			return
-		}
-
-		err = makeEmailMessage(token)
-
-		if err != nil {
-			h.serverError(w, r, err)
-
-			return
-		}
-
-		h.flash.Set(w, r, "success", "Успешная регистрация, проверьте указанный email для верификации аккаунта")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		jsonError(w, "Invalid request", http.StatusBadRequest)
 
 		return
 	}
+
+	if errs := validateRegister(request.Email, request.Login, request.Password); len(errs) > 0 {
+		jsonResponse(w, map[string]any{"errors": errs}, http.StatusUnprocessableEntity)
+
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+
+	if err != nil {
+		h.serverError(w, r, err)
+
+		return
+	}
+
+	user, err := h.storage.CreateUser(request.Email, request.Login, string(hash))
+
+	if err != nil {
+		h.serverError(w, r, err)
+
+		return
+	}
+
+	token := generateToken()
+
+	if err = h.storage.CreateEmailVerification(user.ID, token); err != nil {
+		h.serverError(w, r, err)
+
+		return
+	}
+
+	if err = makeEmailMessage(token); err != nil {
+		h.serverError(w, r, err)
+
+		return
+	}
+
+	jsonResponse(w, map[string]string{
+		"message": "Успешная регистрация, проверьте указанный email для верификации аккаунта",
+	}, http.StatusCreated)
 }
 
 func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.flash.Set(w, r, "error", "")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+	if r.Method != http.MethodPost {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 
 		return
 	}
@@ -98,8 +80,7 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
 	if token == "" {
-		h.flash.Set(w, r, "error", "Токен не найден")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		jsonError(w, "Токен не найден", http.StatusBadRequest)
 
 		return
 	}
@@ -107,31 +88,26 @@ func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	emailVerification, err := h.storage.FindEmailVerificationByToken(token)
 
 	if err != nil {
+		jsonError(w, "Токен недействителен", http.StatusBadRequest)
+
+		return
+	}
+
+	if err = h.storage.UpdateEmailVerifiedAt(emailVerification.UserID); err != nil {
 		h.serverError(w, r, err)
 
 		return
 	}
 
-	err = h.storage.UpdateEmailVerifiedAt(emailVerification.UserID)
-
-	if err != nil {
+	if err = h.storage.DeleteEmailVerification(emailVerification.Token); err != nil {
 		h.serverError(w, r, err)
 
 		return
 	}
 
-	err = h.storage.DeleteEmailVerification(emailVerification.Token)
-
-	if err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	h.flash.Set(w, r, "success", "Аккаунт успешно верифицирован")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-
-	return
+	jsonResponse(w, map[string]string{
+		"message": "Аккаунт успешно верифицирован",
+	}, http.StatusOK)
 }
 
 func validateRegister(email string, login string, password string) []string {

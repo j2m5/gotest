@@ -13,6 +13,6 @@ func Register(h *handlers.Handler, m *middleware.Middleware) {
 	http.HandleFunc("/api/auth/verify", m.Auth(h.VerifyEmail))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "frontend/index.html")
+		http.ServeFile(w, r, "frontend/dist/index.html")
 	})
 }

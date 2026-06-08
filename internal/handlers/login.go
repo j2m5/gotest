@@ -3,83 +3,75 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"gotest/internal/templates"
+	"encoding/json"
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		files := []string{
-			"templates/layout.html",
-			"templates/login.html",
-		}
-
-		data := map[string]any{
-			"Title":  "Login",
-			"Errors": h.flash.Get(w, r, "error"),
-			"Old": map[string]string{
-				"Email": h.flash.GetOne(w, r, "old_email"),
-			},
-		}
-
-		templates.Render(w, files, data)
+	if r.Method != "POST" {
+		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
 
 		return
 	}
 
-	if r.Method == http.MethodPost {
-		email := r.FormValue("email")
-		password := r.FormValue("password")
+	var request LoginRequest
 
-		user, err := h.storage.FindUserByEmail(email)
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 
-		if err != nil {
-			h.flash.Set(w, r, "error", "Неверный email или пароль")
-			h.flash.Set(w, r, "old_email", email)
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-
-		if err != nil {
-			h.flash.Set(w, r, "error", "Неверный email или пароль")
-			h.flash.Set(w, r, "old_email", email)
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		if user.EmailVerifiedAt == nil {
-			h.flash.Set(w, r, "error", "Подтвердите email перед входом")
-			h.flash.Set(w, r, "old_email", email)
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-
-			return
-		}
-
-		token := generateToken()
-
-		err = h.storage.CreateSession(user.ID, token)
-
-		if err != nil {
-			h.serverError(w, r, err)
-
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session_token",
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-		})
-
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	}
+
+	user, err := h.storage.FindUserByEmail(request.Email)
+
+	if err != nil {
+		jsonError(w, "Неверный email или пароль", http.StatusUnauthorized)
+
+		return
+	}
+
+	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
+		jsonError(w, "Неверный email или пароль", http.StatusUnauthorized)
+
+		return
+	}
+
+	if user.EmailVerifiedAt == nil {
+		jsonError(w, "Подтвердите email перед входом", http.StatusForbidden)
+
+		return
+	}
+
+	token := generateToken()
+
+	if err = h.storage.CreateSession(user.ID, token); err != nil {
+		h.serverError(w, r, err)
+
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	jsonResponse(w, map[string]any{
+		"user": map[string]any{
+			"id":    user.ID,
+			"email": user.Email,
+			"login": user.Login,
+		},
+	}, http.StatusOK)
 }
 
 func generateToken() string {

@@ -1,3 +1,4 @@
+import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { login } from '../../api'
 import { Link } from 'react-router-dom'
@@ -7,14 +8,18 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleLogin = async() => {
-    await login(email, password)
+  const handleLogin = async(e: SubmitEvent) => {
+    e.preventDefault()
+
+    try {
+      await login(email, password)
+    } catch (error) {}
   }
 
   return (
     <Layout>
       <h1>Вход</h1>
-      <form>
+      <form onSubmit={handleLogin}>
         <div className="form-item text-center">
           <label className="block" htmlFor="email">
             Электронная почта
@@ -45,9 +50,8 @@ export default function Login() {
             <Link to="/register">Регистрация</Link>
           </div>
           <button
-            type="button"
+            type="submit"
             className="btn-primary"
-            onClick={handleLogin}
           >
             Войти
           </button>

@@ -1,3 +1,4 @@
+import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { register } from '../../api'
 import Layout from '../../components/layout/Layout'
@@ -7,8 +8,12 @@ export default function Register() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleRegister = async() => {
-    await register(email, login, password)
+  const handleRegister = async(e: SubmitEvent) => {
+    e.preventDefault()
+
+    try {
+      await register(email, login, password)
+    } catch (error) {}
   }
 
   return (
@@ -24,7 +29,7 @@ export default function Register() {
         eum inventore molestiae numquam, optio, quaerat qui reiciendis vel vitae.
       </div>
 
-      <form>
+      <form onSubmit={handleRegister}>
         <div className="text-center form-item">
           <label
             className="block text-light-orange"
@@ -71,9 +76,8 @@ export default function Register() {
           />
         </div>
         <button
-          type="button"
+          type="submit"
           className="btn-primary"
-          onClick={handleRegister}
         >
           Регистрация
         </button>

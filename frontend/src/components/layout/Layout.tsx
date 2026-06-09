@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 
 interface LayoutProps {
   children: ReactNode
@@ -9,7 +10,7 @@ export default function Layout({ children, title }: LayoutProps) {
   return (
     <>
       <header>
-        <a href="/">{title || 'Logo'}</a>
+        <Link to="/">{title || 'Logo'}</Link>
       </header>
       <main>
         {children}

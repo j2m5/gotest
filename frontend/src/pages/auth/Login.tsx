@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { login } from '../../api'
+import { Link } from 'react-router-dom'
 import Layout from '../../components/layout/Layout'
 
 export default function Login() {
@@ -41,7 +42,7 @@ export default function Login() {
             />
           </div>
           <div className="form-item text-center">
-            <a href="/register">Регистрация</a>
+            <Link to="/register">Регистрация</Link>
           </div>
           <button
             type="button"

@@ -1,0 +1,161 @@
+:root {
+    --main-blue: #001020;
+    --main-blue-light: #002346;
+    --main-blue-light-light: #00366D;
+    --light-green: #5cc508;
+    --light-green-hover: #559e1a;
+    --light-orange: #ffc200;
+    --light-gray: #b9b5aa;
+    --dark-gray: #3e3d38;
+    --white: #fff;
+}
+
+body {
+    background-color: var(--main-blue);
+    color: var(--light-orange);
+    margin: 0 auto;
+    max-width: 480px;
+}
+
+a {
+    color: var(--light-orange);
+}
+
+#app {
+    border: 1px solid var(--dark-gray);
+
+    header {
+        text-align: center;
+    }
+
+    main {
+        padding: 10px;
+
+        h1, form {
+            text-align: center;
+        }
+
+        form {
+            margin-top: 20px;
+        }
+    }
+}
+
+input[type=text],
+input[type=email],
+input[type=password] {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    padding: 0 5px;
+    height: 23px;
+    width: 200px;
+}
+
+textarea {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    overflow-y: hidden;
+}
+
+select {
+    border: none;
+    outline: none;
+    border-radius: 7px;
+    height: 25px;
+    width: 205px;
+}
+
+.btn-primary {
+    background-color: var(--light-green);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    padding: 5px 10px;
+
+    &:hover {
+        background-color: var(--light-green-hover);
+    }
+}
+
+.flash-success {
+    background-color: #1a900d;
+    color: var(--white);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.flash-error {
+    background-color: #c0392b;
+    color: var(--white);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.icon {
+    margin-right: 5px;
+    width: 25px;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
+.block {
+    display: block;
+}
+
+.inline-flex {
+    display: inline-flex;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-justify-center {
+    justify-content: center;
+}
+
+.flex-align-center {
+    align-items: center;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.m-auto {
+    margin: 0 auto;
+}
+
+.form-item {
+    margin: 10px 0;
+}
+
+.sm-text {
+    font-size: 85%;
+}
+
+.line {
+    border-bottom: 2px solid var(--dark-gray);
+    margin: 2px auto;
+    width: 98%;
+}
+
+.line-dashed-orange {
+    border-top: 1px dotted var(--light-orange);
+    margin-top: 5px;
+    margin-bottom: 5px;
+}

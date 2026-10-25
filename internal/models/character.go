@@ -11,7 +11,7 @@ type Character struct {
 	Role        string
 	Level       int16
 	Experience  int
-	Avatar      string
+	Avatar      *string
 	Hp          int
 	Mp          int
 	HpCurrent   int

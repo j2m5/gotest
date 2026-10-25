@@ -48,4 +48,5 @@ INSERT INTO levels (level, experience_required) VALUES
     (47, 132000),
     (48, 139200),
     (49, 146600),
-    (50, 154200);
+    (50, 154200)
+ON CONFLICT (level) DO NOTHING;

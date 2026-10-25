@@ -1,12 +1,11 @@
 package handlers
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
+	"gotest/internal/auth"
+	"gotest/internal/middleware"
+	"math"
 	"net/http"
-
-	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 type LoginRequest struct {
@@ -15,69 +14,23 @@ type LoginRequest struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
-
+	input, ok := decodeRequest[LoginRequest](w, r)
+	if !ok {
 		return
 	}
-
-	var request LoginRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		jsonError(w, "Invalid request", http.StatusBadRequest)
-
-		return
-	}
-
-	user, err := h.storage.FindUserByEmail(request.Email)
-
+	result, err := h.auth.Login(r.Context(), input.Email, input.Password)
 	if err != nil {
-		jsonError(w, "Неверный email или пароль", http.StatusUnauthorized)
-
+		h.respondError(w, r, err)
 		return
 	}
-
-	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password)); err != nil {
-		jsonError(w, "Неверный email или пароль", http.StatusUnauthorized)
-
-		return
-	}
-
-	if user.EmailVerifiedAt == nil {
-		jsonError(w, "Подтвердите email перед входом", http.StatusForbidden)
-
-		return
-	}
-
-	token := generateToken()
-
-	if err = h.storage.CreateSession(user.ID, token); err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_token",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	jsonResponse(w, map[string]any{
-		"user": map[string]any{
-			"id":    user.ID,
-			"email": user.Email,
-			"login": user.Login,
-		},
-	}, http.StatusOK)
+	http.SetCookie(w, &http.Cookie{Name: middleware.SessionCookie, Value: result.Token, Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, Expires: result.ExpiresAt.UTC(), MaxAge: int(math.Ceil(time.Until(result.ExpiresAt).Seconds()))})
+	jsonResponse(w, userResponse(result.User), 200)
 }
-
-func generateToken() string {
-	bytes := make([]byte, 32)
-
-	rand.Read(bytes)
-
-	return hex.EncodeToString(bytes)
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	user := middleware.UserFromContext(r.Context())
+	if user == nil {
+		h.respondError(w, r, auth.ErrUnauthenticated)
+		return
+	}
+	jsonResponse(w, userResponse(user), 200)
 }

@@ -1,11 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
+	"gotest/internal/auth"
+	"log"
 	"net/http"
-	"os"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterRequest struct {
@@ -15,140 +14,47 @@ type RegisterRequest struct {
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
-
+	input, ok := decodeRequest[RegisterRequest](w, r)
+	if !ok {
 		return
 	}
-
-	var request RegisterRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		jsonError(w, "Invalid request", http.StatusBadRequest)
-
+	err := h.auth.Register(r.Context(), auth.RegisterInput{Email: input.Email, Login: input.Login, Password: input.Password})
+	if errors.Is(err, auth.ErrDelivery) {
+		log.Printf("Registration saved; email delivery failed: %v", err)
+		jsonResponse(w, map[string]any{"message": "Аккаунт создан, но письмо не отправлено. Повторите отправку на странице входа", "verification_sent": false}, 201)
 		return
 	}
-
-	if errs := validateRegister(request.Email, request.Login, request.Password); len(errs) > 0 {
-		jsonResponse(w, map[string]any{"errors": errs}, http.StatusUnprocessableEntity)
-
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
-
 	if err != nil {
-		h.serverError(w, r, err)
-
+		h.respondError(w, r, err)
 		return
 	}
-
-	user, err := h.storage.CreateUser(request.Email, request.Login, string(hash))
-
-	if err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	token := generateToken()
-
-	if err = h.storage.CreateEmailVerification(user.ID, token); err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	if err = makeEmailMessage(token); err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	jsonResponse(w, map[string]string{
-		"message": "Успешная регистрация, проверьте указанный email для верификации аккаунта",
-	}, http.StatusCreated)
+	jsonResponse(w, map[string]any{"message": "Аккаунт создан. Проверьте почту для подтверждения email", "verification_sent": true}, 201)
 }
-
 func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "Method not allowed", http.StatusMethodNotAllowed)
-
-		return
-	}
-
 	token := r.URL.Query().Get("token")
-
-	if token == "" {
-		jsonError(w, "Токен не найден", http.StatusBadRequest)
-
+	if token == "" || r.ContentLength != 0 {
+		input, ok := decodeRequest[struct {
+			Token string `json:"token"`
+		}](w, r)
+		if !ok {
+			return
+		}
+		token = input.Token
+	}
+	if err := h.auth.VerifyEmail(r.Context(), token); err != nil {
+		h.respondError(w, r, err)
 		return
 	}
-
-	emailVerification, err := h.storage.FindEmailVerificationByToken(token)
-
-	if err != nil {
-		jsonError(w, "Токен недействителен", http.StatusBadRequest)
-
-		return
-	}
-
-	if err = h.storage.UpdateEmailVerifiedAt(emailVerification.UserID); err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	if err = h.storage.DeleteEmailVerification(emailVerification.Token); err != nil {
-		h.serverError(w, r, err)
-
-		return
-	}
-
-	jsonResponse(w, map[string]string{
-		"message": "Аккаунт успешно верифицирован",
-	}, http.StatusOK)
+	jsonResponse(w, map[string]string{"message": "Email подтверждён. Теперь можно войти"}, 200)
 }
-
-func validateRegister(email string, login string, password string) []string {
-	var errors []string
-
-	if email == "" {
-		errors = append(errors, "Поле Email обязательно для заполнения")
+func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	input, ok := decodeRequest[LoginRequest](w, r)
+	if !ok {
+		return
 	}
-
-	if login == "" {
-		errors = append(errors, "Поле Логин обязательно для заполнения")
+	if err := h.auth.ResendVerification(r.Context(), input.Email, input.Password); err != nil {
+		h.respondError(w, r, err)
+		return
 	}
-
-	if password == "" {
-		errors = append(errors, "Поле Пароль обязательно для заполнения")
-	}
-
-	return errors
-}
-
-func makeEmailMessage(token string) error {
-	file, err := os.Create("./Email-Verification-Code.txt")
-
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	message := `
-		Добро пожаловать!
-
-		Осталось только подтвердить адрес электронной почты
-		
-		Чтобы закончить регистрацию, перейдите по ссылке: http://localhost:8081/verify?token=` + token
-
-	_, err = file.WriteString(message)
-
-	if err != nil {
-		return err
-	}
-
-	return err
+	jsonResponse(w, map[string]string{"message": "Письмо подтверждения отправлено"}, 200)
 }

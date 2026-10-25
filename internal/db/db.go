@@ -2,25 +2,22 @@ package db
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func New(connStr string) *pgxpool.Pool {
-	pool, err := pgxpool.New(context.Background(), connStr)
-
-	if err != nil {
-		log.Fatal(err)
+func Open(ctx context.Context, connStr string) (*pgxpool.Pool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-
-	err = pool.Ping(context.Background())
-
+	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("configure database: %w", err)
 	}
-
-	log.Println("Successfully connected to PostgreSQL")
-
-	return pool
+	if err = pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("connect to database: %w", err)
+	}
+	return pool, nil
 }

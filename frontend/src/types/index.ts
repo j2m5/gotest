@@ -10,8 +10,17 @@ export interface AuthResponse {
 
 export interface ErrorResponse {
     error: string
+    errors?: string[]
 }
 
 export interface ValidationErrorResponse {
     errors: string[]
+}
+
+export interface MessageResponse {
+    message: string
+}
+
+export interface RegisterResponse extends MessageResponse {
+    verification_sent: boolean
 }

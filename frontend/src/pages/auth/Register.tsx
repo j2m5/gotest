@@ -1,35 +1,49 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { register } from '../../api'
+import { authError, register } from '../../api'
+import { Link } from 'react-router-dom'
 import Layout from '../../components/layout/Layout'
 
 export default function Register() {
   const [email, setEmail] = useState('')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+  const [registered, setRegistered] = useState(false)
+  const [verificationSent, setVerificationSent] = useState(false)
 
   const handleRegister = async(e: SubmitEvent) => {
     e.preventDefault()
-
+    if (pending || registered) return
+    setPending(true)
+    setError('')
     try {
-      await register(email, login, password)
-    } catch (error) {}
+      const result = await register(email, login, password)
+      setRegistered(true)
+      setVerificationSent(result.verification_sent)
+      setPassword('')
+    } catch (error) {
+      setError(authError(error).message)
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
     <Layout>
       <h1>Регистрация</h1>
 
-      <div>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Beatae blanditiis consequatur corporis dicta
-        dignissimos dolorem doloremque eaque enim eveniet explicabo id, illo ipsam iste laboriosam modi nulla officia
-        omnis optio quaerat quam recusandae sed, sunt totam vel, vero voluptas voluptatem! Dolorem eius illum neque
-        rem repellendus sed. Aliquam cum cumque error eum eveniet, incidunt laudantium libero nemo possimus quas sed
-        suscipit ut veniam. A perferendis placeat, provident quae quasi qui repellendus sequi suscipit! A ab dolorem
-        eos officiis, qui reiciendis rerum soluta! Consequatur cupiditate deserunt dolor doloremque dolores earum enim
-        eum inventore molestiae numquam, optio, quaerat qui reiciendis vel vitae.
-      </div>
+      <p>Создайте аккаунт и подтвердите электронную почту по ссылке из письма.</p>
+      {error && <p className="flash-error" role="alert">{error}</p>}
+      {registered && <div className="flash-success" role="status">
+        {verificationSent
+          ? 'Аккаунт создан. Проверьте почту и подтвердите адрес перед входом.'
+          : 'Аккаунт создан, но письмо отправить не удалось. Повторите отправку на странице входа, указав почту и пароль.'}
+      </div>}
+      <p className="text-center"><Link to="/login">{registered && !verificationSent ? 'Войти / повторить отправку письма' : 'Войти'}</Link></p>
 
-      <form onSubmit={handleRegister}>
+      {!registered && <form onSubmit={handleRegister} aria-busy={pending}>
         <div className="text-center form-item">
           <label
             className="block text-light-orange"
@@ -40,6 +54,9 @@ export default function Register() {
             id="email"
             type="email"
             name="email"
+            autoComplete="email"
+            required
+            disabled={pending}
             value={email}
             placeholder="Электронная почта"
             onChange={(e) => setEmail(e.target.value)}
@@ -55,6 +72,9 @@ export default function Register() {
             id="login"
             type="text"
             name="login"
+            autoComplete="username"
+            required
+            disabled={pending}
             value={login}
             placeholder="Имя пользователя"
             onChange={(e) => setLogin(e.target.value)}
@@ -70,6 +90,9 @@ export default function Register() {
             id="password"
             type="password"
             name="password"
+            autoComplete="new-password"
+            required
+            disabled={pending}
             value={password}
             placeholder="Пароль"
             onChange={(e) => setPassword(e.target.value)}
@@ -78,10 +101,11 @@ export default function Register() {
         <button
           type="submit"
           className="btn-primary"
+          disabled={pending}
         >
-          Регистрация
+          {pending ? 'Регистрация…' : 'Регистрация'}
         </button>
-      </form>
+      </form>}
     </Layout>
   )
 }

@@ -1,13 +1,22 @@
 package middleware
 
 import (
-	"gotest/internal/auth"
+	"context"
+	"gotest/internal/models"
 )
 
-type Middleware struct {
-	auth *auth.Auth
-}
+const SessionCookie = "session_token"
 
-func NewMiddleware(auth *auth.Auth) *Middleware {
-	return &Middleware{auth: auth}
+type Authenticator interface {
+	CurrentUser(context.Context, string) (*models.User, error)
+}
+type Middleware struct{ auth Authenticator }
+
+func NewMiddleware(service Authenticator) *Middleware { return &Middleware{auth: service} }
+
+type userContextKey struct{}
+
+func UserFromContext(ctx context.Context) *models.User {
+	user, _ := ctx.Value(userContextKey{}).(*models.User)
+	return user
 }

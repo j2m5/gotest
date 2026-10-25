@@ -1,0 +1,5 @@
+BEGIN;
+ALTER TABLE abilities DROP COLUMN code;
+ALTER TABLE classes DROP COLUMN code;
+ALTER TABLE factions DROP COLUMN code;
+COMMIT;

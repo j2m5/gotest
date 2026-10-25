@@ -4,9 +4,10 @@ import "time"
 
 type Ability struct {
 	ID          int
+	Code        string
 	Name        string
-	Description string
-	Icon        string
+	Description *string
+	Icon        *string
 	Damage      int
 	Heal        int
 	MpCost      int

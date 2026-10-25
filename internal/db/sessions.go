@@ -50,7 +50,7 @@ func (s *AuthRepository) DeleteSession(ctx context.Context, tokenHash string) er
 		return err
 	}
 	if active {
-		if _, err := tx.Exec(ctx, `UPDATE users SET character_id=NULL,updated_at=clock_timestamp() WHERE id=$1 AND character_id IS NOT NULL`, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE users SET character_id=NULL WHERE id=$1 AND character_id IS NOT NULL`, userID); err != nil {
 			return err
 		}
 	}

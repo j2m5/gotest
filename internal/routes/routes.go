@@ -2,9 +2,11 @@ package routes
 
 import (
 	"context"
+	"gotest/internal/clientip"
 	"gotest/internal/handlers"
 	"gotest/internal/httpapi"
 	"gotest/internal/middleware"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -17,11 +19,15 @@ import (
 type Options struct {
 	StaticDir, TrustedOrigin string
 	AuthLimit                int
+	TrustedProxies           clientip.Policy
+	Logger                   *slog.Logger
+	Ready                    func(context.Context) error
+	Lifecycle                context.Context
 }
 
 func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middleware.Middleware, options Options) (http.Handler, error) {
 	api := http.NewServeMux()
-	limiter := middleware.NewRateLimiter(options.AuthLimit, time.Minute)
+	limiter := middleware.NewRateLimiter(options.AuthLimit, time.Minute, options.TrustedProxies)
 	bind := func(route, method string, handler http.HandlerFunc, limited bool) {
 		endpoint := methodHandler(map[string]http.HandlerFunc{method: handler})
 		if limited {
@@ -45,6 +51,9 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		httpapi.WriteError(w, 404, httpapi.CodeRouteNotFound, "API-маршрут не найден", nil)
 	})
 	mux := http.NewServeMux()
+	mux.Handle("/healthz", methodHandler(map[string]http.HandlerFunc{"GET": handlers.Health, "HEAD": handlers.Health}))
+	ready := handlers.Readiness(options.Ready, options.Lifecycle)
+	mux.Handle("/readyz", methodHandler(map[string]http.HandlerFunc{"GET": ready, "HEAD": ready}))
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
@@ -85,11 +94,12 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		httpapi.WriteError(w, 403, httpapi.CodeOriginForbidden, "Запрос с другого сайта запрещён", nil)
 	}))
 	protected := protection.Handler(mux)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	secured := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		protected.ServeHTTP(w, r)
-	}), nil
+	})
+	return middleware.Observe(options.Logger, secured), nil
 }
 
 func methodHandler(endpoints map[string]http.HandlerFunc) http.Handler {

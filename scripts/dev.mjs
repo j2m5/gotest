@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const frontend = path.join(root, 'frontend')
 const goPackages = ['./cmd/...', './internal/...', './tests/...']
-const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'migrate', 'seed', 'test', 'test:integration', 'check', 'test:db:up', 'test:db:down']
+const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'migrate', 'seed', 'cleanup', 'test', 'test:integration', 'check', 'test:db:up', 'test:db:down']
 
 function run(label, command, args, { cwd = root, capture = false, secrets = [] } = {}) {
   console.log(`> ${label}`)
@@ -108,7 +108,7 @@ function main() {
   if (!commands.includes(task)) throw new Error(`Unknown command: ${task}; use npm run help`)
   if (task === 'migrate') {
     if (args.length > 1 || (args[0] && !['up', 'version'].includes(args[0]))) throw new Error('migrate accepts only up or version; use the native CLI for an explicit rollback')
-  } else if (args.length && task !== 'seed') throw new Error(`${task} does not accept extra arguments`)
+  } else if (args.length && !['seed', 'cleanup'].includes(task)) throw new Error(`${task} does not accept extra arguments`)
   if (['test', 'test:integration', 'check'].includes(task)) testEnvironment(task)
   switch (task) {
     case 'help':
@@ -126,6 +126,7 @@ function main() {
     case 'audit': return npm(['audit', '--include=dev', '--audit-level=moderate'])
     case 'migrate': return migrate(args[0] ?? 'up')
     case 'seed': return run('Seed application catalogs', 'go', ['run', './cmd/seed', ...args])
+    case 'cleanup': return run('Clean expired sessions and verification tokens', 'go', ['run', './cmd/cleanup', ...args])
     case 'check':
       lint()
       build()

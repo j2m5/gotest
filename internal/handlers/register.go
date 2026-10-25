@@ -4,7 +4,8 @@ import (
 	"errors"
 	"gotest/internal/auth"
 	"gotest/internal/httpapi"
-	"log"
+	"gotest/internal/observability"
+	"log/slog"
 	"net/http"
 )
 
@@ -21,7 +22,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.auth.Register(r.Context(), auth.RegisterInput{Email: input.Email, Login: input.Login, Password: input.Password})
 	if errors.Is(err, auth.ErrDelivery) {
-		log.Printf("Registration saved; email delivery failed: %v", err)
+		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelWarn, "registration_mail_failed", observability.ErrorAttrs(err)...)
 		httpapi.WriteJSON(w, 201, map[string]any{"message": "Аккаунт создан, но письмо не отправлено. Повторите отправку на странице входа", "verification_sent": false})
 		return
 	}

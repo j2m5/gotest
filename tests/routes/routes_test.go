@@ -251,7 +251,7 @@ func TestCrossOriginAndRateLimitProtectMutations(t *testing.T) {
 func TestConfiguredPublicURLBuildsRouterAndKeepsCookieSecure(t *testing.T) {
 	for _, publicURL := range []string{"https://example.test/", "HTTPS://example.test"} {
 		t.Run(publicURL, func(t *testing.T) {
-			for _, key := range []string{"APP_PORT", "SESSION_TTL", "VERIFICATION_TTL", "SMTP_TIMEOUT"} {
+			for _, key := range []string{"APP_PORT", "TRUSTED_PROXIES", "SESSION_TTL", "VERIFICATION_TTL", "SMTP_TIMEOUT"} {
 				t.Setenv(key, "")
 			}
 			t.Setenv("DATABASE_URL", "postgres://unused/test")

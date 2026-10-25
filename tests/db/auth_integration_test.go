@@ -136,7 +136,7 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 }
 
 func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
-	s, ctx := authTestStorage(t, true)
+	s, ctx := characterTestStorage(t, true)
 	now := time.Now().Truncate(time.Microsecond)
 	if err := s.CreateRegistration(ctx, auth.Registration{Email: "user@example.com", Login: "user", PasswordHash: "hash", VerificationTokenHash: "expired", VerificationExpiresAt: now}); err != nil {
 		t.Fatal(err)
@@ -183,7 +183,7 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM users WHERE id=$1`, u.User.ID).Scan(&updatedAt); err != nil {
 		t.Fatal(err)
 	}
-	if u.User.EmailVerifiedAt == nil || !u.User.EmailVerifiedAt.Equal(now) || !updatedAt.Equal(now) {
+	if u.User.EmailVerifiedAt == nil || !u.User.EmailVerifiedAt.Equal(now) || updatedAt.Before(now) || updatedAt.After(time.Now()) {
 		t.Fatalf("verification timestamps: %+v", u)
 	}
 }

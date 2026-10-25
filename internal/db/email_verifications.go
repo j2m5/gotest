@@ -47,7 +47,7 @@ func (s *AuthRepository) ConsumeVerification(ctx context.Context, tokenHash stri
 	if !expiresAt.After(now) {
 		return auth.ErrInvalidToken
 	}
-	if _, err = tx.Exec(ctx, `UPDATE users SET email_verified_at=$2,updated_at=$2 WHERE id=$1`, userID, now.UTC()); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE users SET email_verified_at=$2 WHERE id=$1`, userID, now.UTC()); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM email_verifications WHERE user_id=$1`, userID); err != nil {

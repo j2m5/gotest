@@ -5,7 +5,8 @@ import (
 	"errors"
 	"gotest/internal/auth"
 	"gotest/internal/httpapi"
-	"log"
+	"gotest/internal/observability"
+	"log/slog"
 	"net/http"
 )
 
@@ -22,7 +23,7 @@ func (m *Middleware) Auth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if err != nil || user == nil {
-			log.Printf("Authentication failed: %v", err)
+			observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelError, "authentication_failed", observability.ErrorAttrs(err)...)
 			httpapi.WriteError(w, 500, httpapi.CodeInternalError, "Внутренняя ошибка сервера", nil)
 			return
 		}

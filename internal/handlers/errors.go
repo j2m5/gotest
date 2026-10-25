@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"gotest/internal/auth"
 	"gotest/internal/character"
 	"gotest/internal/httpapi"
+	"gotest/internal/observability"
 	"gotest/internal/validation"
 )
 
@@ -31,7 +32,7 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, auth.ErrInvalidToken):
 		httpapi.WriteError(w, 400, "verification_token_invalid", "Ссылка подтверждения недействительна или истекла", nil)
 	case errors.Is(err, auth.ErrDelivery):
-		log.Printf("Email delivery failed: %v", err)
+		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelError, "mail_delivery_failed", observability.ErrorAttrs(err)...)
 		httpapi.WriteError(w, 503, "mail_delivery_failed", "Не удалось отправить письмо. Повторите отправку позже", nil)
 	case errors.Is(err, character.ErrNotFound):
 		httpapi.WriteError(w, 404, "character_not_found", "Персонаж не найден", nil)
@@ -42,7 +43,7 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 		message := "Выбранный класс недоступен для этой фракции"
 		httpapi.WriteError(w, 422, "character_class_mismatch", message, validation.Fields{"class_id": {message}})
 	default:
-		log.Printf("ERROR: %s %s: %v", r.Method, r.URL.Path, err)
+		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelError, "request_failed", observability.ErrorAttrs(err)...)
 		httpapi.WriteError(w, 500, httpapi.CodeInternalError, "Внутренняя ошибка сервера", nil)
 	}
 }

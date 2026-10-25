@@ -199,7 +199,7 @@ func (r *CharacterRepository) SetActive(ctx context.Context, actor character.Act
 			return nil, err
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE users SET character_id=$2,updated_at=clock_timestamp() WHERE id=$1`, actor.UserID, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE users SET character_id=$2 WHERE id=$1`, actor.UserID, id); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"gotest/internal/clientip"
 	"gotest/internal/mailer"
 )
 
@@ -16,6 +17,7 @@ type Config struct {
 	DatabaseURL, AppPort, AppEnv, PublicURL string
 	SessionTTL, VerificationTTL             time.Duration
 	Mail                                    mailer.Options
+	TrustedProxies                          clientip.Policy
 }
 
 // Load reads configuration without opening connections or terminating the process.
@@ -38,6 +40,10 @@ func Load() (*Config, error) {
 	}
 	// Reuse the validated, normalized origin for links, CSRF trust and cookie security.
 	cfg.PublicURL = public.Scheme + "://" + strings.ToLower(public.Host)
+	cfg.TrustedProxies, err = clientip.Parse(os.Getenv("TRUSTED_PROXIES"))
+	if err != nil {
+		return nil, err
+	}
 	cfg.SessionTTL, err = durationEnv("SESSION_TTL", 168*time.Hour, 8760*time.Hour)
 	if err != nil {
 		return nil, err

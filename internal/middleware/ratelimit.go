@@ -1,12 +1,13 @@
 package middleware
 
 import (
-	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
 
+	"gotest/internal/clientip"
 	"gotest/internal/httpapi"
 )
 
@@ -16,24 +17,22 @@ type rateWindow struct {
 }
 type RateLimiter struct {
 	mu      sync.Mutex
-	entries map[string]rateWindow
+	entries map[netip.Addr]rateWindow
+	policy  clientip.Policy
 	limit   int
 	period  time.Duration
 	now     func() time.Time
 }
 
-func NewRateLimiter(limit int, period time.Duration) *RateLimiter {
+func NewRateLimiter(limit int, period time.Duration, policy clientip.Policy) *RateLimiter {
 	if limit <= 0 {
 		limit = 30
 	}
-	return &RateLimiter{entries: make(map[string]rateWindow), limit: limit, period: period, now: time.Now}
+	return &RateLimiter{entries: make(map[netip.Addr]rateWindow), policy: policy, limit: limit, period: period, now: time.Now}
 }
 func (l *RateLimiter) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
-		}
+		ip := l.policy.Resolve(r)
 		now := l.now()
 		l.mu.Lock()
 		entry, found := l.entries[ip]

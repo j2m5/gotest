@@ -21,6 +21,15 @@ const characterMigration = "20261025000300_character_integrity"
 
 func characterTestStorage(t *testing.T, latest bool) (*testStorage, context.Context) {
 	t.Helper()
+	before := ""
+	if !latest {
+		before = characterMigration
+	}
+	return characterTestStorageBefore(t, before)
+}
+
+func characterTestStorageBefore(t *testing.T, before string) (*testStorage, context.Context) {
+	t.Helper()
 	s, ctx := authTestStorage(t, true)
 	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
 	if err != nil {
@@ -32,7 +41,7 @@ func characterTestStorage(t *testing.T, latest bool) (*testStorage, context.Cont
 		case "000001_create_users.up.sql", "20260514075823_create_sessions.up.sql", "20260516144648_create_email_verifications.up.sql", "20261025000100_auth_hardening.up.sql":
 			continue // Applied by the auth fixture.
 		}
-		if !latest && name >= characterMigration+".up.sql" {
+		if before != "" && name >= before+".up.sql" {
 			continue
 		}
 		executeMigration(t, ctx, s, name)

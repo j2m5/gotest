@@ -12,6 +12,7 @@
     "audit": "node scripts/dev.mjs audit",
     "migrate": "node scripts/dev.mjs migrate",
     "seed": "node scripts/dev.mjs seed",
+    "cleanup": "node scripts/dev.mjs cleanup",
     "test": "node scripts/dev.mjs test",
     "test:integration": "node scripts/dev.mjs test:integration",
     "check": "node scripts/dev.mjs check",

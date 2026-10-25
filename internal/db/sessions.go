@@ -7,15 +7,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"gotest/internal/auth"
-	"gotest/internal/models"
 )
 
-func (s *Storage) CreateSession(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
+func (s *AuthRepository) CreateSession(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO sessions(user_id,token,expires_at) VALUES($1,$2,$3)`, userID, tokenHash, expiresAt)
 	return authStorageError(err)
 }
 
-func (s *Storage) DeleteSession(ctx context.Context, tokenHash string) error {
+func (s *AuthRepository) DeleteSession(ctx context.Context, tokenHash string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -58,11 +57,11 @@ func (s *Storage) DeleteSession(ctx context.Context, tokenHash string) error {
 	return authStorageError(tx.Commit(ctx))
 }
 
-func (s *Storage) FindSession(ctx context.Context, tokenHash string) (*auth.Session, error) {
-	u := &models.User{}
+func (s *AuthRepository) FindSession(ctx context.Context, tokenHash string) (*auth.Session, error) {
+	u := &auth.Identity{}
 	session := &auth.Session{User: u}
-	err := s.pool.QueryRow(ctx, `SELECT u.id,u.role_id,u.character_id,u.name,u.email,u.login,u.password,u.email_verified_at,u.created_at,u.updated_at,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1`, tokenHash).Scan(
-		&u.ID, &u.RoleID, &u.CharacterID, &u.Name, &u.Email, &u.Login, &u.Password, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &session.ExpiresAt,
+	err := s.pool.QueryRow(ctx, `SELECT u.id,u.role_id,u.character_id,u.email,u.login,u.email_verified_at,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1`, tokenHash).Scan(
+		&u.ID, &u.RoleID, &u.CharacterID, &u.Email, &u.Login, &u.EmailVerifiedAt, &session.ExpiresAt,
 	)
 	if err != nil {
 		return nil, authStorageError(err)

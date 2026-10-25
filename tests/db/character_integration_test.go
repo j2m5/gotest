@@ -149,9 +149,9 @@ func TestUserQueriesLoadNullableActiveCharacter(t *testing.T) {
 	}
 	for _, want := range []*int{nil, new(2)} {
 		mustExec(t, ctx, s, "UPDATE users SET character_id=$1 WHERE id=1", want)
-		u, err := s.FindUserByEmail(ctx, "first@example.test")
-		if err != nil || !reflect.DeepEqual(u.CharacterID, want) {
-			t.Fatalf("FindUserByEmail active character: %+v, want %v, err=%v", u, want, err)
+		u, err := s.FindCredentialsByEmail(ctx, "first@example.test")
+		if err != nil || !reflect.DeepEqual(u.User.CharacterID, want) {
+			t.Fatalf("FindCredentialsByEmail active character: %+v, want %v, err=%v", u, want, err)
 		}
 		session, err := s.FindSession(ctx, "lookup")
 		if err != nil || !reflect.DeepEqual(session.User.CharacterID, want) {

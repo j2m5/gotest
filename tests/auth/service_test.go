@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gotest/internal/auth"
 	"gotest/internal/models"
+	"gotest/internal/validation"
 )
 
 // This in-memory boundary substitutes only PostgreSQL; the service, password
@@ -22,7 +23,8 @@ type memoryRepository struct {
 		userID  int
 		expires time.Time
 	}
-	err error
+	err             error
+	credentialReads int
 }
 
 func newMemoryRepository() *memoryRepository {
@@ -32,7 +34,7 @@ func newMemoryRepository() *memoryRepository {
 	}{}}
 }
 
-func (m *memoryRepository) CreateRegistration(ctx context.Context, email, login, password, token string, expires time.Time) error {
+func (m *memoryRepository) CreateRegistration(ctx context.Context, registration auth.Registration) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -40,19 +42,20 @@ func (m *memoryRepository) CreateRegistration(ctx context.Context, email, login,
 		return m.err
 	}
 	for _, u := range m.users {
-		if u.Email == email || u.Login == login {
+		if u.Email == registration.Email || u.Login == registration.Login {
 			return auth.ErrConflict
 		}
 	}
-	u := &models.User{ID: len(m.users) + 1, Email: email, Login: login, Password: password}
-	m.users[email] = u
-	m.verifications[token] = struct {
+	u := &models.User{ID: len(m.users) + 1, Email: registration.Email, Login: registration.Login, Password: registration.PasswordHash}
+	m.users[registration.Email] = u
+	m.verifications[registration.VerificationTokenHash] = struct {
 		userID  int
 		expires time.Time
-	}{u.ID, expires}
+	}{u.ID, registration.VerificationExpiresAt}
 	return nil
 }
-func (m *memoryRepository) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
+func (m *memoryRepository) FindCredentialsByEmail(ctx context.Context, email string) (*auth.Credentials, error) {
+	m.credentialReads++
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -63,7 +66,11 @@ func (m *memoryRepository) FindUserByEmail(ctx context.Context, email string) (*
 	if !ok {
 		return nil, auth.ErrNotFound
 	}
-	return u, nil
+	return &auth.Credentials{User: identityFromRecord(u), PasswordHash: u.Password}, nil
+}
+
+func identityFromRecord(u *models.User) auth.Identity {
+	return auth.Identity{ID: u.ID, RoleID: u.RoleID, CharacterID: u.CharacterID, Email: u.Email, Login: u.Login, EmailVerifiedAt: u.EmailVerifiedAt}
 }
 func (m *memoryRepository) CreateSession(ctx context.Context, id int, token string, expires time.Time) error {
 	if err := ctx.Err(); err != nil {
@@ -74,7 +81,8 @@ func (m *memoryRepository) CreateSession(ctx context.Context, id int, token stri
 	}
 	for _, u := range m.users {
 		if u.ID == id {
-			m.sessions[token] = &auth.Session{User: u, ExpiresAt: expires}
+			identity := identityFromRecord(u)
+			m.sessions[token] = &auth.Session{User: &identity, ExpiresAt: expires}
 			return nil
 		}
 	}
@@ -298,8 +306,8 @@ func TestRegistrationValidationDoesNotPersistInvalidInput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, repo, mail := fixture(t)
 			err := s.Register(context.Background(), tc.input)
-			var validation *auth.ValidationError
-			if !errors.As(err, &validation) {
+			var invalid *validation.Error
+			if !errors.As(err, &invalid) {
 				t.Fatalf("expected validation error, got %v", err)
 			}
 			if len(repo.users) != 0 || mail.count != 0 {

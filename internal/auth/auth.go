@@ -2,14 +2,13 @@ package auth
 
 import (
 	"context"
-	"gotest/internal/models"
 	"time"
 )
 
 // Repository owns persistence and atomic state changes. Token arguments are SHA-256 digests.
 type Repository interface {
-	CreateRegistration(context.Context, string, string, string, string, time.Time) error
-	FindUserByEmail(context.Context, string) (*models.User, error)
+	CreateRegistration(context.Context, Registration) error
+	FindCredentialsByEmail(context.Context, string) (*Credentials, error)
 	CreateSession(context.Context, int, string, time.Time) error
 	FindSession(context.Context, string) (*Session, error)
 	// DeleteSession revokes the token and clears the account's shared character
@@ -21,13 +20,42 @@ type Repository interface {
 type VerificationSender interface {
 	SendVerification(context.Context, string, string) error
 }
+
+// Identity is the account data needed by authenticated application code. It
+// deliberately cannot carry password hashes, session tokens or storage metadata.
+type Identity struct {
+	ID              int
+	RoleID          int16
+	CharacterID     *int
+	Email           string
+	Login           string
+	EmailVerifiedAt *time.Time
+}
+
+// Credentials are loaded only when validating a password; they never become
+// the current user or the value stored in the HTTP authentication context.
+type Credentials struct {
+	User         Identity
+	PasswordHash string `json:"-"`
+}
+
+// Registration contains already normalized account data and one-way token and
+// password hashes. The repository persists the account and verification atomically.
+type Registration struct {
+	Email                 string
+	Login                 string
+	PasswordHash          string `json:"-"`
+	VerificationTokenHash string `json:"-"`
+	VerificationExpiresAt time.Time
+}
+
 type Session struct {
-	User      *models.User
+	User      *Identity
 	ExpiresAt time.Time
 }
 type RegisterInput struct{ Email, Login, Password string }
 type LoginResult struct {
-	User      *models.User
+	User      *Identity
 	Token     string
 	ExpiresAt time.Time
 }

@@ -1,7 +1,9 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { authError, register } from '../../api'
+import { apiError, register } from '../../api'
 import { Link } from 'react-router-dom'
+import type { FieldErrors } from '../../api/errors'
+import FieldFeedback from '../../components/FieldFeedback'
 import Layout from '../../components/layout/Layout'
 
 export default function Register() {
@@ -10,6 +12,11 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const [fields, setFields] = useState<FieldErrors>({})
+  const clearField = (name: string) => {
+    setError('')
+    setFields(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== name)))
+  }
   const [registered, setRegistered] = useState(false)
   const [verificationSent, setVerificationSent] = useState(false)
 
@@ -18,13 +25,16 @@ export default function Register() {
     if (pending || registered) return
     setPending(true)
     setError('')
+    setFields({})
     try {
       const result = await register(email, login, password)
       setRegistered(true)
       setVerificationSent(result.verification_sent)
       setPassword('')
     } catch (error) {
-      setError(authError(error).message)
+      const failure = apiError(error, ['email', 'login', 'password'])
+      setError(failure.message)
+      setFields(failure.fields)
     } finally {
       setPending(false)
     }
@@ -57,10 +67,13 @@ export default function Register() {
             autoComplete="email"
             required
             disabled={pending}
+            aria-invalid={Boolean(fields.email?.length)}
+            aria-describedby={fields.email?.length ? "email-error" : undefined}
             value={email}
             placeholder="Электронная почта"
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); clearField("email") }}
           />
+          <FieldFeedback fields={fields} name="email" id="email-error" />
         </div>
         <div className="text-center form-item">
           <label
@@ -75,10 +88,13 @@ export default function Register() {
             autoComplete="username"
             required
             disabled={pending}
+            aria-invalid={Boolean(fields.login?.length)}
+            aria-describedby={fields.login?.length ? "login-error" : undefined}
             value={login}
             placeholder="Имя пользователя"
-            onChange={(e) => setLogin(e.target.value)}
+            onChange={(e) => { setLogin(e.target.value); clearField("login") }}
           />
+          <FieldFeedback fields={fields} name="login" id="login-error" />
         </div>
         <div className="text-center form-item">
           <label
@@ -93,10 +109,13 @@ export default function Register() {
             autoComplete="new-password"
             required
             disabled={pending}
+            aria-invalid={Boolean(fields.password?.length)}
+            aria-describedby={fields.password?.length ? "password-error" : undefined}
             value={password}
             placeholder="Пароль"
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); clearField("password") }}
           />
+          <FieldFeedback fields={fields} name="password" id="password-error" />
         </div>
         <button
           type="submit"

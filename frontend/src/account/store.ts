@@ -1,5 +1,5 @@
 import type { AuthResponse, Character, CharacterCatalog, CharacterRoster, CreateCharacterInput, User } from '../types/index.ts'
-import { authError } from '../api/errors.ts'
+import { apiError, isUnauthenticated } from '../api/errors.ts'
 
 interface AccountAPI {
   currentUser(): Promise<AuthResponse>
@@ -55,8 +55,8 @@ export class AccountStore {
       this.update({ status: 'ready', user: { ...user, character_id: roster.active_character_id }, roster, error: '' })
     } catch (error) {
       if (generation !== this.generation) return
-      if (authError(error).status === 401) this.expire()
-      else this.update({ status: 'error', roster: null, error: authError(error).message })
+      if (isUnauthenticated(error)) this.expire()
+      else this.update({ status: 'error', roster: null, error: apiError(error).message })
     }
   }
   private async mutate<T>(operation: () => Promise<T>, apply: (result: T) => void) {
@@ -69,7 +69,7 @@ export class AccountStore {
       apply(result)
       return result
     } catch (error) {
-      if (generation === this.generation && authError(error).status === 401) this.expire()
+      if (generation === this.generation && isUnauthenticated(error)) this.expire()
       throw error
     } finally {
       if (generation === this.generation) { ++this.generation; this.update({ pending: false }) }
@@ -101,7 +101,7 @@ export class AccountStore {
     const generation = this.generation
     try { return await this.api.characterCatalog() }
     catch (error) {
-      if (generation === this.generation && authError(error).status === 401) this.expire()
+      if (generation === this.generation && isUnauthenticated(error)) this.expire()
       throw error
     }
   }

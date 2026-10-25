@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccount } from '../../account/context'
-import { authError } from '../../api'
+import { apiError } from '../../api'
 import Layout from '../../components/layout/Layout'
 export default function Characters() {
   const { user, roster, pending, store } = useAccount()
@@ -10,12 +10,12 @@ export default function Characters() {
   const play = async (id: number) => {
     setError('')
     try { await store.select(id); navigate('/game') }
-    catch (error) { setError(authError(error).message) }
+    catch (error) { setError(apiError(error).message) }
   }
   const signOut = async () => {
     setError('')
     try { await store.signOut() }
-    catch (error) { setError(authError(error).message) }
+    catch (error) { setError(apiError(error).message) }
   }
   return <Layout><h1>Персонажи</h1><p>Аккаунт: {user?.login}</p>
     {error && <p role="alert" className="flash-error">{error}</p>}

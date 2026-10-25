@@ -1,8 +1,9 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { authError, resendVerification } from '../../api'
+import { apiError, resendVerification } from '../../api'
 import { useAccount } from '../../account/context'
 import { Link, useNavigate } from 'react-router-dom'
+import { needsEmailVerification } from '../../api/errors'
 import Layout from '../../components/layout/Layout'
 
 export default function Login() {
@@ -27,9 +28,9 @@ export default function Login() {
       setPassword('')
       navigate('/', { replace: true })
     } catch (error) {
-      const failure = authError(error)
+      const failure = apiError(error)
       setError(failure.message)
-      setUnverified(failure.status === 403)
+      setUnverified(needsEmailVerification(failure))
     } finally {
       setPending(false)
     }
@@ -49,7 +50,7 @@ export default function Login() {
       setMessage('Письмо отправлено. Перейдите по ссылке в письме для подтверждения почты.')
       setPassword('')
     } catch (error) {
-      setError(authError(error).message)
+      setError(apiError(error).message)
     } finally {
       setPending(false)
     }

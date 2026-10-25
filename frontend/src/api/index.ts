@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type { AuthResponse, MessageResponse, RegisterResponse, Character, CharacterCatalog, CharacterRoster, CreateCharacterInput } from '../types'
 
-export { authError } from './errors'
+export { apiError } from './errors'
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
     const response = await axios.post<AuthResponse>('/api/auth/login', { email, password })

@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"gotest/tests/testenv"
 )
 
 const codeMigration = "20261025000200_seed_codes"
@@ -27,7 +28,7 @@ func TestMain(m *testing.M) {
 }
 
 func runTests(m *testing.M) int {
-	if os.Getenv("TEST_DATABASE_URL") == "" {
+	if strings.TrimSpace(os.Getenv("TEST_DATABASE_URL")) == "" {
 		return m.Run()
 	}
 	dir, err := os.MkdirTemp("", "gotest-seed-binary-")
@@ -57,10 +58,7 @@ type seedDB struct {
 // Never fall back to the application's database or load its .env.
 func newSeedDB(t *testing.T, legacy bool) *seedDB {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL is unset; seed integration tests require PostgreSQL")
-	}
+	dsn := testenv.DatabaseURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	t.Cleanup(cancel)
 	admin, err := pgxpool.New(ctx, dsn)

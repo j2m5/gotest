@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
-	"gotest/internal/models"
 	"strings"
 	"time"
 )
@@ -45,7 +44,14 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) error {
 		return fmt.Errorf("hash password: %w", err)
 	}
 	token := newToken()
-	if err = s.repository.CreateRegistration(ctx, input.Email, input.Login, string(password), TokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
+	registration := Registration{
+		Email:                 input.Email,
+		Login:                 input.Login,
+		PasswordHash:          string(password),
+		VerificationTokenHash: TokenDigest(token),
+		VerificationExpiresAt: s.now().Add(s.options.VerificationTTL),
+	}
+	if err = s.repository.CreateRegistration(ctx, registration); err != nil {
 		return fmt.Errorf("create registration: %w", err)
 	}
 	return s.deliver(ctx, input.Email, token)
@@ -65,7 +71,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 	return &LoginResult{User: user, Token: token, ExpiresAt: expires}, nil
 }
-func (s *Service) CurrentUser(ctx context.Context, token string) (*models.User, error) {
+func (s *Service) CurrentUser(ctx context.Context, token string) (*Identity, error) {
 	if !validToken(token) {
 		return nil, ErrUnauthenticated
 	}
@@ -110,14 +116,14 @@ func (s *Service) ResendVerification(ctx context.Context, email, password string
 	}
 	return s.deliver(ctx, user.Email, token)
 }
-func (s *Service) checkCredentials(ctx context.Context, email, password string) (*models.User, error) {
+func (s *Service) checkCredentials(ctx context.Context, email, password string) (*Identity, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if len(password) == 0 || len(password) > 72 {
 		return nil, ErrInvalidCredentials
 	}
-	user, err := s.repository.FindUserByEmail(ctx, normalizeEmail(email))
+	credentials, err := s.repository.FindCredentialsByEmail(ctx, normalizeEmail(email))
 	if errors.Is(err, ErrNotFound) {
 		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
 		return nil, ErrInvalidCredentials
@@ -125,14 +131,15 @@ func (s *Service) checkCredentials(ctx context.Context, email, password string) 
 	if err != nil {
 		return nil, fmt.Errorf("find user: %w", err)
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(credentials.PasswordHash), []byte(password))
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		return nil, ErrInvalidCredentials
 	}
 	if err != nil {
 		return nil, fmt.Errorf("check stored password: %w", err)
 	}
-	return user, nil
+	user := credentials.User
+	return &user, nil
 }
 func (s *Service) deliver(ctx context.Context, email, token string) error {
 	if err := s.sender.SendVerification(ctx, email, token); err != nil {

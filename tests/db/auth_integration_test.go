@@ -17,22 +17,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gotest/internal/auth"
 	"gotest/internal/db"
+	"gotest/tests/testenv"
 )
 
-// The fixture owns its pool for setup/inspection; the production Storage is
+// The fixture owns its pool for setup/inspection; the production AuthRepository is
 // exercised only through its exported methods.
 type testStorage struct {
-	*db.Storage
+	*db.AuthRepository
 	pool *pgxpool.Pool
 }
 
 // Tests never use the application's DATABASE_URL. Every test owns a random schema.
 func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context) {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL is unset; PostgreSQL integration test requires an explicit test database")
-	}
+	dsn := testenv.DatabaseURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	admin, err := pgxpool.New(ctx, dsn)
@@ -67,7 +65,7 @@ func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context)
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	s := &testStorage{Storage: db.NewStorage(pool), pool: pool}
+	s := &testStorage{AuthRepository: db.NewAuthRepository(pool), pool: pool}
 	for _, name := range []string{"000001_create_users.up.sql", "20260514075823_create_sessions.up.sql", "20260516144648_create_email_verifications.up.sql"} {
 		executeMigration(t, ctx, s, name)
 	}
@@ -96,7 +94,7 @@ func executeMigration(t *testing.T, ctx context.Context, s *testStorage, name st
 func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	expires := time.Now().Add(time.Hour)
-	if err := s.CreateRegistration(ctx, "Mixed@example.com", "first", "hash", "token", expires); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "Mixed@example.com", Login: "first", PasswordHash: "hash", VerificationTokenHash: "token", VerificationExpiresAt: expires}); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ email, login, token string }{
@@ -104,22 +102,22 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 		{"other@example.com", "first", "other"},
 		{"rollback@example.com", "rollback", "token"},
 	} {
-		if err := s.CreateRegistration(ctx, tc.email, tc.login, "hash", tc.token, expires); !errors.Is(err, auth.ErrConflict) {
+		if err := s.CreateRegistration(ctx, auth.Registration{Email: tc.email, Login: tc.login, PasswordHash: "hash", VerificationTokenHash: tc.token, VerificationExpiresAt: expires}); !errors.Is(err, auth.ErrConflict) {
 			t.Fatalf("want conflict: %v", err)
 		}
 	}
-	if _, err := s.FindUserByEmail(ctx, "rollback@example.com"); !errors.Is(err, auth.ErrNotFound) {
+	if _, err := s.FindCredentialsByEmail(ctx, "rollback@example.com"); !errors.Is(err, auth.ErrNotFound) {
 		t.Fatalf("registration was not rolled back: %v", err)
 	}
-	u, err := s.FindUserByEmail(ctx, " MIXED@example.COM ")
+	u, err := s.FindCredentialsByEmail(ctx, " MIXED@example.COM ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateSession(ctx, u.ID, "session", expires); err != nil {
+	if err := s.CreateSession(ctx, u.User.ID, "session", expires); err != nil {
 		t.Fatal(err)
 	}
 	session, err := s.FindSession(ctx, "session")
-	if err != nil || session.User.ID != u.ID || session.ExpiresAt.Sub(expires).Abs() > time.Microsecond {
+	if err != nil || session.User.ID != u.User.ID || session.ExpiresAt.Sub(expires).Abs() > time.Microsecond {
 		t.Fatalf("session = %+v, %v", session, err)
 	}
 	for range 2 {
@@ -132,7 +130,7 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 	}
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := s.FindUserByEmail(canceled, u.Email); !errors.Is(err, context.Canceled) {
+	if _, err := s.FindCredentialsByEmail(canceled, u.User.Email); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation: %v", err)
 	}
 }
@@ -140,20 +138,20 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	now := time.Now().Truncate(time.Microsecond)
-	if err := s.CreateRegistration(ctx, "user@example.com", "user", "hash", "expired", now); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "user@example.com", Login: "user", PasswordHash: "hash", VerificationTokenHash: "expired", VerificationExpiresAt: now}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ConsumeVerification(ctx, "expired", now); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("exact expiry: %v", err)
 	}
-	u, err := s.FindUserByEmail(ctx, "user@example.com")
+	u, err := s.FindCredentialsByEmail(ctx, "user@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.EmailVerifiedAt != nil {
+	if u.User.EmailVerifiedAt != nil {
 		t.Fatal("expired token verified account")
 	}
-	if err := s.ReplaceVerification(ctx, u.ID, "new", now.Add(time.Hour)); err != nil {
+	if err := s.ReplaceVerification(ctx, u.User.ID, "new", now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ConsumeVerification(ctx, "expired", now); !errors.Is(err, auth.ErrInvalidToken) {
@@ -161,27 +159,31 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	}
 	// Historical data can contain several links for one account; consuming any
 	// current link must invalidate every link belonging to that account.
-	if _, err := s.pool.Exec(ctx, `INSERT INTO email_verifications(user_id,token,expired_at) VALUES($1,'sibling',$2)`, u.ID, now.Add(time.Hour)); err != nil {
+	if _, err := s.pool.Exec(ctx, `INSERT INTO email_verifications(user_id,token,expired_at) VALUES($1,'sibling',$2)`, u.User.ID, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ConsumeVerification(ctx, "new", now); err != nil {
 		t.Fatal(err)
 	}
 	var remaining int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM email_verifications WHERE user_id=$1`, u.ID).Scan(&remaining); err != nil || remaining != 0 {
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM email_verifications WHERE user_id=$1`, u.User.ID).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("verification links remaining=%d error=%v", remaining, err)
 	}
 	if err := s.ConsumeVerification(ctx, "new", now); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("token reused: %v", err)
 	}
-	if err := s.ReplaceVerification(ctx, u.ID, "again", now.Add(time.Hour)); !errors.Is(err, auth.ErrAlreadyVerified) {
+	if err := s.ReplaceVerification(ctx, u.User.ID, "again", now.Add(time.Hour)); !errors.Is(err, auth.ErrAlreadyVerified) {
 		t.Fatalf("verified resend: %v", err)
 	}
-	u, err = s.FindUserByEmail(ctx, u.Email)
+	u, err = s.FindCredentialsByEmail(ctx, u.User.Email)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.EmailVerifiedAt == nil || !u.EmailVerifiedAt.Equal(now) || !u.UpdatedAt.Equal(now) {
+	var updatedAt time.Time
+	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM users WHERE id=$1`, u.User.ID).Scan(&updatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if u.User.EmailVerifiedAt == nil || !u.User.EmailVerifiedAt.Equal(now) || !updatedAt.Equal(now) {
 		t.Fatalf("verification timestamps: %+v", u)
 	}
 }
@@ -189,7 +191,7 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 func TestAuthConcurrentVerification(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	now := time.Now()
-	if err := s.CreateRegistration(ctx, "race@example.com", "race", "hash", "single", now.Add(time.Hour)); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "race@example.com", Login: "race", PasswordHash: "hash", VerificationTokenHash: "single", VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
 	results := make(chan error, 2)
@@ -220,7 +222,7 @@ func TestAuthConcurrentVerification(t *testing.T) {
 func TestAuthVerificationRollback(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	now := time.Now()
-	if err := s.CreateRegistration(ctx, "rollback@example.com", "rollback", "hash", "retained", now.Add(time.Hour)); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "rollback@example.com", Login: "rollback", PasswordHash: "hash", VerificationTokenHash: "retained", VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
 	_, err := s.pool.Exec(ctx, `CREATE FUNCTION reject_verification_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected deletion failure'; END $$;
@@ -231,11 +233,11 @@ func TestAuthVerificationRollback(t *testing.T) {
 	if err := s.ConsumeVerification(ctx, "retained", now); err == nil {
 		t.Fatal("expected deletion failure")
 	}
-	u, err := s.FindUserByEmail(ctx, "rollback@example.com")
+	u, err := s.FindCredentialsByEmail(ctx, "rollback@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.EmailVerifiedAt != nil {
+	if u.User.EmailVerifiedAt != nil {
 		t.Fatal("failed consumption marked user verified")
 	}
 	if _, err := s.pool.Exec(ctx, "DROP TRIGGER reject_verification_delete ON email_verifications"); err != nil {
@@ -249,17 +251,17 @@ func TestAuthVerificationRollback(t *testing.T) {
 func TestAuthReplacementRollback(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	now := time.Now()
-	if err := s.CreateRegistration(ctx, "first@example.com", "first", "hash", "first-token", now.Add(time.Hour)); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "first@example.com", Login: "first", PasswordHash: "hash", VerificationTokenHash: "first-token", VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateRegistration(ctx, "second@example.com", "second", "hash", "second-token", now.Add(time.Hour)); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "second@example.com", Login: "second", PasswordHash: "hash", VerificationTokenHash: "second-token", VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
-	u, err := s.FindUserByEmail(ctx, "first@example.com")
+	u, err := s.FindCredentialsByEmail(ctx, "first@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ReplaceVerification(ctx, u.ID, "second-token", now.Add(time.Hour)); !errors.Is(err, auth.ErrConflict) {
+	if err := s.ReplaceVerification(ctx, u.User.ID, "second-token", now.Add(time.Hour)); !errors.Is(err, auth.ErrConflict) {
 		t.Fatalf("replacement collision: %v", err)
 	}
 	if err := s.ConsumeVerification(ctx, "first-token", now); err != nil {
@@ -272,17 +274,17 @@ func TestAuthConcurrentResendAndVerification(t *testing.T) {
 	now := time.Now()
 	for i := range 10 {
 		email, login, old, next := fmt.Sprintf("race%d@example.com", i), fmt.Sprintf("race%d", i), fmt.Sprintf("old%d", i), fmt.Sprintf("new%d", i)
-		if err := s.CreateRegistration(ctx, email, login, "hash", old, now.Add(time.Hour)); err != nil {
+		if err := s.CreateRegistration(ctx, auth.Registration{Email: email, Login: login, PasswordHash: "hash", VerificationTokenHash: old, VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 			t.Fatal(err)
 		}
-		u, err := s.FindUserByEmail(ctx, email)
+		u, err := s.FindCredentialsByEmail(ctx, email)
 		if err != nil {
 			t.Fatal(err)
 		}
 		verify, resend := make(chan error, 1), make(chan error, 1)
 		start := make(chan struct{})
 		go func() { <-start; verify <- s.ConsumeVerification(ctx, old, now) }()
-		go func() { <-start; resend <- s.ReplaceVerification(ctx, u.ID, next, now.Add(time.Hour)) }()
+		go func() { <-start; resend <- s.ReplaceVerification(ctx, u.User.ID, next, now.Add(time.Hour)) }()
 		close(start)
 		v, r := <-verify, <-resend
 		if v == nil {
@@ -366,7 +368,7 @@ func TestAuthMigrationRejectsDuplicatesAtomically(t *testing.T) {
 func TestAuthMigrationDownRejectsLongEmailsWithoutDataLoss(t *testing.T) {
 	s, ctx := authTestStorage(t, true)
 	email := "this-email-is-longer-than-thirty-two@example.com"
-	if err := s.CreateRegistration(ctx, email, "long", "hash", "retained", time.Now().Add(time.Hour)); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: email, Login: "long", PasswordHash: "hash", VerificationTokenHash: "retained", VerificationExpiresAt: time.Now().Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
 	conn, err := s.pool.Acquire(ctx)

@@ -52,7 +52,7 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
-	service := auth.NewService(db.NewStorage(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, VerificationTTL: cfg.VerificationTTL})
+	service := auth.NewService(db.NewAuthRepository(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, VerificationTTL: cfg.VerificationTTL})
 	characterService := character.NewService(db.NewCharacterRepository(pool))
 	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://")), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{StaticDir: "frontend/dist", TrustedOrigin: cfg.PublicURL})
 	if err != nil {

@@ -8,8 +8,8 @@ import (
 	"gotest/internal/config"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
-	"gotest/internal/models"
 	"gotest/internal/routes"
+	"gotest/internal/validation"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,7 +23,7 @@ type authStub struct {
 	err               error
 	calls             int
 	revoked, verified string
-	user              *models.User
+	user              *auth.Identity
 }
 
 func (s *authStub) Register(context.Context, auth.RegisterInput) error { s.calls++; return s.err }
@@ -32,7 +32,7 @@ func (s *authStub) Login(context.Context, string, string) (*auth.LoginResult, er
 	if s.err != nil {
 		return nil, s.err
 	}
-	return &auth.LoginResult{User: &models.User{ID: 1, Email: "p@example.test", Login: "player", Password: "must-not-leak"}, Token: strings.Repeat("a", 64), ExpiresAt: time.Now().Add(time.Hour)}, nil
+	return &auth.LoginResult{User: &auth.Identity{ID: 1, Email: "p@example.test", Login: "player", RoleID: 42, EmailVerifiedAt: new(time.Now())}, Token: strings.Repeat("a", 64), ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 func (s *authStub) Logout(_ context.Context, token string) error {
 	s.calls++
@@ -45,7 +45,7 @@ func (s *authStub) VerifyEmail(_ context.Context, token string) error {
 	return s.err
 }
 func (s *authStub) ResendVerification(context.Context, string, string) error { s.calls++; return s.err }
-func (s *authStub) CurrentUser(context.Context, string) (*models.User, error) {
+func (s *authStub) CurrentUser(context.Context, string) (*auth.Identity, error) {
 	s.calls++
 	if s.err != nil {
 		return nil, s.err
@@ -86,6 +86,24 @@ func request(h http.Handler, method, path, body string, cookie *http.Cookie) *ht
 	return w
 }
 
+func assertPublicUserFields(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	var body struct {
+		User map[string]json.RawMessage `json:"user"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.User) != 4 {
+		t.Fatalf("unexpected public account fields: %s", w.Body)
+	}
+	for _, name := range []string{"id", "email", "login", "character_id"} {
+		if _, ok := body.User[name]; !ok {
+			t.Errorf("missing public account field %s", name)
+		}
+	}
+}
+
 func TestVerifyIsPublicAndLogoutRevokesCookie(t *testing.T) {
 	s := &authStub{}
 	h := router(t, s, false, 30)
@@ -124,9 +142,7 @@ func TestLoginCookieAndSafeUserResponse(t *testing.T) {
 	if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteLaxMode || c.Path != "/" || c.MaxAge < 3590 || c.Expires.IsZero() {
 		t.Fatalf("unsafe cookie: %#v", c)
 	}
-	if strings.Contains(w.Body.String(), "must-not-leak") || strings.Contains(w.Body.String(), "Password") {
-		t.Fatal("password leaked")
-	}
+	assertPublicUserFields(t, w)
 	if w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal("auth response must not be cached")
 	}
@@ -137,7 +153,7 @@ func TestServiceErrorsHaveStableJSONStatuses(t *testing.T) {
 		err    error
 		status int
 	}{
-		{"credentials", auth.ErrInvalidCredentials, 401}, {"unverified", auth.ErrUnverified, 403}, {"conflict", auth.ErrConflict, 409}, {"token", auth.ErrInvalidToken, 400}, {"verified", auth.ErrAlreadyVerified, 409}, {"validation", &auth.ValidationError{Messages: []string{"invalid email"}}, 422}, {"storage", errors.New("private SQL failure"), 500},
+		{"credentials", auth.ErrInvalidCredentials, 401}, {"unverified", auth.ErrUnverified, 403}, {"conflict", auth.ErrConflict, 409}, {"token", auth.ErrInvalidToken, 400}, {"verified", auth.ErrAlreadyVerified, 409}, {"validation", &validation.Error{Fields: validation.Fields{"email": {"invalid email"}}}, 422}, {"storage", errors.New("private SQL failure"), 500},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := request(router(t, &authStub{err: tc.err}, false, 30), "POST", "/api/auth/login", `{"email":"p@example.test","password":"password"}`, nil)
@@ -192,7 +208,7 @@ func TestMeDistinguishesMissingSessionFromDatabaseFailure(t *testing.T) {
 		t.Fatalf("db error: %d %s", w.Code, w.Body)
 	}
 	s.err = nil
-	s.user = &models.User{ID: 2, Login: "player", Email: "p@example.test", Password: "hidden"}
+	s.user = &auth.Identity{ID: 2, Login: "player", Email: "p@example.test", RoleID: 42, EmailVerifiedAt: new(time.Now())}
 	w = request(h, "GET", "/api/auth/me", "", &http.Cookie{Name: "session_token", Value: "some-token"})
 	if w.Code != 200 || strings.Contains(w.Body.String(), "hidden") {
 		t.Fatalf("me: %d %s", w.Code, w.Body)

@@ -19,6 +19,7 @@ let socket
 let nextID = 0
 const pending = new Map()
 const exceptions = []
+const networkFailures = []
 const browserExited = new Promise(resolve => browser.once('exit', resolve))
 let launchError
 browser.on('error', error => { launchError = error })
@@ -99,6 +100,7 @@ try {
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data)
     if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text)
+    if (message.method === 'Network.loadingFailed') networkFailures.push({ error: message.params.errorText, cors: message.params.corsErrorStatus })
     const task = pending.get(message.id)
     if (!task) return
     pending.delete(message.id); clearTimeout(task.timer)
@@ -108,6 +110,40 @@ try {
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once:true }); socket.addEventListener('error', reject, { once:true }) })
 
   const first = await tab()
+
+  await command('Page.navigate', { url: baseURL + '/register' }, first)
+  await waitFor(first, `!!document.querySelector('#login')`, 'registration form')
+  await fill(first, '#email', 'fields@example.test')
+  await fill(first, '#login', 'x'.repeat(33))
+  await fill(first, '#password', 'short')
+  await click(first, 'button[type=submit]')
+  await waitFor(first, `!!document.querySelector('#login-error') && !!document.querySelector('#password-error')`, 'registration field errors')
+  assert.equal(await evaluate(first, `document.querySelector('#login').getAttribute('aria-invalid')`), 'true')
+  assert.equal(await evaluate(first, `document.querySelector('#password').getAttribute('aria-describedby')`), 'password-error')
+  assert.equal(await evaluate(first, `document.querySelector('#email').getAttribute('aria-invalid')`), 'false')
+  await screenshot(first, 'registration-field-errors')
+  await fill(first, '#login', 'valid-login')
+  assert.equal(await evaluate(first, `document.querySelector('#login-error') === null && !!document.querySelector('#password-error')`), true)
+  await fill(first, '#password', 'browser-password')
+  assert.equal(await evaluate(first, `document.querySelector('#password-error') === null`), true)
+
+  await command('Page.navigate', { url: baseURL + '/login' }, first)
+  await waitFor(first, `!!document.querySelector('#email')`, 'login form')
+  await fill(first, '#email', 'unverified@example.test')
+  await fill(first, '#password', 'browser-password')
+  await click(first, 'button[type=submit]')
+  await waitFor(first, `document.body.innerText.includes('Подтвердите почту, чтобы войти.')`, 'unverified email guidance')
+
+  // Ask the test server to inject cross-site metadata before the real origin
+  // guard. A second 403 must replace the previous verification guidance.
+  await command('Network.enable', {}, first)
+  await command('Network.setExtraHTTPHeaders', { headers: { 'X-Browser-Test-Cross-Site': '1' } }, first)
+  await click(first, 'button[type=submit]')
+  await waitFor(first, `document.querySelector('[role=alert]')?.textContent.includes('Запрос с другого сайта запрещён')`, 'origin rejection')
+  assert.equal(await evaluate(first, `document.body.innerText.includes('Подтвердите почту, чтобы войти.')`), false)
+  await screenshot(first, 'origin-forbidden')
+  await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
+
   await login(first)
   await waitFor(first, `document.body.innerText.includes('У вас пока нет персонажей')`, 'empty roster')
   await clickText(first, 'Создать персонажа')
@@ -121,6 +157,12 @@ try {
   assert.equal(await evaluate(first, `document.querySelector('#character-class').value`), '')
   assert.equal(await evaluate(first, `document.querySelector('#character-class').options.length`), 5)
   await fill(first, '#character-class', await evaluate(first, `document.querySelector('#character-class').options[1].value`))
+  await fill(first, '#character-name', 'Э')
+  await clickText(first, 'Создать')
+  await waitFor(first, `!!document.querySelector('#name-error')`, 'character name validation')
+  assert.equal(await evaluate(first, `document.querySelector('#character-name').getAttribute('aria-describedby')`), 'name-help name-error')
+  await fill(first, '#character-name', 'Эйла')
+  assert.equal(await evaluate(first, `document.querySelector('#name-error') === null`), true)
   await screenshot(first, 'create-character')
   await clickText(first, 'Создать')
   await waitFor(first, `location.pathname === '/characters' && document.querySelector('h2')?.textContent === 'Эйла'`, 'created character in list')
@@ -131,7 +173,8 @@ try {
   await fill(first, '#faction', factions[1])
   await fill(first, '#character-class', await evaluate(first, `document.querySelector('#character-class').options[1].value`))
   await clickText(first, 'Создать')
-  await waitFor(first, `document.querySelector('[role=alert]')?.textContent.includes('уже занято')`, 'duplicate name message')
+  await waitFor(first, `document.querySelector('#name-error')?.textContent.includes('уже занято')`, 'duplicate name message')
+  assert.equal(await evaluate(first, `document.querySelector('#character-name').getAttribute('aria-invalid')`), 'true')
   await clickText(first, 'К списку персонажей')
   await clickText(first, 'Играть')
   await waitFor(first, `location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Эйла'`, 'selected character')
@@ -154,9 +197,10 @@ try {
   await evaluate(second, `window.dispatchEvent(new Event('focus'))`)
   await waitFor(second, `location.pathname === '/characters' && document.body.innerText.includes('Эйла')`, 'other session survives logout with selection cleared')
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions')
-  console.log('Browser flow PASS: login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout')
+  console.log('Browser flow PASS: field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout')
 } catch (error) {
   if (browserLog) console.error(browserLog)
+  if (networkFailures.length) console.error('Network failures:', networkFailures)
   throw error
 } finally {
   if (socket?.readyState === WebSocket.OPEN) {

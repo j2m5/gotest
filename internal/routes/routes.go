@@ -2,8 +2,8 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
 	"gotest/internal/handlers"
+	"gotest/internal/httpapi"
 	"gotest/internal/middleware"
 	"net/http"
 	"os"
@@ -41,7 +41,9 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	}))
 	bind("/api/characters/catalog", "GET", m.Auth(characters.Catalog), false)
 	bind("/api/characters/active", "PUT", m.Auth(characters.SetActive), false)
-	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { apiError(w, 404, "API-маршрут не найден") })
+	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, 404, httpapi.CodeRouteNotFound, "API-маршрут не найден", nil)
+	})
 	mux := http.NewServeMux()
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -80,7 +82,7 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		}
 	}
 	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiError(w, 403, "Запрос с другого сайта запрещён")
+		httpapi.WriteError(w, 403, httpapi.CodeOriginForbidden, "Запрос с другого сайта запрещён", nil)
 	}))
 	protected := protection.Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,16 +103,9 @@ func methodHandler(endpoints map[string]http.HandlerFunc) http.Handler {
 		endpoint, ok := endpoints[r.Method]
 		if !ok {
 			w.Header().Set("Allow", allow)
-			apiError(w, 405, "Метод не поддерживается")
+			httpapi.WriteError(w, 405, httpapi.CodeMethodNotAllowed, "Метод не поддерживается", nil)
 			return
 		}
 		endpoint(w, r)
 	})
-}
-
-func apiError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }

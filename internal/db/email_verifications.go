@@ -9,7 +9,7 @@ import (
 	"gotest/internal/auth"
 )
 
-func (s *Storage) ConsumeVerification(ctx context.Context, tokenHash string, now time.Time) error {
+func (s *AuthRepository) ConsumeVerification(ctx context.Context, tokenHash string, now time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (s *Storage) ConsumeVerification(ctx context.Context, tokenHash string, now
 	return authStorageError(tx.Commit(ctx))
 }
 
-func (s *Storage) ReplaceVerification(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
+func (s *AuthRepository) ReplaceVerification(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

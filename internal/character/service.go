@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
+	"gotest/internal/validation"
 )
 
 type Service struct{ repository Repository }
@@ -42,18 +43,18 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (*
 		}
 	}
 	input.Name = strings.Join(words, " ")
-	var messages []string
+	fields := validation.Fields{}
 	if !validName(input.Name) {
-		messages = append(messages, "Имя должно содержать 3–32 символа: латинские или кириллические буквы, пробел, дефис или апостроф; начинаться и заканчиваться буквой")
+		fields["name"] = []string{"Имя должно содержать 3–32 символа: латинские или кириллические буквы, пробел, дефис или апостроф; начинаться и заканчиваться буквой"}
 	}
 	if input.FactionID <= 0 {
-		messages = append(messages, "Выберите фракцию")
+		fields["faction_id"] = []string{"Выберите фракцию"}
 	}
 	if input.ClassID <= 0 {
-		messages = append(messages, "Выберите класс")
+		fields["class_id"] = []string{"Выберите класс"}
 	}
-	if len(messages) > 0 {
-		return nil, &ValidationError{Messages: messages}
+	if len(fields) > 0 {
+		return nil, &validation.Error{Fields: fields}
 	}
 	return s.repository.Create(ctx, actor, input)
 }
@@ -63,7 +64,7 @@ func (s *Service) SetActive(ctx context.Context, actor Actor, id *int) (*Charact
 		return nil, err
 	}
 	if id != nil && *id <= 0 {
-		return nil, &ValidationError{Messages: []string{"Выберите персонажа"}}
+		return nil, &validation.Error{Fields: validation.Fields{"character_id": {"Выберите персонажа"}}}
 	}
 	return s.repository.SetActive(ctx, actor, id)
 }

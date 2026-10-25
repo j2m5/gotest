@@ -164,3 +164,22 @@ test('failed mutations preserve the current selection and allow retry', async ()
   await store.select(7)
   assert.equal(store.getSnapshot().user.character_id, 7)
 })
+
+test('explicit invalid login credentials preserve an existing valid account', async () => {
+  const store = setup({ login: async () => { throw { response: { status: 401, data: { code: 'invalid_credentials', error: 'Wrong credentials' } } } } })
+  await store.refresh()
+  const before = store.getSnapshot()
+  await assert.rejects(store.signIn('other@example.com', 'wrong'))
+  assert.equal(store.getSnapshot().status, 'ready')
+  assert.equal(store.getSnapshot().user, before.user)
+  assert.equal(store.getSnapshot().roster, before.roster)
+  assert.equal(store.getSnapshot().pending, false)
+})
+
+test('explicit unauthenticated failures expire the shared session', async () => {
+  const store = setup({ setActiveCharacter: async () => { throw { response: { status: 401, data: { code: 'unauthenticated' } } } } })
+  await store.refresh()
+  await assert.rejects(store.select(7))
+  assert.equal(store.getSnapshot().status, 'anonymous')
+  assert.equal(store.getSnapshot().user, null)
+})

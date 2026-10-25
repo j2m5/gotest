@@ -13,7 +13,3 @@ var (
 	// ErrDelivery means the account/token transaction committed but delivery failed.
 	ErrDelivery = errors.New("verification email delivery failed")
 )
-
-type ValidationError struct{ Messages []string }
-
-func (e *ValidationError) Error() string { return "validation failed" }

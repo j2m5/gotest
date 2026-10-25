@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAccount } from '../../account/context'
-import { authError } from '../../api'
+import { apiError } from '../../api'
 import Layout from '../../components/layout/Layout'
 export default function Game() {
   const { roster, pending, store } = useAccount()
@@ -12,7 +12,7 @@ export default function Game() {
   const clear = async () => {
     setError('')
     try { await store.select(null); navigate('/characters', { replace: true }) }
-    catch (error) { setError(authError(error).message) }
+    catch (error) { setError(apiError(error).message) }
   }
   return <Layout><h1>{character.name}</h1>
     {error && <p role="alert" className="flash-error">{error}</p>}

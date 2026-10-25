@@ -11,11 +11,12 @@ import (
 	"strings"
 	"testing"
 
+	"gotest/internal/auth"
 	"gotest/internal/character"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
-	"gotest/internal/models"
 	"gotest/internal/routes"
+	"gotest/internal/validation"
 )
 
 type characterStub struct {
@@ -50,8 +51,8 @@ func (s *characterStub) SetActive(_ context.Context, actor character.Actor, id *
 }
 func characterRouter(t *testing.T, service *characterStub) http.Handler {
 	t.Helper()
-	auth := &authStub{user: &models.User{ID: 7, Login: "player", Email: "p@example.test", Password: "password-must-not-leak"}}
-	h, err := routes.New(handlers.NewHandler(auth, false), handlers.NewCharacterHandler(service), middleware.NewMiddleware(auth), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: "http://localhost:5173"})
+	authentication := &authStub{user: &auth.Identity{ID: 7, Login: "player", Email: "p@example.test"}}
+	h, err := routes.New(handlers.NewHandler(authentication, false), handlers.NewCharacterHandler(service), middleware.NewMiddleware(authentication), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: "http://localhost:5173"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestCharacterErrorsHaveStableStatuses(t *testing.T) {
 		status int
 	}{
 		{character.ErrUnauthenticated, 401}, {character.ErrNotFound, 404}, {character.ErrNameTaken, 409}, {character.ErrInvalidClass, 422},
-		{&character.ValidationError{Messages: []string{"name invalid"}}, 422}, {errors.New("private SQL detail"), 500},
+		{&validation.Error{Fields: validation.Fields{"name": {"name invalid"}}}, 422}, {errors.New("private SQL detail"), 500},
 	} {
 		s := &characterStub{err: tc.err}
 		w := request(characterRouter(t, s), "PUT", "/api/characters/active", `{"character_id":10}`, characterCookie())
@@ -170,7 +171,7 @@ func TestCharacterMethodsAndCrossOriginProtection(t *testing.T) {
 
 func TestCurrentAccountIncludesNullableActiveCharacterWithoutCredentials(t *testing.T) {
 	for _, id := range []*int{nil, new(42)} {
-		s := &authStub{user: &models.User{ID: 7, CharacterID: id, Email: "p@example.test", Login: "player", Password: "never-expose-this"}}
+		s := &authStub{user: &auth.Identity{ID: 7, CharacterID: id, Email: "p@example.test", Login: "player", RoleID: 42}}
 		w := request(router(t, s, false, 30), "GET", "/api/auth/me", "", characterCookie())
 		var body struct {
 			User map[string]json.RawMessage `json:"user"`
@@ -179,11 +180,12 @@ func TestCurrentAccountIncludesNullableActiveCharacterWithoutCredentials(t *test
 			t.Fatal(err)
 		}
 		field, ok := body.User["character_id"]
-		if !ok || w.Code != 200 || strings.Contains(w.Body.String(), "never-expose") {
+		if !ok || w.Code != 200 {
 			t.Fatalf("account: %d %s", w.Code, w.Body)
 		}
 		if id == nil && string(field) != "null" || id != nil && string(field) != "42" {
 			t.Fatalf("active value: %s", field)
 		}
+		assertPublicUserFields(t, w)
 	}
 }

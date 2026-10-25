@@ -1,0 +1,2 @@
+# gofmt checks bytes; keep Go source identical on Windows and Linux.
+*.go text eol=lf

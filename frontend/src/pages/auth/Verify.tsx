@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { authError, verifyEmail } from '../../api'
+import { apiError, verifyEmail } from '../../api'
 import Layout from '../../components/layout/Layout'
 
 export default function Verify() {
@@ -20,7 +20,7 @@ export default function Verify() {
       setVerified(true)
       setParams({}, { replace: true })
     } catch (error) {
-      setError(authError(error).message)
+      setError(apiError(error).message)
     } finally {
       setPending(false)
     }

@@ -27,7 +27,7 @@ func (m *flowMail) SendVerification(_ context.Context, _, token string) error {
 
 func characterFlowRouter(t *testing.T, s *testStorage, mail *flowMail) (http.Handler, *auth.Service) {
 	t.Helper()
-	authService := auth.NewService(s.Storage, mail, auth.Options{})
+	authService := auth.NewService(s.AuthRepository, mail, auth.Options{})
 	characters := character.NewService(db.NewCharacterRepository(s.pool))
 	h, err := routes.New(handlers.NewHandler(authService, false), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
 	if err != nil {

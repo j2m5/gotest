@@ -3,12 +3,12 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"log"
 	"net/http"
 
 	"gotest/internal/character"
+	"gotest/internal/httpapi"
 	"gotest/internal/middleware"
+	"gotest/internal/validation"
 )
 
 type CharacterService interface {
@@ -27,36 +27,36 @@ func NewCharacterHandler(service CharacterService) *CharacterHandler {
 func (h *CharacterHandler) Catalog(w http.ResponseWriter, r *http.Request) {
 	catalog, err := h.service.Catalog(r.Context())
 	if err != nil {
-		h.respondError(w, r, err)
+		respondError(w, r, err)
 		return
 	}
-	jsonResponse(w, catalog, http.StatusOK)
+	httpapi.WriteJSON(w, http.StatusOK, catalog)
 }
 
 func (h *CharacterHandler) List(w http.ResponseWriter, r *http.Request) {
 	roster, err := h.service.List(r.Context(), characterActor(r.Context()))
 	if err != nil {
-		h.respondError(w, r, err)
+		respondError(w, r, err)
 		return
 	}
-	jsonResponse(w, roster, http.StatusOK)
+	httpapi.WriteJSON(w, http.StatusOK, roster)
 }
 
 func (h *CharacterHandler) Create(w http.ResponseWriter, r *http.Request) {
-	input, ok := decodeRequest[character.CreateInput](w, r)
+	input, ok := httpapi.DecodeJSON[character.CreateInput](w, r)
 	if !ok {
 		return
 	}
 	created, err := h.service.Create(r.Context(), characterActor(r.Context()), *input)
 	if err != nil {
-		h.respondError(w, r, err)
+		respondError(w, r, err)
 		return
 	}
-	jsonResponse(w, map[string]any{"character": created}, http.StatusCreated)
+	httpapi.WriteJSON(w, http.StatusCreated, map[string]any{"character": created})
 }
 
 func (h *CharacterHandler) SetActive(w http.ResponseWriter, r *http.Request) {
-	input, ok := decodeRequest[struct {
+	input, ok := httpapi.DecodeJSON[struct {
 		CharacterID json.RawMessage `json:"character_id"`
 	}](w, r)
 	if !ok {
@@ -66,15 +66,16 @@ func (h *CharacterHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 	// selection. A malformed request must not affect other account sessions.
 	var id *int
 	if len(input.CharacterID) == 0 || json.Unmarshal(input.CharacterID, &id) != nil {
-		jsonError(w, "Укажите character_id: целое число или null", http.StatusBadRequest)
+		message := "Укажите character_id: целое число или null"
+		httpapi.WriteError(w, http.StatusBadRequest, httpapi.CodeInvalidRequest, message, validation.Fields{"character_id": {message}})
 		return
 	}
 	selected, err := h.service.SetActive(r.Context(), characterActor(r.Context()), id)
 	if err != nil {
-		h.respondError(w, r, err)
+		respondError(w, r, err)
 		return
 	}
-	jsonResponse(w, map[string]any{"character": selected}, http.StatusOK)
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"character": selected})
 }
 
 func characterActor(ctx context.Context) character.Actor {
@@ -83,23 +84,4 @@ func characterActor(ctx context.Context) character.Actor {
 		return character.Actor{}
 	}
 	return character.Actor{UserID: user.ID, SessionHash: middleware.SessionHashFromContext(ctx)}
-}
-
-func (h *CharacterHandler) respondError(w http.ResponseWriter, r *http.Request, err error) {
-	var validation *character.ValidationError
-	switch {
-	case errors.As(err, &validation):
-		jsonResponse(w, map[string]any{"error": "Проверьте заполненные поля", "errors": validation.Messages}, http.StatusUnprocessableEntity)
-	case errors.Is(err, character.ErrUnauthenticated):
-		jsonError(w, "Необходимо войти в аккаунт", http.StatusUnauthorized)
-	case errors.Is(err, character.ErrNotFound):
-		jsonError(w, "Персонаж не найден", http.StatusNotFound)
-	case errors.Is(err, character.ErrNameTaken):
-		jsonError(w, "Это имя персонажа уже занято", http.StatusConflict)
-	case errors.Is(err, character.ErrInvalidClass):
-		jsonError(w, "Выбранный класс недоступен для этой фракции", http.StatusUnprocessableEntity)
-	default:
-		log.Printf("ERROR: %s %s: %v", r.Method, r.URL.Path, err)
-		jsonError(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
-	}
 }

@@ -19,7 +19,7 @@ import (
 // Exercise error conversion through the public repository and a real pgx
 // connection. This protocol stub supplies responses, not SQL semantics;
 // migration/transaction checks still require TEST_DATABASE_URL.
-func protocolStorage(t *testing.T, code string) *db.Storage {
+func protocolStorage(t *testing.T, code string) *db.AuthRepository {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -89,7 +89,7 @@ func protocolStorage(t *testing.T, code string) *db.Storage {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	return db.NewStorage(pool)
+	return db.NewAuthRepository(pool)
 }
 
 func TestAuthErrorClassification(t *testing.T) {
@@ -108,7 +108,7 @@ func TestAuthErrorClassification(t *testing.T) {
 			defer cancel()
 			var err error
 			if tc.name == "missing row" {
-				_, err = s.FindUserByEmail(ctx, "missing@example.test")
+				_, err = s.FindCredentialsByEmail(ctx, "missing@example.test")
 			} else {
 				if tc.name == "cancelled" {
 					cancel()

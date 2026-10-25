@@ -6,24 +6,26 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"gotest/internal/validation"
 )
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 func validateRegistration(input RegisterInput) error {
-	var messages []string
+	fields := validation.Fields{}
 	address, err := mail.ParseAddress(input.Email)
 	if err != nil || address.Address != input.Email || len(input.Email) > 254 || strings.ContainsAny(input.Email, "\r\n") {
-		messages = append(messages, "Укажите корректный email длиной до 254 байт")
+		fields["email"] = []string{"Укажите корректный email длиной до 254 байт"}
 	}
 	length := utf8.RuneCountInString(input.Login)
 	if length < 1 || length > 32 || strings.IndexFunc(input.Login, unicode.IsControl) >= 0 {
-		messages = append(messages, "Логин должен содержать от 1 до 32 символов без управляющих символов")
+		fields["login"] = []string{"Логин должен содержать от 1 до 32 символов без управляющих символов"}
 	}
 	if len(input.Password) < 8 || len(input.Password) > 72 {
-		messages = append(messages, "Пароль должен содержать от 8 до 72 байт")
+		fields["password"] = []string{"Пароль должен содержать от 8 до 72 байт"}
 	}
-	if len(messages) > 0 {
-		return &ValidationError{Messages: messages}
+	if len(fields) > 0 {
+		return &validation.Error{Fields: fields}
 	}
 	return nil
 }

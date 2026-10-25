@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"gotest/internal/httpapi"
 )
 
 type rateWindow struct {
@@ -47,7 +49,7 @@ func (l *RateLimiter) Handler(next http.Handler) http.Handler {
 			if !found && len(l.entries) >= 10000 {
 				l.mu.Unlock()
 				w.Header().Set("Retry-After", "60")
-				writeError(w, 429, "Слишком много запросов. Повторите позже")
+				httpapi.WriteError(w, 429, httpapi.CodeRateLimited, "Слишком много запросов. Повторите позже", nil)
 				return
 			}
 			entry = rateWindow{until: now.Add(l.period)}
@@ -58,7 +60,7 @@ func (l *RateLimiter) Handler(next http.Handler) http.Handler {
 		if entry.count > l.limit {
 			seconds := int(entry.until.Sub(now).Seconds()) + 1
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			writeError(w, 429, "Слишком много запросов. Повторите позже")
+			httpapi.WriteError(w, 429, httpapi.CodeRateLimited, "Слишком много запросов. Повторите позже", nil)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -4,7 +4,6 @@ package character
 import (
 	"context"
 	"errors"
-	"strings"
 )
 
 var (
@@ -13,10 +12,6 @@ var (
 	ErrNameTaken       = errors.New("character: name is already in use")
 	ErrInvalidClass    = errors.New("character: class does not belong to faction")
 )
-
-type ValidationError struct{ Messages []string }
-
-func (e *ValidationError) Error() string { return strings.Join(e.Messages, "; ") }
 
 // Actor identifies the authenticated caller. SessionHash is a storage key, never
 // a client-supplied account ID or an unhashed cookie. Repositories must recheck

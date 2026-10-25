@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"gotest/internal/character"
+	"gotest/internal/validation"
 )
 
 type repository struct {
@@ -64,8 +65,8 @@ func TestCreateRejectsInvalidNamesBeforePersistence(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			repo := &repository{}
 			_, err := character.NewService(repo).Create(context.Background(), owner(), createInput(name))
-			var validation *character.ValidationError
-			if !errors.As(err, &validation) || len(validation.Messages) == 0 || repo.calls != 0 {
+			var invalid *validation.Error
+			if !errors.As(err, &invalid) || len(invalid.Fields) == 0 || repo.calls != 0 {
 				t.Fatalf("invalid name reached repository: err=%v calls=%d", err, repo.calls)
 			}
 		})
@@ -77,15 +78,15 @@ func TestInvalidIDsDoNotReachRepository(t *testing.T) {
 	service := character.NewService(repo)
 	for _, input := range []character.CreateInput{{Name: "Malgus", ClassID: 0, FactionID: 1}, {Name: "Malgus", ClassID: 1, FactionID: -1}} {
 		_, err := service.Create(context.Background(), owner(), input)
-		var validation *character.ValidationError
-		if !errors.As(err, &validation) {
+		var invalid *validation.Error
+		if !errors.As(err, &invalid) {
 			t.Fatalf("expected validation, got %v", err)
 		}
 	}
 	for _, id := range []int{0, -1} {
 		_, err := service.SetActive(context.Background(), owner(), &id)
-		var validation *character.ValidationError
-		if !errors.As(err, &validation) {
+		var invalid *validation.Error
+		if !errors.As(err, &invalid) {
 			t.Fatalf("expected validation, got %v", err)
 		}
 	}

@@ -1,10 +1,12 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { authError, login, resendVerification } from '../../api'
+import { authError, resendVerification } from '../../api'
+import { useAccount } from '../../account/context'
 import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../components/layout/Layout'
 
 export default function Login() {
+  const { store } = useAccount()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [pending, setPending] = useState(false)
@@ -21,7 +23,7 @@ export default function Login() {
     setMessage('')
     setUnverified(false)
     try {
-      await login(email, password)
+      await store.signIn(email, password)
       setPassword('')
       navigate('/', { replace: true })
     } catch (error) {

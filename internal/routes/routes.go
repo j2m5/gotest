@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -18,18 +19,11 @@ type Options struct {
 	AuthLimit                int
 }
 
-func New(h *handlers.Handler, m *middleware.Middleware, options Options) (http.Handler, error) {
+func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middleware.Middleware, options Options) (http.Handler, error) {
 	api := http.NewServeMux()
 	limiter := middleware.NewRateLimiter(options.AuthLimit, time.Minute)
 	bind := func(route, method string, handler http.HandlerFunc, limited bool) {
-		var endpoint http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != method {
-				w.Header().Set("Allow", method)
-				apiError(w, 405, "Метод не поддерживается")
-				return
-			}
-			handler(w, r)
-		})
+		endpoint := methodHandler(map[string]http.HandlerFunc{method: handler})
 		if limited {
 			endpoint = limiter.Handler(endpoint)
 		}
@@ -41,6 +35,12 @@ func New(h *handlers.Handler, m *middleware.Middleware, options Options) (http.H
 	bind("/api/auth/resend-verification", "POST", h.ResendVerification, true)
 	bind("/api/auth/logout", "POST", h.Logout, false)
 	bind("/api/auth/me", "GET", m.Auth(h.Me), false)
+	api.Handle("/api/characters", methodHandler(map[string]http.HandlerFunc{
+		"GET":  m.Auth(characters.List),
+		"POST": m.Auth(characters.Create),
+	}))
+	bind("/api/characters/catalog", "GET", m.Auth(characters.Catalog), false)
+	bind("/api/characters/active", "PUT", m.Auth(characters.SetActive), false)
 	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { apiError(w, 404, "API-маршрут не найден") })
 	mux := http.NewServeMux()
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +89,25 @@ func New(h *handlers.Handler, m *middleware.Middleware, options Options) (http.H
 		protected.ServeHTTP(w, r)
 	}), nil
 }
+
+func methodHandler(endpoints map[string]http.HandlerFunc) http.Handler {
+	methods := make([]string, 0, len(endpoints))
+	for method := range endpoints {
+		methods = append(methods, method)
+	}
+	sort.Strings(methods)
+	allow := strings.Join(methods, ", ")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		endpoint, ok := endpoints[r.Method]
+		if !ok {
+			w.Header().Set("Allow", allow)
+			apiError(w, 405, "Метод не поддерживается")
+			return
+		}
+		endpoint(w, r)
+	})
+}
+
 func apiError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")

@@ -45,7 +45,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) error {
 		return fmt.Errorf("hash password: %w", err)
 	}
 	token := newToken()
-	if err = s.repository.CreateRegistration(ctx, input.Email, input.Login, string(password), tokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
+	if err = s.repository.CreateRegistration(ctx, input.Email, input.Login, string(password), TokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
 		return fmt.Errorf("create registration: %w", err)
 	}
 	return s.deliver(ctx, input.Email, token)
@@ -60,7 +60,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	}
 	token := newToken()
 	expires := s.now().Add(s.options.SessionTTL)
-	if err = s.repository.CreateSession(ctx, user.ID, tokenDigest(token), expires); err != nil {
+	if err = s.repository.CreateSession(ctx, user.ID, TokenDigest(token), expires); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	return &LoginResult{User: user, Token: token, ExpiresAt: expires}, nil
@@ -69,7 +69,7 @@ func (s *Service) CurrentUser(ctx context.Context, token string) (*models.User, 
 	if !validToken(token) {
 		return nil, ErrUnauthenticated
 	}
-	session, err := s.repository.FindSession(ctx, tokenDigest(token))
+	session, err := s.repository.FindSession(ctx, TokenDigest(token))
 	if errors.Is(err, ErrNotFound) {
 		return nil, ErrUnauthenticated
 	}
@@ -85,7 +85,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	if !validToken(token) {
 		return nil
 	}
-	if err := s.repository.DeleteSession(ctx, tokenDigest(token)); err != nil {
+	if err := s.repository.DeleteSession(ctx, TokenDigest(token)); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 	return nil
@@ -94,7 +94,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	if !validToken(token) {
 		return ErrInvalidToken
 	}
-	return s.repository.ConsumeVerification(ctx, tokenDigest(token), s.now())
+	return s.repository.ConsumeVerification(ctx, TokenDigest(token), s.now())
 }
 func (s *Service) ResendVerification(ctx context.Context, email, password string) error {
 	user, err := s.checkCredentials(ctx, email, password)
@@ -105,7 +105,7 @@ func (s *Service) ResendVerification(ctx context.Context, email, password string
 		return ErrAlreadyVerified
 	}
 	token := newToken()
-	if err = s.repository.ReplaceVerification(ctx, user.ID, tokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
+	if err = s.repository.ReplaceVerification(ctx, user.ID, TokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
 		return fmt.Errorf("replace verification: %w", err)
 	}
 	return s.deliver(ctx, user.Email, token)
@@ -146,7 +146,10 @@ func newToken() string {
 	_, _ = rand.Read(token[:])
 	return hex.EncodeToString(token[:])
 }
-func tokenDigest(token string) string {
+
+// TokenDigest derives the one-way storage key used for session and verification
+// tokens. Hashing alone does not validate a token or authenticate its owner.
+func TokenDigest(token string) string {
 	digest := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(digest[:])
 }

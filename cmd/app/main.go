@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"gotest/internal/auth"
+	"gotest/internal/character"
 	"gotest/internal/config"
 	"gotest/internal/db"
 	"gotest/internal/handlers"
@@ -52,7 +53,8 @@ func run() error {
 	}
 	defer pool.Close()
 	service := auth.NewService(db.NewStorage(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, VerificationTTL: cfg.VerificationTTL})
-	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://")), middleware.NewMiddleware(service), routes.Options{StaticDir: "frontend/dist", TrustedOrigin: cfg.PublicURL})
+	characterService := character.NewService(db.NewCharacterRepository(pool))
+	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://")), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{StaticDir: "frontend/dist", TrustedOrigin: cfg.PublicURL})
 	if err != nil {
 		return fmt.Errorf("configure routes: %w", err)
 	}

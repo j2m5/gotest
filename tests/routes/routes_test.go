@@ -67,7 +67,7 @@ func router(t *testing.T, s *authStub, secure bool, limit int) http.Handler {
 			t.Fatal(err)
 		}
 	}
-	h, err := routes.New(handlers.NewHandler(s, secure), middleware.NewMiddleware(s), routes.Options{StaticDir: dir, TrustedOrigin: "http://localhost:5173", AuthLimit: limit})
+	h, err := routes.New(handlers.NewHandler(s, secure), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: dir, TrustedOrigin: "http://localhost:5173", AuthLimit: limit})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestConfiguredPublicURLBuildsRouterAndKeepsCookieSecure(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := &authStub{}
-			h, err := routes.New(handlers.NewHandler(s, strings.HasPrefix(cfg.PublicURL, "https://")), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: cfg.PublicURL})
+			h, err := routes.New(handlers.NewHandler(s, strings.HasPrefix(cfg.PublicURL, "https://")), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: cfg.PublicURL})
 			if err != nil {
 				t.Fatalf("accepted config cannot start router: %v", err)
 			}

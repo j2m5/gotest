@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AuthResponse, MessageResponse, RegisterResponse } from '../types'
+import type { AuthResponse, MessageResponse, RegisterResponse, Character, CharacterCatalog, CharacterRoster, CreateCharacterInput } from '../types'
 
 export { authError } from './errors'
 
@@ -34,5 +34,18 @@ export async function verifyEmail(token: string): Promise<MessageResponse> {
 export async function resendVerification(email: string, password: string): Promise<MessageResponse> {
     const response = await axios.post<MessageResponse>('/api/auth/resend-verification', { email, password })
     return response.data
+}
+
+export async function listCharacters(): Promise<CharacterRoster> {
+    return (await axios.get<CharacterRoster>('/api/characters')).data
+}
+export async function characterCatalog(): Promise<CharacterCatalog> {
+    return (await axios.get<CharacterCatalog>('/api/characters/catalog')).data
+}
+export async function createCharacter(input: CreateCharacterInput): Promise<{ character: Character }> {
+    return (await axios.post<{ character: Character }>('/api/characters', input)).data
+}
+export async function setActiveCharacter(character_id: number | null): Promise<{ character: Character | null }> {
+    return (await axios.put<{ character: Character | null }>('/api/characters/active', { character_id })).data
 }
 

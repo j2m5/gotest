@@ -26,7 +26,9 @@ func (m *Middleware) Auth(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, 500, "Внутренняя ошибка сервера")
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), userContextKey{}, user)))
+		ctx := context.WithValue(r.Context(), userContextKey{}, user)
+		ctx = context.WithValue(ctx, sessionHashContextKey{}, auth.TokenDigest(cookie.Value))
+		next(w, r.WithContext(ctx))
 	}
 }
 func writeError(w http.ResponseWriter, status int, message string) {

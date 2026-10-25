@@ -99,5 +99,5 @@ func decodeError(w http.ResponseWriter, err error) {
 	}
 }
 func userResponse(user *models.User) map[string]any {
-	return map[string]any{"user": map[string]any{"id": user.ID, "email": user.Email, "login": user.Login}}
+	return map[string]any{"user": map[string]any{"id": user.ID, "email": user.Email, "login": user.Login, "character_id": user.CharacterID}}
 }

@@ -108,7 +108,7 @@ function main() {
   if (!commands.includes(task)) throw new Error(`Unknown command: ${task}; use npm run help`)
   if (task === 'migrate') {
     if (args.length > 1 || (args[0] && !['up', 'version'].includes(args[0]))) throw new Error('migrate accepts only up or version; use the native CLI for an explicit rollback')
-  } else if (args.length && !['seed', 'cleanup'].includes(task)) throw new Error(`${task} does not accept extra arguments`)
+  } else if (args.length && !['seed', 'cleanup', 'dev:api'].includes(task)) throw new Error(`${task} does not accept extra arguments`)
   if (['test', 'test:integration', 'check'].includes(task)) testEnvironment(task)
   switch (task) {
     case 'help':
@@ -119,7 +119,7 @@ function main() {
       run('Go dependencies', 'go', ['mod', 'download'])
       npm(['ci'])
       return
-    case 'dev:api': return run('Go API', 'go', ['run', './cmd/app'])
+    case 'dev:api': return run('Go API', 'go', ['run', './cmd/app', ...args])
     case 'dev:web': return npm(['run', 'dev'])
     case 'build': return build()
     case 'lint': return lint()

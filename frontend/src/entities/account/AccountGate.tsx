@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAccount } from '../account/context'
-import Layout from './layout/Layout'
+import { useAccount } from './context'
+import Layout from '../../shared/ui/Layout'
 export default function AccountGate({ children }: { children: ReactNode }) {
   const { status, error, store } = useAccount()
   if (status === 'anonymous') return <Navigate to="/login" replace />

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { apiError, verifyEmail } from '../../api'
-import Layout from '../../components/layout/Layout'
+import { verifyEmail } from '../api'
+import { apiError } from '../../../shared/api/errors'
+import Layout from '../../../shared/ui/Layout'
 
 export default function Verify() {
   const [params, setParams] = useSearchParams()

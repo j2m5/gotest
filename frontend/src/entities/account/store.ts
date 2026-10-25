@@ -1,5 +1,6 @@
-import type { AuthResponse, Character, CharacterCatalog, CharacterRoster, CreateCharacterInput, User } from '../types/index.ts'
-import { apiError, isUnauthenticated } from '../api/errors.ts'
+import type { AuthResponse, User } from './types.ts'
+import type { Character, CharacterCatalog, CharacterRoster, CreateCharacterInput } from '../character/types.ts'
+import { apiError, isUnauthenticated } from '../../shared/api/errors.ts'
 
 interface AccountAPI {
   currentUser(): Promise<AuthResponse>

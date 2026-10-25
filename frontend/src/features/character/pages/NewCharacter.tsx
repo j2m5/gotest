@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAccount } from '../../account/context'
-import { apiError } from '../../api'
-import type { CharacterCatalog } from '../../types'
-import type { FieldErrors } from '../../api/errors'
-import FieldFeedback from '../../components/FieldFeedback'
-import Layout from '../../components/layout/Layout'
+import { useAccount } from '../../../entities/account/context'
+import { apiError } from '../../../shared/api/errors'
+import type { CharacterCatalog } from '../../../entities/character/types'
+import type { FieldErrors } from '../../../shared/api/errors'
+import FieldFeedback from '../../../shared/ui/FieldFeedback'
+import Layout from '../../../shared/ui/Layout'
 export default function NewCharacter() {
   const { store, pending } = useAccount()
   const [catalog, setCatalog] = useState<CharacterCatalog | null>(null)

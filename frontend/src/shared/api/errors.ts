@@ -38,10 +38,6 @@ export function apiError(error: unknown, inlineFields: readonly string[] = []): 
   }
 }
 
-export function needsEmailVerification(error: APIError): boolean {
-  return error.status === 403 && error.code === 'email_unverified'
-}
-
 export function isUnauthenticated(error: unknown): boolean {
   const failure = apiError(error)
   return failure.status === 401 && (failure.code === undefined || failure.code === 'unauthenticated')

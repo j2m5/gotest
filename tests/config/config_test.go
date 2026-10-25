@@ -4,13 +4,15 @@ import (
 	"gotest/internal/config"
 	"net/http/httptest"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func clearConfigEnv(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "TRUSTED_PROXIES", "SESSION_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
+	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "STATIC_DIR", "TRUSTED_PROXIES", "SESSION_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
@@ -18,6 +20,10 @@ func clearConfigEnv(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	clearConfigEnv(t)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +34,10 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.SessionTTL != 168*time.Hour || cfg.VerificationTTL != 24*time.Hour {
 		t.Fatal("incorrect auth lifetimes")
 	}
-	if cfg.Mail.Driver != "local" || cfg.Mail.From != "noreply@example.test" || cfg.Mail.Directory != ".local/mail" || cfg.Mail.PublicURL != cfg.PublicURL || cfg.Mail.SMTPTLSMode != "starttls" || cfg.Mail.Timeout != 10*time.Second {
+	if cfg.StaticDir != filepath.Join(cwd, "frontend", "dist") {
+		t.Fatal("incorrect static directory default")
+	}
+	if cfg.Mail.Driver != "local" || cfg.Mail.From != "noreply@example.test" || cfg.Mail.Directory != filepath.Join(cwd, ".local", "mail") || cfg.Mail.PublicURL != cfg.PublicURL || cfg.Mail.SMTPTLSMode != "starttls" || cfg.Mail.Timeout != 10*time.Second {
 		t.Fatalf("incorrect mail defaults: %+v", cfg.Mail)
 	}
 }
@@ -89,7 +98,11 @@ func TestLoadMapsSettingsWithoutRequiringSMTP(t *testing.T) {
 		t.Fatal("application settings not mapped")
 	}
 	m := cfg.Mail
-	if m.Driver != "smtp" || m.From != "configured@example.com" || m.Directory != "custom-mail" || m.PublicURL != "https://example.com" || m.SMTPAddress != "smtp.example.com:465" || m.SMTPUsername != "test-user" || m.SMTPPassword != "test-password" || m.SMTPTLSMode != "tls" || m.Timeout != 45*time.Second {
+	wantMailDir, err := filepath.Abs("custom-mail")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Driver != "smtp" || m.From != "configured@example.com" || m.Directory != wantMailDir || m.PublicURL != "https://example.com" || m.SMTPAddress != "smtp.example.com:465" || m.SMTPUsername != "test-user" || m.SMTPPassword != "test-password" || m.SMTPTLSMode != "tls" || m.Timeout != 45*time.Second {
 		t.Fatal("mail settings not mapped")
 	}
 	t.Setenv("SMTP_ADDR", "")

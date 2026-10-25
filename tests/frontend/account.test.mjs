@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { AccountStore } from '../../frontend/src/account/store.ts'
+import { AccountStore } from '../../frontend/src/entities/account/store.ts'
 
 const user = { id: 1, email: 'a@example.com', login: 'Alice', character_id: null }
 const character = { id: 7, name: 'Алиса', faction_id: 1, class_id: 2, role: 'dd', level: 1, experience: 0, avatar: null, hp: 10, mp: 5, hp_current: 10, mp_current: 5 }

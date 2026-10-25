@@ -78,6 +78,23 @@ test('unknown commands fail and help works outside the repository directory', t 
   assert.match(result.stdout, /check/)
 })
 
+test('dev API forwards app flags and preserves the repository working directory', t => {
+  const f = fixture(t)
+  f.write('go-probe.go', `package main
+import("encoding/json";"fmt";"os")
+func main(){ wd,_:=os.Getwd(); result,_:=json.Marshal(map[string]any{"args":os.Args[1:],"cwd":wd}); fmt.Printf("PROBE:%s\\n",result) }
+`)
+  const binary = path.join(f.root, process.platform === 'win32' ? 'go.exe' : 'go')
+  const build = spawnSync('go', ['build', '-o', binary, path.join(f.root, 'go-probe.go')], { env: environment(), encoding: 'utf8', windowsHide: true })
+  assert.equal(build.status, 0, build.stderr)
+  const configFile = path.join(f.root, 'configuration with spaces.env')
+  const result = f.run('dev:api', { PATH: f.root + path.delimiter + environment().PATH }, '-env-file', configFile)
+  assert.equal(result.status, 0, result.stderr)
+  const probe = JSON.parse(result.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
+  assert.deepEqual(probe.args, ['run', './cmd/app', '-env-file', configFile])
+  assert.equal(probe.cwd, f.root)
+})
+
 test('setup stops after a failed first tool instead of invoking the next command', t => {
   const f = fixture(t)
   const marker = path.join(f.root, 'npm-ran')

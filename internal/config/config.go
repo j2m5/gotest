@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -15,14 +14,37 @@ import (
 
 type Config struct {
 	DatabaseURL, AppPort, AppEnv, PublicURL string
+	StaticDir                               string
 	SessionTTL, VerificationTTL             time.Duration
 	Mail                                    mailer.Options
 	TrustedProxies                          clientip.Policy
 }
 
-// Load reads configuration without opening connections or terminating the process.
+// Options selects a dotenv source. Empty EnvFile reads only process variables.
+type Options struct {
+	EnvFile         string
+	OptionalEnvFile bool
+}
+
+// Load reads process configuration without opening connections or changing the environment.
 func Load() (*Config, error) {
-	cfg := &Config{DatabaseURL: os.Getenv("DATABASE_URL"), AppPort: getEnv("APP_PORT", "8081"), AppEnv: getEnv("APP_ENV", "local")}
+	return LoadWithOptions(Options{})
+}
+
+// LoadWithOptions merges the optional file with process variables and resolves
+// data paths against the file directory (or startup cwd when no file was loaded).
+func LoadWithOptions(options Options) (*Config, error) {
+	value, base, err := loadEnvironment(options)
+	if err != nil {
+		return nil, err
+	}
+	getEnv := func(key, fallback string) string {
+		if v := value(key); v != "" {
+			return v
+		}
+		return fallback
+	}
+	cfg := &Config{DatabaseURL: value("DATABASE_URL"), AppPort: getEnv("APP_PORT", "8081"), AppEnv: getEnv("APP_ENV", "local")}
 	if strings.TrimSpace(cfg.DatabaseURL) == "" {
 		return nil, errors.New("DATABASE_URL is required")
 	}
@@ -40,35 +62,36 @@ func Load() (*Config, error) {
 	}
 	// Reuse the validated, normalized origin for links, CSRF trust and cookie security.
 	cfg.PublicURL = public.Scheme + "://" + strings.ToLower(public.Host)
-	cfg.TrustedProxies, err = clientip.Parse(os.Getenv("TRUSTED_PROXIES"))
+	cfg.TrustedProxies, err = clientip.Parse(value("TRUSTED_PROXIES"))
 	if err != nil {
 		return nil, err
 	}
-	cfg.SessionTTL, err = durationEnv("SESSION_TTL", 168*time.Hour, 8760*time.Hour)
+	cfg.SessionTTL, err = durationEnv(value, "SESSION_TTL", 168*time.Hour, 8760*time.Hour)
 	if err != nil {
 		return nil, err
 	}
-	cfg.VerificationTTL, err = durationEnv("VERIFICATION_TTL", 24*time.Hour, 8760*time.Hour)
+	cfg.VerificationTTL, err = durationEnv(value, "VERIFICATION_TTL", 24*time.Hour, 8760*time.Hour)
 	if err != nil {
 		return nil, err
 	}
-	timeout, err := durationEnv("SMTP_TIMEOUT", 10*time.Second, time.Minute)
+	timeout, err := durationEnv(value, "SMTP_TIMEOUT", 10*time.Second, time.Minute)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Mail = mailer.Options{Driver: getEnv("MAIL_DRIVER", "local"), From: getEnv("MAIL_FROM", "noreply@example.test"), PublicURL: cfg.PublicURL, Directory: getEnv("MAIL_DIR", ".local/mail"), SMTPAddress: os.Getenv("SMTP_ADDR"), SMTPUsername: os.Getenv("SMTP_USERNAME"), SMTPPassword: os.Getenv("SMTP_PASSWORD"), SMTPTLSMode: getEnv("SMTP_TLS_MODE", "starttls"), Timeout: timeout}
+	cfg.StaticDir, err = resolveDirectory(base, getEnv("STATIC_DIR", "frontend/dist"), "STATIC_DIR")
+	if err != nil {
+		return nil, err
+	}
+	mailDir, err := resolveDirectory(base, getEnv("MAIL_DIR", ".local/mail"), "MAIL_DIR")
+	if err != nil {
+		return nil, err
+	}
+	cfg.Mail = mailer.Options{Driver: getEnv("MAIL_DRIVER", "local"), From: getEnv("MAIL_FROM", "noreply@example.test"), PublicURL: cfg.PublicURL, Directory: mailDir, SMTPAddress: value("SMTP_ADDR"), SMTPUsername: value("SMTP_USERNAME"), SMTPPassword: value("SMTP_PASSWORD"), SMTPTLSMode: getEnv("SMTP_TLS_MODE", "starttls"), Timeout: timeout}
 	return cfg, nil
 }
 
-func getEnv(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func durationEnv(key string, fallback, maximum time.Duration) (time.Duration, error) {
-	raw := os.Getenv(key)
+func durationEnv(value func(string) string, key string, fallback, maximum time.Duration) (time.Duration, error) {
+	raw := value(key)
 	if raw == "" {
 		return fallback, nil
 	}

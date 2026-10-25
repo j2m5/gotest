@@ -1,7 +1,7 @@
 ﻿import { Link, Navigate } from 'react-router-dom'
-import { useAccount } from '../../account/context'
-import AccountGate from '../../components/AccountGate'
-import Layout from '../../components/layout/Layout'
+import { useAccount } from '../../entities/account/context'
+import AccountGate from '../../entities/account/AccountGate'
+import Layout from '../../shared/ui/Layout'
 
 export default function Home() {
   const { status, user } = useAccount()

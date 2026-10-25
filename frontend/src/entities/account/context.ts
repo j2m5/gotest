@@ -1,5 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
-import { AccountStore } from './store'
+import type { AccountStore } from './store'
 export const AccountContext = createContext<AccountStore | null>(null)
 export function useAccount() {
   const store = useContext(AccountContext)

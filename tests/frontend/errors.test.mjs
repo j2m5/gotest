@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { apiError, needsEmailVerification } from '../../frontend/src/api/errors.ts'
+import { apiError } from '../../frontend/src/shared/api/errors.ts'
+import { needsEmailVerification } from '../../frontend/src/features/auth/errors.ts'
 
 test('preserves validation details from an API response', () => {
   assert.deepEqual(apiError({ response: { status: 422, data: {

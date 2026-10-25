@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAccount } from '../../account/context'
-import { apiError } from '../../api'
-import Layout from '../../components/layout/Layout'
+import { useAccount } from '../../../entities/account/context'
+import { apiError } from '../../../shared/api/errors'
+import Layout from '../../../shared/ui/Layout'
 export default function Characters() {
   const { user, roster, pending, store } = useAccount()
   const [error, setError] = useState('')

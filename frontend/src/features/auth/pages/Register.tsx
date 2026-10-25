@@ -1,10 +1,11 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { apiError, register } from '../../api'
+import { register } from '../api'
+import { apiError } from '../../../shared/api/errors'
 import { Link } from 'react-router-dom'
-import type { FieldErrors } from '../../api/errors'
-import FieldFeedback from '../../components/FieldFeedback'
-import Layout from '../../components/layout/Layout'
+import type { FieldErrors } from '../../../shared/api/errors'
+import FieldFeedback from '../../../shared/ui/FieldFeedback'
+import Layout from '../../../shared/ui/Layout'
 
 export default function Register() {
   const [email, setEmail] = useState('')

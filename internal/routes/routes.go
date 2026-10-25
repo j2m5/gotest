@@ -8,9 +8,6 @@ import (
 	"gotest/internal/middleware"
 	"log/slog"
 	"net/http"
-	"os"
-	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -18,6 +15,7 @@ import (
 
 type Options struct {
 	StaticDir, TrustedOrigin string
+	RequireStatic            bool
 	AuthLimit                int
 	TrustedProxies           clientip.Policy
 	Logger                   *slog.Logger
@@ -26,6 +24,10 @@ type Options struct {
 }
 
 func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middleware.Middleware, options Options) (http.Handler, error) {
+	static, err := newStaticHandler(options.StaticDir, options.RequireStatic)
+	if err != nil {
+		return nil, err
+	}
 	api := http.NewServeMux()
 	limiter := middleware.NewRateLimiter(options.AuthLimit, time.Minute, options.TrustedProxies)
 	bind := func(route, method string, handler http.HandlerFunc, limited bool) {
@@ -62,28 +64,7 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	})
 	mux.Handle("/api/", apiHandler)
 	mux.Handle("/api", apiHandler)
-	if options.StaticDir == "" {
-		options.StaticDir = "frontend/dist"
-	}
-	fileServer := http.FileServer(http.Dir(options.StaticDir))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" && r.Method != "HEAD" {
-			w.Header().Set("Allow", "GET, HEAD")
-			http.Error(w, "Method not allowed", 405)
-			return
-		}
-		name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
-		info, err := os.Stat(filepath.Join(options.StaticDir, filepath.FromSlash(name)))
-		if err == nil && !info.IsDir() {
-			fileServer.ServeHTTP(w, r)
-			return
-		}
-		if strings.HasPrefix(name, "assets/") || filepath.Ext(name) != "" {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, filepath.Join(options.StaticDir, "index.html"))
-	})
+	mux.Handle("/", static)
 	protection := http.NewCrossOriginProtection()
 	if options.TrustedOrigin != "" {
 		if err := protection.AddTrustedOrigin(options.TrustedOrigin); err != nil {

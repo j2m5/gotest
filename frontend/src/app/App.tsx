@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
-import Home from './pages/auth/Home'
-import Verify from './pages/auth/Verify'
-import AccountProvider from './account/AccountProvider'
-import AccountGate from './components/AccountGate'
-import Characters from './pages/characters/Characters'
-import NewCharacter from './pages/characters/NewCharacter'
-import Game from './pages/characters/Game'
+import Login from '../features/auth/pages/Login'
+import Register from '../features/auth/pages/Register'
+import Home from './pages/Home'
+import Verify from '../features/auth/pages/Verify'
+import AccountProvider from './providers/AccountProvider'
+import AccountGate from '../entities/account/AccountGate'
+import Characters from '../features/character/pages/Characters'
+import NewCharacter from '../features/character/pages/NewCharacter'
+import Game from '../features/character/pages/Game'
 
 function App() {
   return (

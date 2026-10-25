@@ -1,10 +1,11 @@
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
-import { apiError, resendVerification } from '../../api'
-import { useAccount } from '../../account/context'
+import { resendVerification } from '../api'
+import { apiError } from '../../../shared/api/errors'
+import { useAccount } from '../../../entities/account/context'
 import { Link, useNavigate } from 'react-router-dom'
-import { needsEmailVerification } from '../../api/errors'
-import Layout from '../../components/layout/Layout'
+import { needsEmailVerification } from '../errors'
+import Layout from '../../../shared/ui/Layout'
 
 export default function Login() {
   const { store } = useAccount()

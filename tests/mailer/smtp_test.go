@@ -221,8 +221,8 @@ func TestSMTPAcceptedMessageSurvivesDisconnectBeforeQuit(t *testing.T) {
 
 func TestSMTPCancellationAndTimeoutInterruptBlockedIO(t *testing.T) {
 	for _, mode := range []string{"tls", "starttls"} {
-		for _, cancelled := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/cancel=%v", mode, cancelled), func(t *testing.T) {
+		for _, interruption := range []string{"timeout", "parent-deadline", "cancel"} {
+			t.Run(fmt.Sprintf("%s/%s", mode, interruption), func(t *testing.T) {
 				listener, err := net.Listen("tcp", "127.0.0.1:0")
 				if err != nil {
 					t.Fatal(err)
@@ -238,19 +238,29 @@ func TestSMTPCancellationAndTimeoutInterruptBlockedIO(t *testing.T) {
 					close(accepted)
 					io.Copy(io.Discard, c)
 				}()
-				m, err := mailer.New(mailer.Options{Driver: "smtp", From: "sender@example.com", PublicURL: "https://example.com", SMTPAddress: listener.Addr().String(), SMTPTLSMode: mode, Timeout: 100 * time.Millisecond})
+				timeout := 100 * time.Millisecond
+				if interruption == "parent-deadline" {
+					timeout = time.Second
+				}
+				m, err := mailer.New(mailer.Options{Driver: "smtp", From: "sender@example.com", PublicURL: "https://example.com", SMTPAddress: listener.Addr().String(), SMTPTLSMode: mode, Timeout: timeout})
 				if err != nil {
 					t.Fatal(err)
 				}
-				ctx, cancel := context.WithCancel(context.Background())
+				var ctx context.Context
+				var cancel context.CancelFunc
+				if interruption == "parent-deadline" {
+					ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+				} else {
+					ctx, cancel = context.WithCancel(context.Background())
+				}
 				defer cancel()
-				if cancelled {
+				if interruption == "cancel" {
 					go func() { <-accepted; cancel() }()
 				}
 				start := time.Now()
 				err = m.SendVerification(ctx, "user@example.com", "secret")
 				want := context.DeadlineExceeded
-				if cancelled {
+				if interruption == "cancel" {
 					want = context.Canceled
 				}
 				if !errors.Is(err, want) {

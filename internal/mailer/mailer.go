@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/quotedprintable"
+	"net"
 	"net/mail"
 	"net/url"
 	"strings"
@@ -105,6 +106,14 @@ func (m *Mailer) SendVerification(ctx context.Context, email, token string) erro
 	if err := m.transport.send(ctx, m.from, email, message.Bytes()); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		// The socket deadline can fire before the context timer sets ctx.Err().
+		// Only normalize a network timeout once the shared deadline has elapsed.
+		var networkError net.Error
+		if errors.As(err, &networkError) && networkError.Timeout() {
+			if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+				return context.DeadlineExceeded
+			}
 		}
 		return fmt.Errorf("deliver verification email: %w", err)
 	}

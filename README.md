@@ -489,6 +489,7 @@ STARTTLS обязателен в режиме starttls; отсутствие п�
 | APP_PORT | 8081 | HTTP-порт |
 | APP_ENV | local | production требует HTTPS в PUBLIC_URL |
 | PUBLIC_URL | http://localhost:APP_PORT | Адрес сайта в браузере, origin без пути |
+| STATIC_DIR | frontend/dist | Каталог собранной SPA |
 | TRUSTED_PROXIES | пусто | Доверенные IP/CIDR прокси через запятую для X-Forwarded-For |
 | SESSION_TTL | 168h | Срок сессии |
 | VERIFICATION_TTL | 24h | Срок ссылки подтверждения |
@@ -496,6 +497,8 @@ STARTTLS обязателен в режиме starttls; отсутствие п�
 | MAIL_DIR | .local/mail | Каталог локальных писем |
 | MAIL_FROM | noreply@example.test | Для SMTP нужен реальный отправитель |
 | SMTP_ADDR | пусто | host:port |
+| SMTP_USERNAME | пусто | Логин SMTP; пустое значение отключает SMTP AUTH |
+| SMTP_PASSWORD | пусто | Пароль SMTP; используется вместе с SMTP_USERNAME |
 | SMTP_TLS_MODE | starttls | starttls или tls |
 | SMTP_TIMEOUT | 10s | Ограничение всей отправки |
 

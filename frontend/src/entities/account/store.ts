@@ -5,8 +5,9 @@ import { apiError, isUnauthenticated } from '../../shared/api/errors.ts'
 interface AccountAPI {
   currentUser(): Promise<AuthResponse>
   listCharacters(): Promise<CharacterRoster>
-  login(email: string, password: string): Promise<AuthResponse>
+  login(email: string, password: string, rememberMe: boolean): Promise<AuthResponse>
   logout(): Promise<unknown>
+  resetPassword(token: string, password: string): Promise<unknown>
   setActiveCharacter(id: number | null): Promise<{ character: Character | null }>
   createCharacter(input: CreateCharacterInput): Promise<{ character: Character }>
   characterCatalog(): Promise<CharacterCatalog>
@@ -76,14 +77,17 @@ export class AccountStore {
       if (generation === this.generation) { ++this.generation; this.update({ pending: false }) }
     }
   }
-  async signIn(email: string, password: string) {
-    await this.mutate(() => this.api.login(email, password), ({ user }) => {
+  async signIn(email: string, password: string, rememberMe = false) {
+    await this.mutate(() => this.api.login(email, password, rememberMe), ({ user }) => {
       this.update({ user, roster: null, status: 'loading', error: '' })
     })
     await this.refresh()
   }
   async signOut() {
     await this.mutate(() => this.api.logout(), () => this.expire())
+  }
+  async resetPassword(token: string, password: string) {
+    await this.mutate(() => this.api.resetPassword(token, password), () => this.expire())
   }
   async select(id: number | null) {
     return this.mutate(() => this.api.setActiveCharacter(id), ({ character }) => {

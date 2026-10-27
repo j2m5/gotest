@@ -10,6 +10,10 @@ var (
 	ErrInvalidToken       = errors.New("invalid or expired verification token")
 	ErrUnauthenticated    = errors.New("not authenticated")
 	ErrAlreadyVerified    = errors.New("email already verified")
+	ErrInvalidResetToken  = errors.New("invalid or expired password reset token")
+	ErrResetUnavailable   = errors.New("password reset requests unavailable")
+	// ErrPasswordChangedDelivery means reset committed but notification failed.
+	ErrPasswordChangedDelivery = errors.New("password changed notification failed")
 	// ErrDelivery means the account/token transaction committed but delivery failed.
-	ErrDelivery = errors.New("verification email delivery failed")
+	ErrDelivery = errors.New("email delivery failed")
 )

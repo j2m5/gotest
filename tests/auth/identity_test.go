@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"encoding/json"
+	"gotest/internal/auth"
 	"strings"
 	"testing"
 )
@@ -14,7 +15,7 @@ func TestLoginAndSessionResultsDoNotContainCredentials(t *testing.T) {
 	if err := s.VerifyEmail(ctx, mail.token); err != nil {
 		t.Fatal(err)
 	}
-	login, err := s.Login(ctx, "person@example.test", "good password")
+	login, err := s.Login(ctx, auth.LoginInput{Email: "person@example.test", Password: "good password"})
 	if err != nil {
 		t.Fatal(err)
 	}

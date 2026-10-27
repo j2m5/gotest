@@ -12,7 +12,7 @@ import (
 
 func clearConfigEnv(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "STATIC_DIR", "TRUSTED_PROXIES", "SESSION_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
+	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "STATIC_DIR", "TRUSTED_PROXIES", "SESSION_TTL", "REMEMBER_ME_TTL", "PASSWORD_RESET_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
@@ -31,7 +31,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DatabaseURL != "postgres://test:test@localhost/test" || cfg.AppPort != "8081" || cfg.AppEnv != "local" || cfg.PublicURL != "http://localhost:8081" {
 		t.Fatalf("incorrect application defaults: %+v", cfg)
 	}
-	if cfg.SessionTTL != 168*time.Hour || cfg.VerificationTTL != 24*time.Hour {
+	if cfg.SessionTTL != 24*time.Hour || cfg.RememberMeTTL != 720*time.Hour || cfg.VerificationTTL != 24*time.Hour || cfg.PasswordResetTTL != 30*time.Minute {
 		t.Fatal("incorrect auth lifetimes")
 	}
 	if cfg.StaticDir != filepath.Join(cwd, "frontend", "dist") {

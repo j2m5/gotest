@@ -9,16 +9,20 @@ import (
 type Repository interface {
 	CreateRegistration(context.Context, Registration) error
 	FindCredentialsByEmail(context.Context, string) (*Credentials, error)
-	CreateSession(context.Context, int, string, time.Time) error
+	CreateSession(context.Context, SessionInput) error
 	FindSession(context.Context, string) (*Session, error)
 	// DeleteSession revokes the token and clears the account's shared character
 	// selection atomically if the session still exists and has not expired.
 	DeleteSession(context.Context, string) error
 	ConsumeVerification(context.Context, string, time.Time) error
 	ReplaceVerification(context.Context, int, string, time.Time) error
+	CreatePasswordReset(context.Context, string, string, time.Time) (bool, error)
+	ResetPassword(context.Context, string, string) (string, error)
 }
-type VerificationSender interface {
+type EmailSender interface {
 	SendVerification(context.Context, string, string) error
+	SendPasswordReset(context.Context, string, string) error
+	SendPasswordChanged(context.Context, string) error
 }
 
 // Identity is the account data needed by authenticated application code. It
@@ -53,16 +57,31 @@ type Session struct {
 	User      *Identity
 	ExpiresAt time.Time
 }
-type RegisterInput struct{ Email, Login, Password string }
-type LoginResult struct {
-	User      *Identity
-	Token     string
-	ExpiresAt time.Time
+
+// SessionInput ties a login to the credentials that were actually verified.
+// Persistence must serialize this comparison with password changes.
+type SessionInput struct {
+	UserID       int
+	PasswordHash string `json:"-"`
+	TokenHash    string `json:"-"`
+	ExpiresAt    time.Time
 }
-type Options struct{ SessionTTL, VerificationTTL time.Duration }
+type ResetPasswordInput struct{ Token, Password string }
+type RegisterInput struct{ Email, Login, Password string }
+type LoginInput struct {
+	Email, Password string
+	RememberMe      bool
+}
+type LoginResult struct {
+	User       *Identity
+	Token      string
+	ExpiresAt  time.Time
+	Persistent bool
+}
+type Options struct{ SessionTTL, RememberMeTTL, VerificationTTL, PasswordResetTTL time.Duration }
 type Service struct {
 	repository   Repository
-	sender       VerificationSender
+	sender       EmailSender
 	options      Options
 	now          func() time.Time
 	passwordCost int

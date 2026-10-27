@@ -10,8 +10,9 @@ import (
 )
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"remember_me"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -19,12 +20,22 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, err := h.auth.Login(r.Context(), input.Email, input.Password)
+	result, err := h.auth.Login(r.Context(), auth.LoginInput{Email: input.Email, Password: input.Password, RememberMe: input.RememberMe})
 	if err != nil {
 		respondError(w, r, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: middleware.SessionCookie, Value: result.Token, Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, Expires: result.ExpiresAt.UTC(), MaxAge: int(math.Ceil(time.Until(result.ExpiresAt).Seconds()))})
+	cookie := &http.Cookie{Name: middleware.SessionCookie, Value: result.Token, Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode}
+	if result.Persistent {
+		cookie.Expires = result.ExpiresAt.UTC()
+		cookie.MaxAge = int(math.Ceil(time.Until(result.ExpiresAt).Seconds()))
+		// A deadline reached while persisting the session must not turn into
+		// MaxAge=0, which would accidentally produce a browser-session cookie.
+		if cookie.MaxAge <= 0 {
+			cookie.MaxAge = -1
+		}
+	}
+	http.SetCookie(w, cookie)
 	httpapi.WriteJSON(w, 200, userResponse(result.User))
 }
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {

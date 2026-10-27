@@ -11,6 +11,7 @@ export default function Login() {
   const { store } = useAccount()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -25,7 +26,7 @@ export default function Login() {
     setMessage('')
     setUnverified(false)
     try {
-      await store.signIn(email, password)
+      await store.signIn(email, password, rememberMe)
       setPassword('')
       navigate('/', { replace: true })
     } catch (error) {
@@ -94,6 +95,22 @@ export default function Login() {
               placeholder="Пароль"
               onChange={(e) => setPassword(e.target.value)}
             />
+          </div>
+          <div className="form-item text-center">
+            <label htmlFor="remember-me">
+              <input
+                id="remember-me"
+                name="remember_me"
+                type="checkbox"
+                checked={rememberMe}
+                disabled={pending}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />{' '}
+              Запомнить меня
+            </label>
+          </div>
+          <div className="form-item text-center">
+            <Link to="/forgot-password">Забыли пароль?</Link>
           </div>
           <div className="form-item text-center">
             <Link to="/register">Регистрация</Link>

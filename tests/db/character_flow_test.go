@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"gotest/internal/auth"
+	"gotest/internal/background"
 	"gotest/internal/character"
 	"gotest/internal/db"
 	"gotest/internal/handlers"
@@ -20,16 +21,25 @@ import (
 
 type flowMail struct{ token string }
 
+func (m *flowMail) SendPasswordReset(_ context.Context, _, _ string) error { return nil }
+func (m *flowMail) SendPasswordChanged(_ context.Context, _ string) error  { return nil }
+
 func (m *flowMail) SendVerification(_ context.Context, _, token string) error {
 	m.token = token
 	return nil
 }
 
-func characterFlowRouter(t *testing.T, s *testStorage, mail *flowMail) (http.Handler, *auth.Service) {
+func characterFlowRouter(t *testing.T, s *testStorage, mail auth.EmailSender, options ...auth.Options) (http.Handler, *auth.Service) {
 	t.Helper()
-	authService := auth.NewService(s.AuthRepository, mail, auth.Options{})
+	var authOptions auth.Options
+	if len(options) > 0 {
+		authOptions = options[0]
+	}
+	authService := auth.NewService(s.AuthRepository, mail, authOptions)
+	resetQueue := background.NewPasswordResetQueue(context.Background(), authService, nil)
+	t.Cleanup(resetQueue.Close)
 	characters := character.NewService(db.NewCharacterRepository(s.pool))
-	h, err := routes.New(handlers.NewHandler(authService, false), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
+	h, err := routes.New(handlers.NewHandler(authService, false, resetQueue), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
 	if err != nil {
 		t.Fatal(err)
 	}

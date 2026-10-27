@@ -16,6 +16,10 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: middleware.SessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0).UTC()})
+	h.clearSessionCookie(w)
 	httpapi.WriteJSON(w, 200, map[string]string{"message": "Вы вышли из аккаунта"})
+}
+
+func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{Name: middleware.SessionCookie, Value: "", Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0).UTC()})
 }

@@ -21,12 +21,18 @@ var dummyPasswordHash = func() []byte {
 	return hash
 }()
 
-func NewService(repository Repository, sender VerificationSender, options Options) *Service {
+func NewService(repository Repository, sender EmailSender, options Options) *Service {
 	if options.SessionTTL <= 0 {
-		options.SessionTTL = 7 * 24 * time.Hour
+		options.SessionTTL = 24 * time.Hour
+	}
+	if options.RememberMeTTL <= 0 {
+		options.RememberMeTTL = 30 * 24 * time.Hour
 	}
 	if options.VerificationTTL <= 0 {
 		options.VerificationTTL = 24 * time.Hour
+	}
+	if options.PasswordResetTTL <= 0 {
+		options.PasswordResetTTL = 30 * time.Minute
 	}
 	return &Service{repository: repository, sender: sender, options: options, now: time.Now, passwordCost: bcrypt.DefaultCost}
 }
@@ -56,20 +62,25 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) error {
 	}
 	return s.deliver(ctx, input.Email, token)
 }
-func (s *Service) Login(ctx context.Context, email, password string) (*LoginResult, error) {
-	user, err := s.checkCredentials(ctx, email, password)
+func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, error) {
+	credentials, err := s.checkCredentials(ctx, input.Email, input.Password)
 	if err != nil {
 		return nil, err
 	}
+	user := &credentials.User
 	if user.EmailVerifiedAt == nil {
 		return nil, ErrUnverified
 	}
 	token := newToken()
-	expires := s.now().Add(s.options.SessionTTL)
-	if err = s.repository.CreateSession(ctx, user.ID, TokenDigest(token), expires); err != nil {
+	ttl := s.options.SessionTTL
+	if input.RememberMe {
+		ttl = s.options.RememberMeTTL
+	}
+	expires := s.now().Add(ttl)
+	if err = s.repository.CreateSession(ctx, SessionInput{UserID: user.ID, PasswordHash: credentials.PasswordHash, TokenHash: TokenDigest(token), ExpiresAt: expires}); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	return &LoginResult{User: user, Token: token, ExpiresAt: expires}, nil
+	return &LoginResult{User: user, Token: token, ExpiresAt: expires, Persistent: input.RememberMe}, nil
 }
 func (s *Service) CurrentUser(ctx context.Context, token string) (*Identity, error) {
 	if !validToken(token) {
@@ -103,10 +114,11 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	return s.repository.ConsumeVerification(ctx, TokenDigest(token), s.now())
 }
 func (s *Service) ResendVerification(ctx context.Context, email, password string) error {
-	user, err := s.checkCredentials(ctx, email, password)
+	credentials, err := s.checkCredentials(ctx, email, password)
 	if err != nil {
 		return err
 	}
+	user := &credentials.User
 	if user.EmailVerifiedAt != nil {
 		return ErrAlreadyVerified
 	}
@@ -116,7 +128,7 @@ func (s *Service) ResendVerification(ctx context.Context, email, password string
 	}
 	return s.deliver(ctx, user.Email, token)
 }
-func (s *Service) checkCredentials(ctx context.Context, email, password string) (*Identity, error) {
+func (s *Service) checkCredentials(ctx context.Context, email, password string) (*Credentials, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -138,8 +150,7 @@ func (s *Service) checkCredentials(ctx context.Context, email, password string) 
 	if err != nil {
 		return nil, fmt.Errorf("check stored password: %w", err)
 	}
-	user := credentials.User
-	return &user, nil
+	return credentials, nil
 }
 func (s *Service) deliver(ctx context.Context, email, token string) error {
 	if err := s.sender.SendVerification(ctx, email, token); err != nil {

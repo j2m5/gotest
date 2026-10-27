@@ -33,7 +33,7 @@ func TestRegistrationCredentialsAndNullableIdentityRoundTrip(t *testing.T) {
 	if storedEmail != registration.Email || storedLogin != registration.Login || storedPassword != registration.PasswordHash || storedToken != registration.VerificationTokenHash || !storedExpiry.Equal(registration.VerificationExpiresAt) || credentials.User.RoleID != roleID {
 		t.Fatal("named registration fields or account role were not persisted independently")
 	}
-	if err := s.CreateSession(ctx, credentials.User.ID, "identity-session", registration.VerificationExpiresAt); err != nil {
+	if err := createStoredSession(t, s, ctx, credentials.User.ID, "identity-session", registration.VerificationExpiresAt); err != nil {
 		t.Fatal(err)
 	}
 	session, err := s.FindSession(ctx, "identity-session")
@@ -52,7 +52,7 @@ func TestSessionLookupDoesNotDependOnPasswordColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	expires := time.Now().Add(time.Hour).Truncate(time.Microsecond)
-	if err := s.CreateSession(ctx, id, "session-storage-key", expires); err != nil {
+	if err := createStoredSession(t, s, ctx, id, "session-storage-key", expires); err != nil {
 		t.Fatal(err)
 	}
 	// The fixture owns a disposable schema. Removing credentials from its account

@@ -1,4 +1,4 @@
-// Package mailer delivers verification messages through local files or encrypted SMTP.
+// Package mailer delivers account emails through local files or encrypted SMTP.
 package mailer
 
 import (
@@ -75,29 +75,60 @@ func validAddress(value string) bool {
 }
 
 func (m *Mailer) SendVerification(ctx context.Context, email, token string) error {
+	return m.send(ctx, email, "Verify your email address", "deliver verification email", func() (string, error) {
+		if token == "" {
+			return "", errors.New("empty verification token")
+		}
+		return fmt.Sprintf("Please confirm your email address by opening this link:\r\n\r\n%s\r\n", m.link("/verify", token)), nil
+	})
+}
+
+// SendPasswordReset sends a single-use password reset link to email.
+func (m *Mailer) SendPasswordReset(ctx context.Context, email, token string) error {
+	return m.send(ctx, email, "Reset your password", "deliver password reset email", func() (string, error) {
+		if token == "" {
+			return "", errors.New("empty password reset token")
+		}
+		return fmt.Sprintf("Use this single-use link to reset your password:\r\n\r\n%s\r\n\r\nIf you did not request a password reset, you can ignore this email.\r\n", m.link("/reset-password", token)), nil
+	})
+}
+
+// SendPasswordChanged notifies email that the account password was changed.
+func (m *Mailer) SendPasswordChanged(ctx context.Context, email string) error {
+	return m.send(ctx, email, "Your password was changed", "deliver password changed email", func() (string, error) {
+		return "Your password was changed. All sessions have been closed. Please sign in again.\r\n\r\nIf you did not make this change, contact support.\r\n", nil
+	})
+}
+
+func (m *Mailer) link(path, token string) string {
+	link := *m.publicURL
+	link.Path = path
+	link.RawPath = ""
+	link.RawQuery = url.Values{"token": {token}}.Encode()
+	return link.String()
+}
+
+func (m *Mailer) send(ctx context.Context, email, subject, failure string, render func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if !validAddress(email) {
 		return errors.New("invalid mail recipient")
 	}
-	if token == "" {
-		return errors.New("empty verification token")
+	body, err := render()
+	if err != nil {
+		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
-	link := *m.publicURL
-	link.Path = "/verify"
-	link.RawPath = ""
-	link.RawQuery = url.Values{"token": {token}}.Encode()
 	id := make([]byte, 16)
 	if _, err := rand.Read(id); err != nil {
 		return fmt.Errorf("message identifier: %w", err)
 	}
 	var message bytes.Buffer
-	fmt.Fprintf(&message, "From: %s\r\nTo: %s\r\nSubject: Verify your email address\r\nDate: %s\r\nMessage-ID: <%s@%s>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", m.from, email, time.Now().UTC().Format(time.RFC1123Z), hex.EncodeToString(id), m.publicURL.Hostname())
+	fmt.Fprintf(&message, "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMessage-ID: <%s@%s>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", m.from, email, subject, time.Now().UTC().Format(time.RFC1123Z), hex.EncodeToString(id), m.publicURL.Hostname())
 	writer := quotedprintable.NewWriter(&message)
-	if _, err := fmt.Fprintf(writer, "Please confirm your email address by opening this link:\r\n\r\n%s\r\n", link.String()); err != nil {
+	if _, err := writer.Write([]byte(body)); err != nil {
 		return err
 	}
 	if err := writer.Close(); err != nil {
@@ -115,7 +146,7 @@ func (m *Mailer) SendVerification(ctx context.Context, email, token string) erro
 				return context.DeadlineExceeded
 			}
 		}
-		return fmt.Errorf("deliver verification email: %w", err)
+		return fmt.Errorf("%s: %w", failure, err)
 	}
 	return nil
 }

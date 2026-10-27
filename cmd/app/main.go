@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"gotest/internal/auth"
+	"gotest/internal/background"
 	"gotest/internal/character"
 	"gotest/internal/config"
 	"gotest/internal/db"
@@ -83,9 +84,11 @@ func run(logger *slog.Logger) error {
 		return applicationFailure(logger, "database", err)
 	}
 	defer pool.Close()
-	service := auth.NewService(db.NewAuthRepository(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, VerificationTTL: cfg.VerificationTTL})
+	service := auth.NewService(db.NewAuthRepository(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, RememberMeTTL: cfg.RememberMeTTL, VerificationTTL: cfg.VerificationTTL, PasswordResetTTL: cfg.PasswordResetTTL})
+	resetRequests := background.NewPasswordResetQueue(ctx, service, logger)
+	defer resetRequests.Close()
 	characterService := character.NewService(db.NewCharacterRepository(pool))
-	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://")), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
+	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), resetRequests), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: cfg.StaticDir, RequireStatic: cfg.AppEnv == "production", TrustedOrigin: cfg.PublicURL, TrustedProxies: cfg.TrustedProxies, Logger: logger,
 		Ready: pool.Ping, Lifecycle: ctx,
 	})

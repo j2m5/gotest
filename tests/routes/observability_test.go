@@ -98,7 +98,7 @@ func TestRequestFailureLogsAreCorrelatedAndExcludeSecrets(t *testing.T) {
 func TestHealthIsPublicWithoutDatabaseOrSPABuild(t *testing.T) {
 	captureLogs(t)
 	s := &authStub{err: errors.New("database unavailable")}
-	h, err := routes.New(handlers.NewHandler(s, false), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir()})
+	h, err := routes.New(handlers.NewHandler(s, false, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,14 +118,14 @@ func TestReadinessWithoutDependencyCheckIsUnavailable(t *testing.T) {
 
 type panickingAuth struct{ *authStub }
 
-func (s *panickingAuth) Login(context.Context, string, string) (*auth.LoginResult, error) {
+func (s *panickingAuth) Login(context.Context, auth.LoginInput) (*auth.LoginResult, error) {
 	panic("private-panic-value")
 }
 
 func TestPanicHasSafeJSONAndCorrelatedDiagnostics(t *testing.T) {
 	output := captureLogs(t)
 	s := &panickingAuth{&authStub{}}
-	h, err := routes.New(handlers.NewHandler(s, false), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir()})
+	h, err := routes.New(handlers.NewHandler(s, false, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}

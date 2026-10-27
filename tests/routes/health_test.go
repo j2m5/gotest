@@ -27,7 +27,7 @@ func probeRouter(t *testing.T, check func(context.Context) error, lifecycle ...c
 	if len(lifecycle) != 0 {
 		options.Lifecycle = lifecycle[0]
 	}
-	h, err := routes.New(handlers.NewHandler(s, false), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), options)
+	h, err := routes.New(handlers.NewHandler(s, false, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), options)
 	if err != nil {
 		t.Fatal(err)
 	}

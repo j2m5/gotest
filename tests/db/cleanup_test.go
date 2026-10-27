@@ -14,6 +14,7 @@ func cleanupFixture(t *testing.T) (*testStorage, context.Context) {
 	t.Helper()
 	s, ctx := authTestStorage(t, true)
 	executeMigration(t, ctx, s, "20261025000500_auth_expiry_indexes.up.sql")
+	executeMigration(t, ctx, s, "20261027000100_password_resets.up.sql")
 	mustExec(t, ctx, s, `INSERT INTO users(email,login,password) VALUES('cleanup@example.test','cleanup','unused')`)
 	return s, ctx
 }

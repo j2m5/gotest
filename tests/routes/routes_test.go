@@ -24,15 +24,25 @@ type authStub struct {
 	calls             int
 	revoked, verified string
 	user              *auth.Identity
+	expiresAt         time.Time
 }
 
 func (s *authStub) Register(context.Context, auth.RegisterInput) error { s.calls++; return s.err }
-func (s *authStub) Login(context.Context, string, string) (*auth.LoginResult, error) {
+func (s *authStub) RequestPasswordReset(context.Context, string) error { s.calls++; return s.err }
+func (s *authStub) ResetPassword(context.Context, auth.ResetPasswordInput) error {
+	s.calls++
+	return s.err
+}
+func (s *authStub) Login(_ context.Context, input auth.LoginInput) (*auth.LoginResult, error) {
 	s.calls++
 	if s.err != nil {
 		return nil, s.err
 	}
-	return &auth.LoginResult{User: &auth.Identity{ID: 1, Email: "p@example.test", Login: "player", RoleID: 42, EmailVerifiedAt: new(time.Now())}, Token: strings.Repeat("a", 64), ExpiresAt: time.Now().Add(time.Hour)}, nil
+	expires := s.expiresAt
+	if expires.IsZero() {
+		expires = time.Now().Add(time.Hour)
+	}
+	return &auth.LoginResult{User: &auth.Identity{ID: 1, Email: "p@example.test", Login: "player", RoleID: 42, EmailVerifiedAt: new(time.Now())}, Token: strings.Repeat("a", 64), ExpiresAt: expires, Persistent: input.RememberMe}, nil
 }
 func (s *authStub) Logout(_ context.Context, token string) error {
 	s.calls++
@@ -67,7 +77,7 @@ func router(t *testing.T, s *authStub, secure bool, limit int) http.Handler {
 			t.Fatal(err)
 		}
 	}
-	h, err := routes.New(handlers.NewHandler(s, secure), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: dir, TrustedOrigin: "http://localhost:5173", AuthLimit: limit})
+	h, err := routes.New(handlers.NewHandler(s, secure, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: dir, TrustedOrigin: "http://localhost:5173", AuthLimit: limit})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +143,7 @@ func TestLogoutDoesNotPretendFailedRevocationSucceeded(t *testing.T) {
 	}
 }
 func TestLoginCookieAndSafeUserResponse(t *testing.T) {
-	w := request(router(t, &authStub{}, true, 30), "POST", "/api/auth/login", `{"email":"p@example.test","password":"password"}`, nil)
+	w := request(router(t, &authStub{}, true, 30), "POST", "/api/auth/login", `{"email":"p@example.test","password":"password","remember_me":true}`, nil)
 	cookies := w.Result().Cookies()
 	if w.Code != 200 || len(cookies) != 1 {
 		t.Fatalf("login: %d %s", w.Code, w.Body)
@@ -251,7 +261,7 @@ func TestCrossOriginAndRateLimitProtectMutations(t *testing.T) {
 func TestConfiguredPublicURLBuildsRouterAndKeepsCookieSecure(t *testing.T) {
 	for _, publicURL := range []string{"https://example.test/", "HTTPS://example.test"} {
 		t.Run(publicURL, func(t *testing.T) {
-			for _, key := range []string{"APP_PORT", "TRUSTED_PROXIES", "SESSION_TTL", "VERIFICATION_TTL", "SMTP_TIMEOUT"} {
+			for _, key := range []string{"APP_PORT", "TRUSTED_PROXIES", "SESSION_TTL", "REMEMBER_ME_TTL", "PASSWORD_RESET_TTL", "VERIFICATION_TTL", "SMTP_TIMEOUT"} {
 				t.Setenv(key, "")
 			}
 			t.Setenv("DATABASE_URL", "postgres://unused/test")
@@ -262,7 +272,7 @@ func TestConfiguredPublicURLBuildsRouterAndKeepsCookieSecure(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := &authStub{}
-			h, err := routes.New(handlers.NewHandler(s, strings.HasPrefix(cfg.PublicURL, "https://")), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: cfg.PublicURL})
+			h, err := routes.New(handlers.NewHandler(s, strings.HasPrefix(cfg.PublicURL, "https://"), s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: cfg.PublicURL})
 			if err != nil {
 				t.Fatalf("accepted config cannot start router: %v", err)
 			}

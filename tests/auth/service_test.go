@@ -24,6 +24,7 @@ type memoryRepository struct {
 	}
 	err             error
 	credentialReads int
+	resets          map[string]resetRecord
 }
 
 func newMemoryRepository() *memoryRepository {
@@ -71,7 +72,7 @@ func (m *memoryRepository) FindCredentialsByEmail(ctx context.Context, email str
 	credentials := *u
 	return &credentials, nil
 }
-func (m *memoryRepository) CreateSession(ctx context.Context, id int, token string, expires time.Time) error {
+func (m *memoryRepository) CreateSession(ctx context.Context, input auth.SessionInput) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -79,9 +80,12 @@ func (m *memoryRepository) CreateSession(ctx context.Context, id int, token stri
 		return m.err
 	}
 	for _, u := range m.users {
-		if u.User.ID == id {
+		if u.User.ID == input.UserID {
+			if u.PasswordHash != input.PasswordHash {
+				return auth.ErrInvalidCredentials
+			}
 			identity := u.User
-			m.sessions[token] = &auth.Session{User: &identity, ExpiresAt: expires}
+			m.sessions[input.TokenHash] = &auth.Session{User: &identity, ExpiresAt: input.ExpiresAt}
 			return nil
 		}
 	}
@@ -158,9 +162,11 @@ func (m *memoryRepository) ReplaceVerification(ctx context.Context, id int, toke
 }
 
 type recordingSender struct {
-	email, token string
-	err          error
-	count        int
+	email, token             string
+	err                      error
+	count                    int
+	resetToken               string
+	resetCount, changedCount int
 }
 
 func (m *recordingSender) SendVerification(ctx context.Context, email, token string) error {
@@ -198,7 +204,7 @@ func TestRegistrationVerificationSessionLifecycle(t *testing.T) {
 	if _, ok := repo.verifications[mail.token]; ok {
 		t.Fatal("raw verification token stored")
 	}
-	if _, err := s.Login(ctx, u.User.Email, "good password"); !errors.Is(err, auth.ErrUnverified) {
+	if _, err := s.Login(ctx, auth.LoginInput{Email: u.User.Email, Password: "good password"}); !errors.Is(err, auth.ErrUnverified) {
 		t.Fatalf("unverified login: %v", err)
 	}
 	if err := s.VerifyEmail(ctx, mail.token); err != nil {
@@ -207,7 +213,7 @@ func TestRegistrationVerificationSessionLifecycle(t *testing.T) {
 	if err := s.VerifyEmail(ctx, mail.token); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("reused token: %v", err)
 	}
-	login, err := s.Login(ctx, " Person@Example.test ", "good password")
+	login, err := s.Login(ctx, auth.LoginInput{Email: " Person@Example.test ", Password: "good password"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +254,7 @@ func TestExpiredTokensAreRejectedAtBoundary(t *testing.T) {
 		if err := s.VerifyEmail(ctx, mail.token); err != nil {
 			t.Fatal(err)
 		}
-		login, err := s.Login(ctx, "person@example.test", "good password")
+		login, err := s.Login(ctx, auth.LoginInput{Email: "person@example.test", Password: "good password"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,22 +340,22 @@ func TestErrorsAreNotDisguisedAsInvalidCredentials(t *testing.T) {
 	if err := s.Register(ctx, auth.RegisterInput{Email: "person@example.test", Login: "another", Password: "password"}); !errors.Is(err, auth.ErrConflict) {
 		t.Fatalf("duplicate: %v", err)
 	}
-	if _, err := s.Login(ctx, "missing@example.test", "password"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Login(ctx, auth.LoginInput{Email: "missing@example.test", Password: "password"}); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("missing user: %v", err)
 	}
-	if _, err := s.Login(ctx, "person@example.test", "wrong password"); !errors.Is(err, auth.ErrInvalidCredentials) {
+	if _, err := s.Login(ctx, auth.LoginInput{Email: "person@example.test", Password: "wrong password"}); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("bad password: %v", err)
 	}
 	if err := s.VerifyEmail(ctx, mail.token); err != nil {
 		t.Fatal(err)
 	}
-	login, err := s.Login(ctx, "person@example.test", "good password")
+	login, err := s.Login(ctx, auth.LoginInput{Email: "person@example.test", Password: "good password"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	failure := errors.New("database unavailable")
 	repo.err = failure
-	if _, err = s.Login(ctx, "person@example.test", "good password"); !errors.Is(err, failure) {
+	if _, err = s.Login(ctx, auth.LoginInput{Email: "person@example.test", Password: "good password"}); !errors.Is(err, failure) {
 		t.Fatalf("db login error lost: %v", err)
 	}
 	if _, err = s.CurrentUser(ctx, login.Token); !errors.Is(err, failure) {

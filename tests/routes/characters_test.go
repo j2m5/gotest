@@ -52,7 +52,7 @@ func (s *characterStub) SetActive(_ context.Context, actor character.Actor, id *
 func characterRouter(t *testing.T, service *characterStub) http.Handler {
 	t.Helper()
 	authentication := &authStub{user: &auth.Identity{ID: 7, Login: "player", Email: "p@example.test"}}
-	h, err := routes.New(handlers.NewHandler(authentication, false), handlers.NewCharacterHandler(service), middleware.NewMiddleware(authentication), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: "http://localhost:5173"})
+	h, err := routes.New(handlers.NewHandler(authentication, false, authentication), handlers.NewCharacterHandler(service), middleware.NewMiddleware(authentication), routes.Options{StaticDir: t.TempDir(), TrustedOrigin: "http://localhost:5173"})
 	if err != nil {
 		t.Fatal(err)
 	}

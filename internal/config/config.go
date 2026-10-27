@@ -13,11 +13,12 @@ import (
 )
 
 type Config struct {
-	DatabaseURL, AppPort, AppEnv, PublicURL string
-	StaticDir                               string
-	SessionTTL, VerificationTTL             time.Duration
-	Mail                                    mailer.Options
-	TrustedProxies                          clientip.Policy
+	DatabaseURL, AppPort, AppEnv, PublicURL    string
+	StaticDir                                  string
+	SessionTTL, RememberMeTTL, VerificationTTL time.Duration
+	PasswordResetTTL                           time.Duration
+	Mail                                       mailer.Options
+	TrustedProxies                             clientip.Policy
 }
 
 // Options selects a dotenv source. Empty EnvFile reads only process variables.
@@ -66,11 +67,22 @@ func LoadWithOptions(options Options) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.SessionTTL, err = durationEnv(value, "SESSION_TTL", 168*time.Hour, 8760*time.Hour)
+	cfg.SessionTTL, err = durationEnv(value, "SESSION_TTL", 24*time.Hour, 8760*time.Hour)
 	if err != nil {
 		return nil, err
 	}
+	cfg.RememberMeTTL, err = durationEnv(value, "REMEMBER_ME_TTL", 720*time.Hour, 8760*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.RememberMeTTL < cfg.SessionTTL {
+		return nil, errors.New("REMEMBER_ME_TTL must be at least SESSION_TTL")
+	}
 	cfg.VerificationTTL, err = durationEnv(value, "VERIFICATION_TTL", 24*time.Hour, 8760*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	cfg.PasswordResetTTL, err = durationEnv(value, "PASSWORD_RESET_TTL", 30*time.Minute, 24*time.Hour)
 	if err != nil {
 		return nil, err
 	}

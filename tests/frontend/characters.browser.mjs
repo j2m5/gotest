@@ -2,27 +2,18 @@
 // Node's built-in WebSocket talks to a disposable headless Chromium profile.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, readdir, writeFile, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-const [baseURL, browserPath, profilePath] = process.argv.slice(2)
-assert(baseURL && browserPath && profilePath, 'Expected test server, browser and temporary profile')
-const browser = spawn(browserPath, [
-  '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profilePath}`,
-  '--disable-background-networking', '--no-first-run', '--no-default-browser-check',
-  '--disable-extensions', '--disable-gpu', 'about:blank',
-], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] })
+const [baseURL, browserPath, profilePath, mailDirectory] = process.argv.slice(2)
+assert(baseURL && browserPath && profilePath && mailDirectory, 'Expected test server, browser, temporary profile and local mailbox')
+let browser, browserExited, launchError, socket
 let browserLog = ''
-browser.stderr.on('data', chunk => { browserLog = (browserLog + chunk).slice(-6000) })
-let socket
 let nextID = 0
 const pending = new Map()
 const exceptions = []
 const networkFailures = []
-const browserExited = new Promise(resolve => browser.once('exit', resolve))
-let launchError
-browser.on('error', error => { launchError = error })
 
 function command(method, params = {}, sessionId) {
   return new Promise((resolve, reject) => {
@@ -72,11 +63,13 @@ async function clickText(session, text) {
     button.click();
   })()`)
 }
-async function login(session) {
+async function login(session, rememberMe = false, password = 'browser-password') {
   await command('Page.navigate', { url: baseURL + '/login' }, session)
   await waitFor(session, `!!document.querySelector('#email')`, 'login form')
+  assert.equal(await evaluate(session, "document.querySelector('#remember-me')?.checked"), false, 'Remember me defaults to off')
+  if (rememberMe) await click(session, '#remember-me')
   await fill(session, '#email', 'browser@example.test')
-  await fill(session, '#password', 'browser-password')
+  await fill(session, '#password', password)
   await click(session, 'button[type=submit]')
   await waitFor(session, `location.pathname === '/characters' || location.pathname === '/game'`, 'signed-in route')
 }
@@ -87,7 +80,19 @@ async function screenshot(session, name) {
   await writeFile(path.join(process.env.CHARACTER_SCREENSHOT_DIR, name + '.png'), Buffer.from(data, 'base64'))
 }
 
-try {
+async function startBrowser() {
+  // Chrome writes a fresh endpoint for each launch of this disposable profile.
+  await rm(path.join(profilePath, 'DevToolsActivePort'), { force: true })
+  launchError = undefined
+  browserLog = ''
+  browser = spawn(browserPath, [
+    '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profilePath}`,
+    '--disable-background-networking', '--no-first-run', '--no-default-browser-check',
+    '--disable-extensions', '--disable-gpu', 'about:blank',
+  ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] })
+  browser.stderr.on('data', chunk => { browserLog = (browserLog + chunk).slice(-6000) })
+  browserExited = new Promise(resolve => browser.once('exit', resolve))
+  browser.on('error', error => { launchError = error })
   let port, endpoint
   const deadline = Date.now() + 15000
   while (!endpoint && Date.now() < deadline) {
@@ -109,6 +114,53 @@ try {
   })
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once:true }); socket.addEventListener('error', reject, { once:true }) })
 
+}
+
+async function stopBrowser() {
+  if (socket?.readyState === WebSocket.OPEN) {
+    await command('Browser.close').catch(() => {})
+    socket.close()
+  }
+  await Promise.race([browserExited, delay(3000)])
+  if (browser?.exitCode === null) {
+    browser.kill()
+    await Promise.race([browserExited, delay(3000)])
+  }
+  for (const task of pending.values()) clearTimeout(task.timer)
+  pending.clear()
+}
+
+async function sessionCookie(session) {
+  const { cookies } = await command('Network.getCookies', { urls: [baseURL] }, session)
+  const matching = cookies.filter(cookie => cookie.name === 'session_token')
+  assert(matching.length <= 1, 'Cookie modes must share the same name and scope')
+  return matching[0]
+}
+
+async function waitForMail(previousNames, subject) {
+  const deadline = Date.now() + 10000
+  while (Date.now() < deadline) {
+    for (const name of await readdir(mailDirectory)) {
+      if (!name.endsWith('.eml') || previousNames.has(name)) continue
+      const message = await readFile(path.join(mailDirectory, name), 'utf8')
+      const [headers, ...body] = message.split(/\r?\n\r?\n/)
+      if (!headers.split(/\r?\n/).includes(`Subject: ${subject}`)) continue
+      assert(headers.split(/\r?\n/).includes('To: browser@example.test'), 'Mail recipient must match the requesting account')
+      return body.join('\r\n\r\n').replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    }
+    await delay(50)
+  }
+  throw new Error(`Waiting for local email: ${subject}`)
+}
+
+async function submitReset(session, password, confirmation = password) {
+  await fill(session, '#password', password)
+  await fill(session, '#confirmation', confirmation)
+  await click(session, 'button[type=submit]')
+}
+
+try {
+  await startBrowser()
   const first = await tab()
 
   await command('Page.navigate', { url: baseURL + '/register' }, first)
@@ -145,6 +197,9 @@ try {
   await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
 
   await login(first)
+  assert.equal((await sessionCookie(first)).session, true, 'Ordinary login uses a browser-session cookie')
+  assert.equal((await sessionCookie(first)).httpOnly, true)
+  assert.equal(await evaluate(first, "document.cookie.includes('session_token')"), false)
   await waitFor(first, `document.body.innerText.includes('У вас пока нет персонажей')`, 'empty roster')
   await clickText(first, 'Создать персонажа')
   await waitFor(first, `document.querySelector('#faction')?.options.length === 3`, 'catalog')
@@ -196,18 +251,104 @@ try {
   await waitFor(first, `location.pathname === '/login'`, 'logout')
   await evaluate(second, `window.dispatchEvent(new Event('focus'))`)
   await waitFor(second, `location.pathname === '/characters' && document.body.innerText.includes('Эйла')`, 'other session survives logout with selection cleared')
+  // Use the default profile: incognito contexts cannot exercise disk persistence.
+  await login(first, true)
+  const remembered = await sessionCookie(first)
+  assert.equal(remembered.session, false)
+  assert.equal(remembered.httpOnly, true)
+  assert.equal(remembered.sameSite, 'Lax')
+  assert(Math.abs(remembered.expires - Date.now() / 1000 - 30 * 24 * 3600) < 10)
+  await stopBrowser()
+  await startBrowser()
+  const restored = await tab()
+  await command('Page.navigate', { url: baseURL + '/characters' }, restored)
+  await waitFor(restored, `location.pathname === '/characters' && document.body.innerText.includes('Эйла')`, 'remembered login after browser restart')
+  assert.equal((await sessionCookie(restored)).value, remembered.value)
+  await clickText(restored, 'Выйти')
+  await waitFor(restored, `location.pathname === '/login'`, 'remembered logout')
+  assert.equal(await sessionCookie(restored), undefined)
+
+  await login(restored, true)
+  // Re-authentication without the flag replaces the persistent cookie in place.
+  assert.equal(await evaluate(restored, `fetch('/api/auth/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email:'browser@example.test', password:'browser-password', remember_me:false})
+  }).then(response => response.status)`), 200)
+  assert.equal((await sessionCookie(restored)).session, true)
+  const preResetCookie = await sessionCookie(restored)
+  await stopBrowser()
+  await startBrowser()
+  const ordinary = await tab()
+  await command('Page.navigate', { url: baseURL + '/characters' }, ordinary)
+  await waitFor(ordinary, `location.pathname === '/login' && !!document.querySelector('#email')`, 'ordinary cookie absent after clean restart')
+  assert.equal(await sessionCookie(ordinary), undefined)
+
+  // The ordinary browser cookie is gone, but its server session still exists.
+  const savedSessionStatus = () => fetch(baseURL + '/api/auth/me', { headers: { Cookie: `${preResetCookie.name}=${preResetCookie.value}` } }).then(response => response.status)
+  assert.equal(await savedSessionStatus(), 200, 'Saved server session must exist before reset')
+  await command('Page.navigate', { url: baseURL + '/reset-password' }, ordinary)
+  await waitFor(ordinary, `!!document.querySelector('[role=alert]') && !!document.querySelector('a[href="/forgot-password"]')`, 'missing token recovery')
+  assert.equal(await evaluate(ordinary, `document.querySelector('form') === null`), true)
+  await click(ordinary, 'a[href="/login"]')
+  await waitFor(ordinary, `!!document.querySelector('#email')`, 'login before recovery request')
+  await click(ordinary, 'a[href="/forgot-password"]')
+  await waitFor(ordinary, `location.pathname === '/forgot-password' && !!document.querySelector('#email')`, 'forgot password form from login')
+  const beforeRequest = new Set(await readdir(mailDirectory))
+  await fill(ordinary, '#email', 'browser@example.test')
+  await click(ordinary, 'button[type=submit]')
+  await waitFor(ordinary, `!!document.querySelector('[role=status]') && document.querySelector('form') === null`, 'generic reset request confirmation')
+  const resetMessage = await waitForMail(beforeRequest, 'Reset your password')
+  const resetLink = resetMessage.match(/https?:\/\/[^\s]+/)?.[0]
+  assert(resetLink, 'Reset email must contain a link')
+  const resetURL = new URL(resetLink)
+  assert.equal(resetURL.origin, baseURL)
+  assert.equal(resetURL.pathname, '/reset-password')
+  assert(/^[0-9a-f]{64}$/.test(resetURL.searchParams.get('token') ?? ''), 'Reset email must carry the raw one-use token')
+
+  // A live browser session must also be cleared by the successful reset.
+  await login(ordinary)
+  assert(await sessionCookie(ordinary), 'Recovery must start with an authenticated browser')
+  await command('Page.navigate', { url: resetLink }, ordinary)
+  await waitFor(ordinary, `!!document.querySelector('#confirmation')`, 'reset form from real email link')
+  const newPassword = 'changed-browser-password'
+  await submitReset(ordinary, newPassword, 'different-password')
+  await waitFor(ordinary, `!!document.querySelector('#confirmation-error')`, 'password confirmation mismatch')
+  assert.equal(await evaluate(ordinary, `document.querySelector('#confirmation').getAttribute('aria-invalid')`), 'true')
+  // This is 74 UTF-8 bytes and only 37 characters, so the real API must reject it.
+  await submitReset(ordinary, '\u044f'.repeat(37))
+  await waitFor(ordinary, `!!document.querySelector('#password-error')`, 'server password byte-length validation')
+  assert.equal(await evaluate(ordinary, `document.querySelector('#password').getAttribute('aria-invalid')`), 'true')
+  assert.equal(await evaluate(ordinary, `document.querySelector('#confirmation-error') === null`), true)
+  const beforeConsumption = new Set(await readdir(mailDirectory))
+  await submitReset(ordinary, newPassword)
+  await waitFor(ordinary, `location.search === '' && !!document.querySelector('[role=status]') && document.querySelector('form') === null`, 'successful reset and token removed from URL')
+  assert.equal(await sessionCookie(ordinary), undefined, 'Reset must clear the current browser cookie')
+  assert.equal(await evaluate(ordinary, `document.querySelector('a[href="/characters"]') === null && document.querySelector('a[href="/game"]') === null`), true, 'Reset must clear authenticated navigation')
+  assert.equal(await savedSessionStatus(), 401, 'Reset must revoke the saved session from before the browser restart')
+  const changedMessage = await waitForMail(beforeConsumption, 'Your password was changed')
+  assert(!changedMessage.includes(newPassword) && !changedMessage.includes(resetURL.searchParams.get('token')), 'Changed notification must exclude credentials and reset tokens')
+  await screenshot(ordinary, 'password-reset-complete')
+
+  await command('Page.navigate', { url: resetLink }, ordinary)
+  await waitFor(ordinary, `!!document.querySelector('#confirmation')`, 'replayed reset link form')
+  await submitReset(ordinary, newPassword)
+  await waitFor(ordinary, `!!document.querySelector('[role=alert]') && !!document.querySelector('a[href="/forgot-password"]')`, 'reused reset link recovery guidance')
+  await command('Page.navigate', { url: baseURL + '/login' }, ordinary)
+  await waitFor(ordinary, `!!document.querySelector('#email')`, 'login after reset')
+  await fill(ordinary, '#email', 'browser@example.test')
+  await fill(ordinary, '#password', 'browser-password')
+  await click(ordinary, 'button[type=submit]')
+  await waitFor(ordinary, `!!document.querySelector('[role=alert]') && !document.querySelector('button[type=submit]').disabled`, 'old password rejection')
+  assert.equal(await sessionCookie(ordinary), undefined)
+  await login(ordinary, false, newPassword)
+  assert.equal(await evaluate(ordinary, 'location.pathname'), '/characters', 'Reset clears character selection')
+  assert.equal(await evaluate(ordinary, `fetch('/api/characters').then(r => r.json()).then(r => r.active_character_id)`), null)
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions')
-  console.log('Browser flow PASS: field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout')
+  console.log('Browser flow PASS: field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout, remember-me cookie/restart/replacement, queued local-mail password recovery, validation/replay, cookie/state/session revocation and new-password login')
 } catch (error) {
   if (browserLog) console.error(browserLog)
   if (networkFailures.length) console.error('Network failures:', networkFailures)
   throw error
 } finally {
-  if (socket?.readyState === WebSocket.OPEN) {
-    await command('Browser.close').catch(() => {})
-    socket.close()
-  }
-  await Promise.race([browserExited, delay(3000)])
-  if (browser.exitCode === null) browser.kill()
-  for (const task of pending.values()) clearTimeout(task.timer)
+  await stopBrowser()
 }

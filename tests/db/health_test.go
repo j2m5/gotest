@@ -26,7 +26,7 @@ func TestReadinessTracksRealDatabaseAvailability(t *testing.T) {
 	}
 	t.Cleanup(pool.Close)
 	service := auth.NewService(db.NewAuthRepository(pool), &flowMail{}, auth.Options{})
-	h, err := routes.New(handlers.NewHandler(service, false), handlers.NewCharacterHandler(character.NewService(db.NewCharacterRepository(pool))), middleware.NewMiddleware(service), routes.Options{
+	h, err := routes.New(handlers.NewHandler(service, false, service), handlers.NewCharacterHandler(character.NewService(db.NewCharacterRepository(pool))), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: t.TempDir(), Ready: pool.Ping, Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	})
 	if err != nil {

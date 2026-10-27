@@ -11,8 +11,19 @@ import (
 	"time"
 
 	"gotest/internal/auth"
+	"gotest/internal/mailer"
 	"gotest/tests/testenv"
 )
+
+type browserMail struct {
+	auth.EmailSender
+	verificationToken string
+}
+
+func (m *browserMail) SendVerification(ctx context.Context, email, token string) error {
+	m.verificationToken = token
+	return m.EmailSender.SendVerification(ctx, email, token)
+}
 
 // This optional smoke test uses the real built SPA, HTTP API and isolated SQL
 // schema. Only the Chromium binary is external; no browser package is required.
@@ -22,18 +33,25 @@ func TestCharacterBrowserFlow(t *testing.T) {
 		t.Fatal("build frontend before the browser smoke test")
 	}
 	s, ctx := characterTestStorage(t, true)
-	mail := &flowMail{}
+	server := httptest.NewUnstartedServer(nil)
+	defer server.Close()
+	mailDirectory := t.TempDir()
+	delivery, err := mailer.New(mailer.Options{Driver: "local", Directory: mailDirectory, PublicURL: "http://" + server.Listener.Addr().String(), From: "test@example.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mail := &browserMail{EmailSender: delivery}
 	h, service := characterFlowRouter(t, s, mail)
 	if err := service.Register(ctx, auth.RegisterInput{Email: "browser@example.test", Login: "browser", Password: "browser-password"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.VerifyEmail(ctx, mail.token); err != nil {
+	if err := service.VerifyEmail(ctx, mail.verificationToken); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Register(ctx, auth.RegisterInput{Email: "unverified@example.test", Login: "unverified", Password: "browser-password"}); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Chromium forbids overriding Sec-Fetch-Site through extra headers.
 		// Inject that metadata at the test boundary so the real origin guard
 		// produces a readable 403 for the login UI, without disabling CORS.
@@ -42,11 +60,11 @@ func TestCharacterBrowserFlow(t *testing.T) {
 			r.Header.Set("Origin", "https://untrusted.example")
 		}
 		h.ServeHTTP(w, r)
-	}))
-	defer server.Close()
+	})
+	server.Start()
 	browserCtx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
 	defer cancel()
-	command := exec.CommandContext(browserCtx, "node", filepath.Join("..", "frontend", "characters.browser.mjs"), server.URL, browser, t.TempDir())
+	command := exec.CommandContext(browserCtx, "node", filepath.Join("..", "frontend", "characters.browser.mjs"), server.URL, browser, t.TempDir(), mailDirectory)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("browser smoke test: %v\n%s", err, output)

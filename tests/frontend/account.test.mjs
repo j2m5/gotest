@@ -6,8 +6,18 @@ const user = { id: 1, email: 'a@example.com', login: 'Alice', character_id: null
 const character = { id: 7, name: 'Алиса', faction_id: 1, class_id: 2, role: 'dd', level: 1, experience: 0, avatar: null, hp: 10, mp: 5, hp_current: 10, mp_current: 5 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 function setup(overrides = {}) {
-  return new AccountStore({ currentUser: async () => ({ user }), listCharacters: async () => ({ characters: [character], active_character_id: null }), login: async () => ({ user }), logout: async () => ({}), setActiveCharacter: async id => ({ character: id === null ? null : character }), createCharacter: async () => ({ character }), characterCatalog: async () => ({ factions: [], classes: [] }), ...overrides })
+  return new AccountStore({ currentUser: async () => ({ user }), listCharacters: async () => ({ characters: [character], active_character_id: null }), login: async () => ({ user }), logout: async () => ({}), resetPassword: async () => ({ message: 'ok' }), setActiveCharacter: async id => ({ character: id === null ? null : character }), createCharacter: async () => ({ character }), characterCatalog: async () => ({ factions: [], classes: [] }), ...overrides })
 }
+
+test('sign-in forwards an explicit persistence choice and defaults to a session cookie', async () => {
+  const calls = []
+  const store = setup({ login: async (...args) => { calls.push(args); return { user } } })
+  await store.signIn('a@example.com', 'password')
+  await store.signIn('a@example.com', 'password', true)
+  await store.signIn('a@example.com', 'password', false)
+  assert.deepEqual(calls, [false, true, false].map(flag => ['a@example.com', 'password', flag]))
+  assert.equal(store.getSnapshot().status, 'ready')
+})
 test('initial roster and cross-device refresh derive the account choice from the same server snapshot', async () => {
   let active = null
   const store = setup({ listCharacters: async () => ({ characters: [character], active_character_id: active }) })
@@ -180,6 +190,44 @@ test('explicit unauthenticated failures expire the shared session', async () => 
   const store = setup({ setActiveCharacter: async () => { throw { response: { status: 401, data: { code: 'unauthenticated' } } } } })
   await store.refresh()
   await assert.rejects(store.select(7))
+  assert.equal(store.getSnapshot().status, 'anonymous')
+  assert.equal(store.getSnapshot().user, null)
+})
+
+test('password reset forwards token and password, then expires the current account', async () => {
+  const calls = []
+  const store = setup({ resetPassword: async (...args) => { calls.push(args); return { message: 'ok' } } })
+  await store.refresh()
+  await store.resetPassword('reset-token', 'new-password')
+  assert.deepEqual(calls, [['reset-token', 'new-password']])
+  assert.equal(store.getSnapshot().status, 'anonymous')
+  assert.equal(store.getSnapshot().user, null)
+  assert.equal(store.getSnapshot().roster, null)
+})
+
+test('password reset exposes pending state and preserves the account on failure', async () => {
+  const request = deferred()
+  const store = setup({ resetPassword: () => request.promise })
+  await store.refresh()
+  const before = store.getSnapshot()
+  const reset = store.resetPassword('reset-token', 'new-password')
+  assert.equal(store.getSnapshot().pending, true)
+  request.reject({ response: { status: 400, data: { code: 'password_reset_token_invalid', error: 'Invalid token' } } })
+  await assert.rejects(reset)
+  assert.equal(store.getSnapshot().status, 'ready')
+  assert.equal(store.getSnapshot().user, before.user)
+  assert.equal(store.getSnapshot().roster, before.roster)
+  assert.equal(store.getSnapshot().pending, false)
+})
+
+test('password reset invalidates a refresh started before session revocation', async () => {
+  const old = deferred()
+  let calls = 0
+  const store = setup({ currentUser: () => ++calls === 1 ? old.promise : Promise.resolve({ user }) })
+  const refresh = store.refresh()
+  await store.resetPassword('reset-token', 'new-password')
+  old.resolve({ user })
+  await refresh
   assert.equal(store.getSnapshot().status, 'anonymous')
   assert.equal(store.getSnapshot().user, null)
 })

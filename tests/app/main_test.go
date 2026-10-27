@@ -37,7 +37,7 @@ func TestStartupFailuresUseSafeStructuredDiagnostics(t *testing.T) {
 			for _, variable := range os.Environ() {
 				key, _, _ := strings.Cut(variable, "=")
 				key = strings.ToUpper(key)
-				if key == "DATABASE_URL" || strings.HasPrefix(key, "APP_") || key == "PUBLIC_URL" || key == "STATIC_DIR" || key == "TRUSTED_PROXIES" || key == "SESSION_TTL" || key == "VERIFICATION_TTL" || strings.HasPrefix(key, "MAIL_") || strings.HasPrefix(key, "SMTP_") {
+				if key == "DATABASE_URL" || strings.HasPrefix(key, "APP_") || key == "PUBLIC_URL" || key == "STATIC_DIR" || key == "TRUSTED_PROXIES" || key == "SESSION_TTL" || key == "REMEMBER_ME_TTL" || key == "PASSWORD_RESET_TTL" || key == "VERIFICATION_TTL" || strings.HasPrefix(key, "MAIL_") || strings.HasPrefix(key, "SMTP_") {
 					continue
 				}
 				command.Env = append(command.Env, variable)

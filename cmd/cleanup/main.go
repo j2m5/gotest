@@ -84,9 +84,9 @@ func run(logger *slog.Logger) error {
 	event := "cleanup_completed"
 	if options.DryRun {
 		event = "cleanup_preview"
-		attrs = append(attrs, slog.Int64("sessions_matched", result.Sessions), slog.Int64("verifications_matched", result.Verifications))
+		attrs = append(attrs, slog.Int64("sessions_matched", result.Sessions), slog.Int64("verifications_matched", result.Verifications), slog.Int64("password_resets_matched", result.PasswordResets))
 	} else {
-		attrs = append(attrs, slog.Int64("sessions_deleted", result.Sessions), slog.Int64("verifications_deleted", result.Verifications))
+		attrs = append(attrs, slog.Int64("sessions_deleted", result.Sessions), slog.Int64("verifications_deleted", result.Verifications), slog.Int64("password_resets_deleted", result.PasswordResets))
 	}
 	if err != nil {
 		return failure(logger, "cleanup", err, attrs...)

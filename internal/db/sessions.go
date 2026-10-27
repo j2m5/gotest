@@ -9,9 +9,27 @@ import (
 	"gotest/internal/auth"
 )
 
-func (s *AuthRepository) CreateSession(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
-	_, err := s.pool.Exec(ctx, `INSERT INTO sessions(user_id,token,expires_at) VALUES($1,$2,$3)`, userID, tokenHash, expiresAt)
-	return authStorageError(err)
+func (s *AuthRepository) CreateSession(ctx context.Context, input auth.SessionInput) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return authStorageError(err)
+	}
+	defer tx.Rollback(ctx)
+	var password string
+	err = tx.QueryRow(ctx, `SELECT password FROM users WHERE id=$1 FOR UPDATE`, input.UserID).Scan(&password)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return auth.ErrInvalidCredentials
+	}
+	if err != nil {
+		return authStorageError(err)
+	}
+	if password != input.PasswordHash {
+		return auth.ErrInvalidCredentials
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO sessions(user_id,token,expires_at) VALUES($1,$2,$3)`, input.UserID, input.TokenHash, input.ExpiresAt); err != nil {
+		return authStorageError(err)
+	}
+	return authStorageError(tx.Commit(ctx))
 }
 
 func (s *AuthRepository) DeleteSession(ctx context.Context, tokenHash string) error {

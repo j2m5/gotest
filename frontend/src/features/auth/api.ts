@@ -6,8 +6,8 @@ export interface RegisterResponse extends MessageResponse {
   verification_sent: boolean
 }
 
-export async function login(email: string, password: string): Promise<AuthResponse> {
-  return (await http.post<AuthResponse>('/auth/login', { email, password })).data
+export async function login(email: string, password: string, rememberMe = false): Promise<AuthResponse> {
+  return (await http.post<AuthResponse>('/auth/login', { email, password, remember_me: rememberMe })).data
 }
 
 export async function register(email: string, login: string, password: string): Promise<RegisterResponse> {
@@ -28,4 +28,12 @@ export async function verifyEmail(token: string): Promise<MessageResponse> {
 
 export async function resendVerification(email: string, password: string): Promise<MessageResponse> {
   return (await http.post<MessageResponse>('/auth/resend-verification', { email, password })).data
+}
+
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  return (await http.post<MessageResponse>('/auth/forgot-password', { email })).data
+}
+
+export async function resetPassword(token: string, password: string): Promise<MessageResponse> {
+  return (await http.post<MessageResponse>('/auth/reset-password', { token, password })).data
 }

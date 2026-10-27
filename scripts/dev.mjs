@@ -126,7 +126,7 @@ function main() {
     case 'audit': return npm(['audit', '--include=dev', '--audit-level=moderate'])
     case 'migrate': return migrate(args[0] ?? 'up')
     case 'seed': return run('Seed application catalogs', 'go', ['run', './cmd/seed', ...args])
-    case 'cleanup': return run('Clean expired sessions and verification tokens', 'go', ['run', './cmd/cleanup', ...args])
+    case 'cleanup': return run('Clean expired sessions and authentication tokens', 'go', ['run', './cmd/cleanup', ...args])
     case 'check':
       lint()
       build()

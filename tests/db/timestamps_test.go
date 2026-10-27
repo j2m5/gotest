@@ -281,8 +281,8 @@ func TestDatabaseTimestampsHaveTimezone(t *testing.T) {
 		FROM information_schema.columns WHERE table_schema=current_schema()`).Scan(&withZone, &withoutZone); err != nil {
 		t.Fatal(err)
 	}
-	if withZone != 19 || withoutZone != 0 {
-		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 19/0", withZone, withoutZone)
+	if withZone != 21 || withoutZone != 0 {
+		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 21/0", withZone, withoutZone)
 	}
 }
 

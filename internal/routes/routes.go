@@ -39,6 +39,8 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	}
 	bind("/api/auth/register", "POST", h.Register, true)
 	bind("/api/auth/login", "POST", h.Login, true)
+	bind("/api/auth/forgot-password", "POST", h.ForgotPassword, true)
+	bind("/api/auth/reset-password", "POST", h.ResetPassword, true)
 	bind("/api/auth/verify", "POST", h.VerifyEmail, true)
 	bind("/api/auth/resend-verification", "POST", h.ResendVerification, true)
 	bind("/api/auth/logout", "POST", h.Logout, false)

@@ -14,7 +14,7 @@ import (
 
 func staticRouter(directory string, required bool) (http.Handler, error) {
 	s := &authStub{}
-	return routes.New(handlers.NewHandler(s, false), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: directory, RequireStatic: required})
+	return routes.New(handlers.NewHandler(s, false, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{StaticDir: directory, RequireStatic: required})
 }
 
 func TestRequiredStaticFrontendRejectsIncompleteDeployment(t *testing.T) {

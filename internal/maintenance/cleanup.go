@@ -23,6 +23,7 @@ type Options struct {
 type Result struct {
 	Cutoff                  time.Time
 	Sessions, Verifications int64
+	PasswordResets          int64
 	Batches                 int
 }
 
@@ -51,8 +52,9 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 	if options.DryRun {
 		err := pool.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM sessions WHERE expires_at <= $1),
-			(SELECT count(*) FROM email_verifications WHERE expired_at <= $1)`, result.Cutoff).
-			Scan(&result.Sessions, &result.Verifications)
+			(SELECT count(*) FROM email_verifications WHERE expired_at <= $1),
+			(SELECT count(*) FROM password_resets WHERE expires_at <= $1)`, result.Cutoff).
+			Scan(&result.Sessions, &result.Verifications, &result.PasswordResets)
 		if err != nil {
 			return result, fmt.Errorf("preview cleanup: %w", err)
 		}
@@ -71,8 +73,12 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 			SELECT id FROM email_verifications WHERE expired_at <= $1 ORDER BY expired_at,id
 			LIMIT $2 FOR UPDATE SKIP LOCKED
 		) DELETE FROM email_verifications USING expired WHERE email_verifications.id=expired.id`, "verifications", &result.Verifications, true},
+		{`WITH expired AS (
+			SELECT id FROM password_resets WHERE expires_at <= $1 ORDER BY expires_at,id
+			LIMIT $2 FOR UPDATE SKIP LOCKED
+		) DELETE FROM password_resets USING expired WHERE password_resets.id=expired.id`, "password resets", &result.PasswordResets, true},
 	}
-	for jobs[0].more || jobs[1].more {
+	for jobs[0].more || jobs[1].more || jobs[2].more {
 		for i := range jobs {
 			job := &jobs[i]
 			if !job.more {

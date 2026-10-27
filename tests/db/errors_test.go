@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,7 @@ func protocolStorage(t *testing.T, code string) *db.AuthRepository {
 			t.Error(err)
 			return
 		}
+		txStatus := byte('I')
 		for {
 			message, err := backend.Receive()
 			if err != nil {
@@ -59,16 +61,30 @@ func protocolStorage(t *testing.T, code string) *db.AuthRepository {
 				}
 				return
 			}
-			switch message.(type) {
+			switch message := message.(type) {
 			case *pgproto3.Terminate:
 				return
 			case *pgproto3.Query:
-				if code == "" {
-					backend.Send(&pgproto3.CommandComplete{CommandTag: []byte("SELECT 0")})
-				} else {
-					backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: code, Message: "test database response"})
+				// Fail the repository query, not BEGIN: pgx deliberately destroys a
+				// connection after a failed BEGIN, which races the stub's next read.
+				switch strings.ToLower(strings.TrimSpace(message.String)) {
+				case "begin":
+					txStatus = 'T'
+					backend.Send(&pgproto3.CommandComplete{CommandTag: []byte("BEGIN")})
+				case "rollback":
+					txStatus = 'I'
+					backend.Send(&pgproto3.CommandComplete{CommandTag: []byte("ROLLBACK")})
+				default:
+					if code == "" {
+						backend.Send(&pgproto3.CommandComplete{CommandTag: []byte("SELECT 0")})
+					} else {
+						backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: code, Message: "test database response"})
+						if txStatus == 'T' {
+							txStatus = 'E'
+						}
+					}
 				}
-				backend.Send(&pgproto3.ReadyForQuery{TxStatus: 'I'})
+				backend.Send(&pgproto3.ReadyForQuery{TxStatus: txStatus})
 				if err = backend.Flush(); err != nil {
 					t.Error(err)
 					return
@@ -113,7 +129,7 @@ func TestAuthErrorClassification(t *testing.T) {
 				if tc.name == "cancelled" {
 					cancel()
 				}
-				err = s.CreateSession(ctx, 1, "token", time.Now().Add(time.Hour))
+				err = s.CreateSession(ctx, auth.SessionInput{UserID: 1, TokenHash: "token", ExpiresAt: time.Now().Add(time.Hour)})
 			}
 			if tc.want != nil {
 				if !errors.Is(err, tc.want) {

@@ -13,7 +13,7 @@ import (
 
 func repositoryActor(t *testing.T, ctx context.Context, s *testStorage, id int, token string) character.Actor {
 	t.Helper()
-	if err := s.CreateSession(ctx, id, token, time.Now().Add(time.Hour)); err != nil {
+	if err := createStoredSession(t, s, ctx, id, token, time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	return character.Actor{UserID: id, SessionHash: token}

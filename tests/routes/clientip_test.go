@@ -31,7 +31,7 @@ func proxyRouter(t *testing.T, trusted string, s *authStub) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := routes.New(handlers.NewHandler(s, true), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{
+	h, err := routes.New(handlers.NewHandler(s, true, s), handlers.NewCharacterHandler(&characterStub{}), middleware.NewMiddleware(s), routes.Options{
 		StaticDir: t.TempDir(), TrustedOrigin: "https://example.test", AuthLimit: 1, TrustedProxies: policy,
 	})
 	if err != nil {

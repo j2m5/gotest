@@ -113,7 +113,7 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.CreateSession(ctx, u.User.ID, "session", expires); err != nil {
+	if err := createStoredSession(t, s, ctx, u.User.ID, "session", expires); err != nil {
 		t.Fatal(err)
 	}
 	session, err := s.FindSession(ctx, "session")

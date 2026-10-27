@@ -152,7 +152,7 @@ func TestActiveCharacterDeletionAndAccountCascade(t *testing.T) {
 
 func TestUserQueriesLoadNullableActiveCharacter(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	if err := s.CreateSession(ctx, 1, "lookup", time.Now().Add(time.Hour)); err != nil {
+	if err := createStoredSession(t, s, ctx, 1, "lookup", time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []*int{nil, new(2)} {
@@ -209,7 +209,7 @@ func sessionFor(t *testing.T, ctx context.Context, s *testStorage, userID int, m
 	t.Helper()
 	raw := strings.Repeat(marker, 64)
 	hash := sha256.Sum256([]byte(raw))
-	if err := s.CreateSession(ctx, userID, hex.EncodeToString(hash[:]), expiry); err != nil {
+	if err := createStoredSession(t, s, ctx, userID, hex.EncodeToString(hash[:]), expiry); err != nil {
 		t.Fatal(err)
 	}
 	return raw

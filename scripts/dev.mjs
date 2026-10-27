@@ -141,7 +141,7 @@ function main() {
       return run('Go HTTP contract tests', 'go', ['test', '-count=1', './tests/routes', '-run', '^TestOpenAPI'])
     case 'migrate': return migrate(args[0] ?? 'up')
     case 'seed': return run('Seed application catalogs', 'go', ['run', './cmd/seed', ...args])
-    case 'cleanup': return run('Clean expired sessions and authentication tokens', 'go', ['run', './cmd/cleanup', ...args])
+    case 'cleanup': return run('Clean expired credentials and old mail jobs', 'go', ['run', './cmd/cleanup', ...args])
     case 'check':
       apiTypes(true)
       lint()

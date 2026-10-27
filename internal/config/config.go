@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -18,6 +19,7 @@ type Config struct {
 	SessionTTL, RememberMeTTL, VerificationTTL time.Duration
 	PasswordResetTTL                           time.Duration
 	Mail                                       mailer.Options
+	MailQueueKey                               []byte `json:"-"`
 	TrustedProxies                             clientip.Policy
 }
 
@@ -99,6 +101,10 @@ func LoadWithOptions(options Options) (*Config, error) {
 		return nil, err
 	}
 	cfg.Mail = mailer.Options{Driver: getEnv("MAIL_DRIVER", "local"), From: getEnv("MAIL_FROM", "noreply@example.test"), PublicURL: cfg.PublicURL, Directory: mailDir, SMTPAddress: value("SMTP_ADDR"), SMTPUsername: value("SMTP_USERNAME"), SMTPPassword: value("SMTP_PASSWORD"), SMTPTLSMode: getEnv("SMTP_TLS_MODE", "starttls"), Timeout: timeout}
+	cfg.MailQueueKey, err = base64.StdEncoding.DecodeString(value("MAIL_QUEUE_KEY"))
+	if err != nil || len(cfg.MailQueueKey) != 32 {
+		return nil, errors.New("MAIL_QUEUE_KEY is required and must encode exactly 32 bytes in base64")
+	}
 	return cfg, nil
 }
 

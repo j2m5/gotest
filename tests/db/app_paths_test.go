@@ -36,6 +36,7 @@ func pathAppEnvironment(values map[string]string) []string {
 	for key, value := range values {
 		env = append(env, key+"="+value)
 	}
+	env = append(env, "MAIL_QUEUE_KEY="+publicMailQueueKey)
 	return env
 }
 
@@ -177,8 +178,16 @@ func TestAppPathsFromExternalWorkingDirectory(t *testing.T) {
 		checkPathAppResponse(t, a, "GET", "/assets/missing.js", "", 404, "404")
 		checkPathAppResponse(t, a, "GET", "/api/auth/me", "", 401, "unauthenticated")
 		checkPathAppResponse(t, a, "GET", "/api/missing", "", 404, "route_not_found")
-		checkPathAppResponse(t, a, "POST", "/api/auth/register", `{"email":"paths@example.test","login":"paths_user","password":"test-password-123"}`, 201, `"verification_sent":true`)
-		letters, err := filepath.Glob(filepath.Join(configurationDir, "outgoing letters", "*.eml"))
+		checkPathAppResponse(t, a, "POST", "/api/auth/register", `{"email":"paths@example.test","login":"paths_user","password":"test-password-123"}`, 201, `"verification_queued":true`)
+		var letters []string
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			letters, err = filepath.Glob(filepath.Join(configurationDir, "outgoing letters", "*.eml"))
+			if err != nil || len(letters) > 0 {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
 		if err != nil || len(letters) != 1 {
 			t.Fatal("local mail did not use the configuration directory")
 		}

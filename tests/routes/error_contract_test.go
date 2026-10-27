@@ -49,7 +49,7 @@ func TestAPIErrorCodesForAuthAndWrappedFailures(t *testing.T) {
 		{auth.ErrInvalidCredentials, 401, "invalid_credentials"}, {auth.ErrUnauthenticated, 401, "unauthenticated"},
 		{auth.ErrUnverified, 403, "email_unverified"}, {auth.ErrConflict, 409, "account_conflict"},
 		{auth.ErrAlreadyVerified, 409, "email_already_verified"}, {auth.ErrInvalidToken, 400, "verification_token_invalid"},
-		{auth.ErrDelivery, 503, "mail_delivery_failed"}, {errors.New("private-sql-detail"), 500, "internal_error"},
+		{errors.New("private-outbox-detail"), 500, "internal_error"}, {errors.New("private-sql-detail"), 500, "internal_error"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
 			h := router(t, &authStub{err: fmt.Errorf("operation: %w", tc.err)}, false, 30)

@@ -18,6 +18,9 @@ info:
     PUBLIC_URL origin). Cross-site requests are rejected with 403 origin_forbidden.
     The six public authentication actions share a per-client-IP rate limiter.
     JSON responses never expose passwords, token hashes, session tokens or account roles.
+    Authentication email is accepted into a durable database queue. Workers retry
+    failed delivery asynchronously; a queued message can still fail or be delivered
+    more than once, so queue acceptance does not guarantee inbox delivery.
 servers:
   - url: /
 tags:
@@ -29,8 +32,8 @@ paths:
     post:
       operationId: register
       tags: [Auth]
-      summary: Create an account and send an email verification link
-      description: A mail delivery failure still creates the account and returns 201 with verification_sent=false.
+      summary: Create an account and queue an email verification link
+      description: Account creation and queueing the verification email are atomic.
       requestBody:
         required: true
         content:
@@ -38,7 +41,7 @@ paths:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
         '201':
-          description: Account created; verification_sent reports mail delivery
+          description: Account created and verification email accepted into the durable queue
           headers:
             Cache-Control: { $ref: '#/components/headers/NoStore' }
             X-Request-ID: { $ref: '#/components/headers/RequestID' }
@@ -155,7 +158,10 @@ paths:
       operationId: resendVerification
       tags: [Auth]
       summary: Resend an email verification link
-      description: Credentials are required. The optional remember_me field is accepted for compatibility and ignored.
+      description: |
+        Credentials are required. The optional remember_me field is accepted for
+        compatibility and ignored. A successful response means the verification
+        email was queued, not delivered; workers retry failures asynchronously.
       requestBody:
         required: true
         content:
@@ -172,16 +178,17 @@ paths:
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
-        '503': { $ref: '#/components/responses/Unavailable' }
   /api/auth/forgot-password:
     post:
       operationId: forgotPassword
       tags: [Auth]
       summary: Request a password reset link
       description: |
-        A valid email is accepted into an in-memory queue before looking up the
-        account. The response is identical for known and unknown emails. Accepted
-        does not guarantee delivery; each account has a one-minute mail cooldown.
+        A valid email request is persisted before looking up the account. The
+        response is identical for known and unknown emails. A successful response
+        means any applicable email was accepted into the durable queue, not
+        delivered; workers retry failures asynchronously. Each account has a
+        one-minute mail cooldown.
       requestBody:
         required: true
         content:
@@ -206,8 +213,9 @@ paths:
       description: |
         Revokes all sessions of the target account, clears its active character
         and consumes all its reset links atomically. Email verification is unchanged.
-        Clears the browser's session cookie on success. Notification delivery
-        failure does not undo the password change or change the successful response.
+        The password change and notification queueing are atomic. Clears the
+        browser's session cookie on success. Notification delivery is asynchronous;
+        a queued message can still fail or be delivered more than once.
       requestBody:
         required: true
         content:
@@ -459,10 +467,12 @@ components:
     RegisterResponse:
       type: object
       additionalProperties: false
-      required: [message, verification_sent]
+      required: [message, verification_queued]
       properties:
         message: { type: string }
-        verification_sent: { type: boolean }
+        verification_queued:
+          type: boolean
+          description: True when the verification email was accepted into the durable queue; this does not guarantee inbox delivery.
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -488,7 +498,6 @@ components:
             - account_conflict
             - email_already_verified
             - verification_token_invalid
-            - mail_delivery_failed
             - password_reset_unavailable
             - password_reset_token_invalid
             - character_not_found
@@ -729,7 +738,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Unavailable:
-      description: mail_delivery_failed, password_reset_unavailable or not_ready
+      description: password_reset_unavailable or not_ready
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
         X-Request-ID: { $ref: '#/components/headers/RequestID' }

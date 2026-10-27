@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"gotest/internal/auth"
 	"gotest/internal/httpapi"
-	"gotest/internal/observability"
 	"gotest/internal/validation"
 )
 
@@ -40,9 +38,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.auth.ResetPassword(r.Context(), auth.ResetPasswordInput{Token: input.Token, Password: input.Password})
-	if errors.Is(err, auth.ErrPasswordChangedDelivery) {
-		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelError, "password_changed_notification_failed", observability.ErrorAttrs(err)...)
-	} else if errors.Is(err, auth.ErrInvalidResetToken) {
+	if errors.Is(err, auth.ErrInvalidResetToken) {
 		httpapi.WriteError(w, 400, "password_reset_token_invalid", "Ссылка смены пароля недействительна или истекла. Запросите новую", nil)
 		return
 	} else if err != nil {

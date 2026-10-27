@@ -21,6 +21,8 @@ func appTestEnvironment(extra ...string) []string {
 		}
 		env = append(env, variable)
 	}
+	// Public fixture key; never used for application data.
+	env = append(env, "MAIL_QUEUE_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 	return append(env, extra...)
 }
 

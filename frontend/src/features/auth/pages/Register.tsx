@@ -19,7 +19,7 @@ export default function Register() {
     setFields(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== name)))
   }
   const [registered, setRegistered] = useState(false)
-  const [verificationSent, setVerificationSent] = useState(false)
+  const [verificationQueued, setVerificationQueued] = useState(false)
 
   const handleRegister = async(e: SubmitEvent) => {
     e.preventDefault()
@@ -30,7 +30,7 @@ export default function Register() {
     try {
       const result = await register(email, login, password)
       setRegistered(true)
-      setVerificationSent(result.verification_sent)
+      setVerificationQueued(result.verification_queued)
       setPassword('')
     } catch (error) {
       const failure = apiError(error, ['email', 'login', 'password'])
@@ -48,11 +48,11 @@ export default function Register() {
       <p>Создайте аккаунт и подтвердите электронную почту по ссылке из письма.</p>
       {error && <p className="flash-error" role="alert">{error}</p>}
       {registered && <div className="flash-success" role="status">
-        {verificationSent
-          ? 'Аккаунт создан. Проверьте почту и подтвердите адрес перед входом.'
-          : 'Аккаунт создан, но письмо отправить не удалось. Повторите отправку на странице входа, указав почту и пароль.'}
+        {verificationQueued
+          ? 'Аккаунт создан. Письмо подтверждения поставлено в очередь на отправку. Это не гарантирует доставку: если письмо не придёт, войдите и запросите повторную отправку.'
+          : 'Аккаунт создан, но письмо подтверждения не удалось поставить в очередь. Попробуйте запросить повторную отправку на странице входа.'}
       </div>}
-      <p className="text-center"><Link to="/login">{registered && !verificationSent ? 'Войти / повторить отправку письма' : 'Войти'}</Link></p>
+      <p className="text-center"><Link to="/login">{registered ? 'Войти / запросить повторную отправку письма' : 'Войти'}</Link></p>
 
       {!registered && <form onSubmit={handleRegister} aria-busy={pending}>
         <div className="text-center form-item">

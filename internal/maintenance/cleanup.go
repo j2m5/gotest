@@ -21,10 +21,10 @@ type Options struct {
 // Result counts confirmed deletions, or matching rows when DryRun is enabled.
 // On a connection failure an unacknowledged statement's commit can be unknown.
 type Result struct {
-	Cutoff                  time.Time
-	Sessions, Verifications int64
-	PasswordResets          int64
-	Batches                 int
+	Cutoff                   time.Time
+	Sessions, Verifications  int64
+	PasswordResets, MailJobs int64
+	Batches                  int
 }
 
 func (o Options) Validate() error {
@@ -53,8 +53,11 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 		err := pool.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM sessions WHERE expires_at <= $1),
 			(SELECT count(*) FROM email_verifications WHERE expired_at <= $1),
-			(SELECT count(*) FROM password_resets WHERE expires_at <= $1)`, result.Cutoff).
-			Scan(&result.Sessions, &result.Verifications, &result.PasswordResets)
+			(SELECT count(*) FROM password_resets WHERE expires_at <= $1),
+			(SELECT count(*) FROM mail_jobs
+			 WHERE (expires_at <= $1 OR failed_at <= $1::timestamptz-interval '24 hours')
+			 AND (leased_until IS NULL OR leased_until <= $1))`, result.Cutoff).
+			Scan(&result.Sessions, &result.Verifications, &result.PasswordResets, &result.MailJobs)
 		if err != nil {
 			return result, fmt.Errorf("preview cleanup: %w", err)
 		}
@@ -77,8 +80,15 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 			SELECT id FROM password_resets WHERE expires_at <= $1 ORDER BY expires_at,id
 			LIMIT $2 FOR UPDATE SKIP LOCKED
 		) DELETE FROM password_resets USING expired WHERE password_resets.id=expired.id`, "password resets", &result.PasswordResets, true},
+		{`WITH expired AS (
+			SELECT id FROM mail_jobs
+			WHERE (expires_at <= $1 OR failed_at <= $1::timestamptz-interval '24 hours')
+			AND (leased_until IS NULL OR leased_until <= $1)
+			ORDER BY expires_at,id LIMIT $2 FOR UPDATE SKIP LOCKED
+		) DELETE FROM mail_jobs USING expired WHERE mail_jobs.id=expired.id`, "mail jobs", &result.MailJobs, true},
 	}
-	for jobs[0].more || jobs[1].more || jobs[2].more {
+	for more := true; more; {
+		more = false
 		for i := range jobs {
 			job := &jobs[i]
 			if !job.more {
@@ -94,6 +104,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 				result.Batches++
 			}
 			job.more = count == int64(options.BatchSize)
+			more = more || job.more
 		}
 	}
 	return result, nil

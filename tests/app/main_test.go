@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -34,15 +33,7 @@ func TestStartupFailuresUseSafeStructuredDiagnostics(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			command := exec.CommandContext(ctx, binary)
 			command.Dir = t.TempDir()
-			for _, variable := range os.Environ() {
-				key, _, _ := strings.Cut(variable, "=")
-				key = strings.ToUpper(key)
-				if key == "DATABASE_URL" || strings.HasPrefix(key, "APP_") || key == "PUBLIC_URL" || key == "STATIC_DIR" || key == "TRUSTED_PROXIES" || key == "SESSION_TTL" || key == "REMEMBER_ME_TTL" || key == "PASSWORD_RESET_TTL" || key == "VERIFICATION_TTL" || strings.HasPrefix(key, "MAIL_") || strings.HasPrefix(key, "SMTP_") {
-					continue
-				}
-				command.Env = append(command.Env, variable)
-			}
-			command.Env = append(command.Env, "DATABASE_URL="+tc.dsn, "APP_PORT="+tc.port, "TRUSTED_PROXIES="+tc.proxies, "MAIL_DRIVER=local")
+			command.Env = appTestEnvironment("DATABASE_URL="+tc.dsn, "APP_PORT="+tc.port, "TRUSTED_PROXIES="+tc.proxies, "MAIL_DRIVER=local")
 			output, err := command.CombinedOutput()
 			if err == nil {
 				t.Fatal("invalid startup configuration succeeded")

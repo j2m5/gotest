@@ -8,38 +8,66 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"gotest/internal/auth"
-	"gotest/internal/background"
 	"gotest/internal/character"
 	"gotest/internal/db"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
+	"gotest/internal/notification"
 	"gotest/internal/routes"
 )
 
-type flowMail struct{ token string }
+type flowMail struct {
+	once   sync.Once
+	tokens chan string
+}
 
-func (m *flowMail) SendPasswordReset(_ context.Context, _, _ string) error { return nil }
-func (m *flowMail) SendPasswordChanged(_ context.Context, _ string) error  { return nil }
+func (m *flowMail) verificationTokens() chan string {
+	m.once.Do(func() { m.tokens = make(chan string, 16) })
+	return m.tokens
+}
 
-func (m *flowMail) SendVerification(_ context.Context, _, token string) error {
-	m.token = token
+func (m *flowMail) Deliver(_ context.Context, delivery notification.Delivery) error {
+	if delivery.Kind == notification.Verification {
+		select {
+		case m.verificationTokens() <- delivery.Token:
+		default:
+		}
+	}
 	return nil
 }
 
-func characterFlowRouter(t *testing.T, s *testStorage, mail auth.EmailSender, options ...auth.Options) (http.Handler, *auth.Service) {
+func (m *flowMail) waitVerification(t *testing.T) string {
+	t.Helper()
+	select {
+	case token := <-m.verificationTokens():
+		return token
+	case <-time.After(5 * time.Second):
+		t.Fatal("durable worker did not deliver verification")
+		return ""
+	}
+}
+
+func characterFlowRouter(t *testing.T, s *testStorage, mail notification.Sender, options ...auth.Options) (http.Handler, *auth.Service) {
 	t.Helper()
 	var authOptions auth.Options
 	if len(options) > 0 {
 		authOptions = options[0]
 	}
-	authService := auth.NewService(s.AuthRepository, mail, authOptions)
-	resetQueue := background.NewPasswordResetQueue(context.Background(), authService, nil)
-	t.Cleanup(resetQueue.Close)
+	authService := auth.NewService(s.AuthRepository, authOptions)
+	worker := notification.NewWorker(db.NewMailQueue(s.pool), testCipher(), mail, func(ctx context.Context, job notification.Job, content notification.Content) error {
+		return authService.ProcessPasswordReset(ctx, auth.QueuedResetRequest{ID: job.ID, Lease: job.Lease, Email: content.Email})
+	}, nil)
+	workerCtx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); worker.Run(workerCtx) }()
+	t.Cleanup(func() { cancel(); <-done })
 	characters := character.NewService(db.NewCharacterRepository(s.pool))
-	h, err := routes.New(handlers.NewHandler(authService, false, resetQueue), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
+	h, err := routes.New(handlers.NewHandler(authService, false, authService), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +96,7 @@ func TestCharacterLifecycleThroughHTTP(t *testing.T) {
 	mail := &flowMail{}
 	h, _ := characterFlowRouter(t, s, mail)
 	flowRequest(t, h, "POST", "/api/auth/register", `{"email":"flow@example.test","login":"flow","password":"browser-password"}`, nil, 201)
-	flowRequest(t, h, "POST", "/api/auth/verify", fmt.Sprintf(`{"token":%q}`, mail.token), nil, 200)
+	flowRequest(t, h, "POST", "/api/auth/verify", fmt.Sprintf(`{"token":%q}`, mail.waitVerification(t)), nil, 200)
 	login := func() *http.Cookie {
 		w := flowRequest(t, h, "POST", "/api/auth/login", `{"email":"flow@example.test","password":"browser-password"}`, nil, 200)
 		cookies := w.Result().Cookies()

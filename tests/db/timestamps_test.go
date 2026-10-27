@@ -30,7 +30,7 @@ func storageInTimeZone(t *testing.T, ctx context.Context, s *testStorage, zone s
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	return &testStorage{AuthRepository: db.NewAuthRepository(pool), pool: pool}
+	return &testStorage{AuthRepository: db.NewAuthRepository(pool, testCipher()), pool: pool}
 }
 
 func timestampSnapshot(t *testing.T, ctx context.Context, s *testStorage) string {
@@ -281,8 +281,8 @@ func TestDatabaseTimestampsHaveTimezone(t *testing.T) {
 		FROM information_schema.columns WHERE table_schema=current_schema()`).Scan(&withZone, &withoutZone); err != nil {
 		t.Fatal(err)
 	}
-	if withZone != 21 || withoutZone != 0 {
-		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 21/0", withZone, withoutZone)
+	if withZone != 26 || withoutZone != 0 {
+		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 26/0", withZone, withoutZone)
 	}
 }
 

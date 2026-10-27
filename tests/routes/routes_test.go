@@ -174,15 +174,15 @@ func TestServiceErrorsHaveStableJSONStatuses(t *testing.T) {
 		})
 	}
 }
-func TestDeliveryFailureReportsCreatedAccountAndAllowsResend(t *testing.T) {
-	h := router(t, &authStub{err: auth.ErrDelivery}, false, 30)
+func TestQueueFailureDoesNotReportRegistrationOrResendSuccess(t *testing.T) {
+	h := router(t, &authStub{err: errors.New("private outbox failure")}, false, 30)
 	w := request(h, "POST", "/api/auth/register", `{"email":"p@example.test","login":"player","password":"password"}`, nil)
-	if w.Code != 201 || !strings.Contains(w.Body.String(), `"verification_sent":false`) {
-		t.Fatalf("registration state lost: %d %s", w.Code, w.Body)
+	if w.Code != 500 || strings.Contains(w.Body.String(), `verification_queued`) || strings.Contains(w.Body.String(), "private") {
+		t.Fatalf("uncommitted registration reported as success: %d %s", w.Code, w.Body)
 	}
 	w = request(h, "POST", "/api/auth/resend-verification", `{"email":"p@example.test","password":"password"}`, nil)
-	if w.Code != 503 {
-		t.Fatalf("delivery retry: %d", w.Code)
+	if w.Code != 500 {
+		t.Fatalf("enqueue failure: %d", w.Code)
 	}
 }
 func TestMalformedBodiesAreRejectedBeforeService(t *testing.T) {
@@ -265,6 +265,7 @@ func TestConfiguredPublicURLBuildsRouterAndKeepsCookieSecure(t *testing.T) {
 				t.Setenv(key, "")
 			}
 			t.Setenv("DATABASE_URL", "postgres://unused/test")
+			t.Setenv("MAIL_QUEUE_KEY", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 			t.Setenv("APP_ENV", "production")
 			t.Setenv("PUBLIC_URL", publicURL)
 			cfg, err := config.Load()

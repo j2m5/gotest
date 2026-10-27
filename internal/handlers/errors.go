@@ -31,9 +31,6 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, 409, "email_already_verified", "Email уже подтверждён", nil)
 	case errors.Is(err, auth.ErrInvalidToken):
 		httpapi.WriteError(w, 400, "verification_token_invalid", "Ссылка подтверждения недействительна или истекла", nil)
-	case errors.Is(err, auth.ErrDelivery):
-		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelError, "mail_delivery_failed", observability.ErrorAttrs(err)...)
-		httpapi.WriteError(w, 503, "mail_delivery_failed", "Не удалось отправить письмо. Повторите отправку позже", nil)
 	case errors.Is(err, character.ErrNotFound):
 		httpapi.WriteError(w, 404, "character_not_found", "Персонаж не найден", nil)
 	case errors.Is(err, character.ErrNameTaken):

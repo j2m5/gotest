@@ -6,13 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"gotest/internal/auth"
-	"gotest/internal/background"
 	"gotest/internal/character"
 	"gotest/internal/config"
 	"gotest/internal/db"
 	"gotest/internal/handlers"
 	"gotest/internal/mailer"
 	"gotest/internal/middleware"
+	"gotest/internal/notification"
 	"gotest/internal/observability"
 	"gotest/internal/routes"
 	"io"
@@ -75,20 +75,31 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return applicationFailure(logger, "mail_configuration", err, slog.String("reason", err.Error()))
 	}
+	cipher, err := notification.NewCipher(cfg.MailQueueKey)
+	if err != nil {
+		return applicationFailure(logger, "mail_queue_configuration", err)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	startup, cancel := context.WithTimeout(ctx, 10*time.Second)
 	pool, err := db.Open(startup, cfg.DatabaseURL)
-	cancel()
 	if err != nil {
+		cancel()
 		return applicationFailure(logger, "database", err)
 	}
 	defer pool.Close()
-	service := auth.NewService(db.NewAuthRepository(pool), sender, auth.Options{SessionTTL: cfg.SessionTTL, RememberMeTTL: cfg.RememberMeTTL, VerificationTTL: cfg.VerificationTTL, PasswordResetTTL: cfg.PasswordResetTTL})
-	resetRequests := background.NewPasswordResetQueue(ctx, service, logger)
-	defer resetRequests.Close()
+	queue := db.NewMailQueue(pool)
+	err = queue.ValidateKey(startup, cipher.KeyID())
+	cancel()
+	if err != nil {
+		return applicationFailure(logger, "mail_queue_configuration", err, slog.String("reason", "check migrations and MAIL_QUEUE_KEY for pending notifications"))
+	}
+	service := auth.NewService(db.NewAuthRepository(pool, cipher), auth.Options{SessionTTL: cfg.SessionTTL, RememberMeTTL: cfg.RememberMeTTL, VerificationTTL: cfg.VerificationTTL, PasswordResetTTL: cfg.PasswordResetTTL})
+	worker := notification.NewWorker(queue, cipher, sender, func(ctx context.Context, job notification.Job, content notification.Content) error {
+		return service.ProcessPasswordReset(ctx, auth.QueuedResetRequest{ID: job.ID, Lease: job.Lease, Email: content.Email})
+	}, logger)
 	characterService := character.NewService(db.NewCharacterRepository(pool))
-	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), resetRequests), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
+	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), service), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: cfg.StaticDir, RequireStatic: cfg.AppEnv == "production", TrustedOrigin: cfg.PublicURL, TrustedProxies: cfg.TrustedProxies, Logger: logger,
 		Ready: pool.Ping, Lifecycle: ctx,
 	})
@@ -102,6 +113,10 @@ func run(logger *slog.Logger) error {
 		return applicationFailure(logger, "http_listen", err)
 	}
 	defer listener.Close()
+	workerCtx, stopWorker := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+	go func() { defer close(workerDone); worker.Run(workerCtx) }()
+	defer func() { stopWorker(); <-workerDone }()
 	finished := make(chan error, 1)
 	go func() { finished <- server.Serve(listener) }()
 	logger.Info("http_started", "port", cfg.AppPort, "mail_driver", cfg.Mail.Driver)

@@ -14,8 +14,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create an account and send an email verification link
-         * @description A mail delivery failure still creates the account and returns 201 with verification_sent=false.
+         * Create an account and queue an email verification link
+         * @description Account creation and queueing the verification email are atomic.
          */
         post: operations["register"];
         delete?: never;
@@ -118,7 +118,9 @@ export interface paths {
         put?: never;
         /**
          * Resend an email verification link
-         * @description Credentials are required. The optional remember_me field is accepted for compatibility and ignored.
+         * @description Credentials are required. The optional remember_me field is accepted for
+         *     compatibility and ignored. A successful response means the verification
+         *     email was queued, not delivered; workers retry failures asynchronously.
          */
         post: operations["resendVerification"];
         delete?: never;
@@ -138,9 +140,11 @@ export interface paths {
         put?: never;
         /**
          * Request a password reset link
-         * @description A valid email is accepted into an in-memory queue before looking up the
-         *     account. The response is identical for known and unknown emails. Accepted
-         *     does not guarantee delivery; each account has a one-minute mail cooldown.
+         * @description A valid email request is persisted before looking up the account. The
+         *     response is identical for known and unknown emails. A successful response
+         *     means any applicable email was accepted into the durable queue, not
+         *     delivered; workers retry failures asynchronously. Each account has a
+         *     one-minute mail cooldown.
          */
         post: operations["forgotPassword"];
         delete?: never;
@@ -162,8 +166,9 @@ export interface paths {
          * Replace a password using a single-use reset link
          * @description Revokes all sessions of the target account, clears its active character
          *     and consumes all its reset links atomically. Email verification is unchanged.
-         *     Clears the browser's session cookie on success. Notification delivery
-         *     failure does not undo the password change or change the successful response.
+         *     The password change and notification queueing are atomic. Clears the
+         *     browser's session cookie on success. Notification delivery is asynchronous;
+         *     a queued message can still fail or be delivered more than once.
          */
         post: operations["resetPassword"];
         delete?: never;
@@ -316,12 +321,13 @@ export interface components {
         };
         RegisterResponse: {
             message: string;
-            verification_sent: boolean;
+            /** @description True when the verification email was accepted into the durable queue; this does not guarantee inbox delivery. */
+            verification_queued: boolean;
         };
         ErrorResponse: {
             error: string;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "email_already_verified" | "verification_token_invalid" | "mail_delivery_failed" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready";
+            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready";
             fields?: {
                 [key: string]: string[];
             };
@@ -565,7 +571,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description mail_delivery_failed, password_reset_unavailable or not_ready */
+        /** @description password_reset_unavailable or not_ready */
         Unavailable: {
             headers: {
                 "Cache-Control": components["headers"]["NoStore"];
@@ -607,7 +613,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Account created; verification_sent reports mail delivery */
+            /** @description Account created and verification email accepted into the durable queue */
             201: {
                 headers: {
                     "Cache-Control": components["headers"]["NoStore"];
@@ -756,7 +762,6 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
-            503: components["responses"]["Unavailable"];
         };
     };
     forgotPassword: {

@@ -224,7 +224,6 @@ func TestOpenAPIOperations(t *testing.T) {
 	token := strings.Repeat("a", 64)
 	cases := []contractCase{
 		{name: "register", method: "POST", path: "/api/auth/register", body: `{"email":"p@example.test","login":"player","password":"password"}`, status: 201},
-		{name: "register mail failed", method: "POST", path: "/api/auth/register", body: `{"email":"p@example.test","login":"player","password":"password"}`, authErr: auth.ErrDelivery, status: 201},
 		{name: "login session", method: "POST", path: "/api/auth/login", body: `{"email":"p@example.test","password":"password"}`, status: 200},
 		{name: "login remembered", method: "POST", path: "/api/auth/login", body: `{"email":"p@example.test","password":"password","remember_me":true}`, status: 200},
 		{name: "login null remember", method: "POST", path: "/api/auth/login", body: `{"email":"p@example.test","password":"password","remember_me":null}`, status: 200},
@@ -237,7 +236,6 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "resend verification", method: "POST", path: "/api/auth/resend-verification", body: `{"email":"p@example.test","password":"password"}`, status: 200},
 		{name: "forgot password", method: "POST", path: "/api/auth/forgot-password", body: `{"email":"p@example.test"}`, status: 200},
 		{name: "reset password", method: "POST", path: "/api/auth/reset-password", body: `{"token":"` + token + `","password":"password"}`, status: 200},
-		{name: "reset notice failed", method: "POST", path: "/api/auth/reset-password", body: `{"token":"` + token + `","password":"password"}`, authErr: auth.ErrPasswordChangedDelivery, status: 200},
 		{name: "empty roster", method: "GET", path: "/api/characters", empty: true, status: 200},
 		{name: "roster null avatar", method: "GET", path: "/api/characters", status: 200},
 		{name: "roster with avatar", method: "GET", path: "/api/characters", filled: true, status: 200},
@@ -323,7 +321,7 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 		{name: "bad verification token", method: "POST", path: "/api/auth/verify", body: `{"token":"` + token + `"}`, authErr: auth.ErrInvalidToken, status: 400},
 		{name: "resend bad credentials", method: "POST", path: "/api/auth/resend-verification", body: credentials, authErr: auth.ErrInvalidCredentials, status: 401},
 		{name: "already verified", method: "POST", path: "/api/auth/resend-verification", body: credentials, authErr: auth.ErrAlreadyVerified, status: 409},
-		{name: "mail unavailable", method: "POST", path: "/api/auth/resend-verification", body: credentials, authErr: auth.ErrDelivery, status: 503},
+		{name: "outbox unavailable", method: "POST", path: "/api/auth/resend-verification", body: credentials, authErr: failure, status: 500},
 		{name: "forgot invalid email", method: "POST", path: "/api/auth/forgot-password", body: `{"email":"bad"}`, authErr: invalid, status: 422},
 		{name: "reset queue unavailable", method: "POST", path: "/api/auth/forgot-password", body: `{"email":"p@example.test"}`, authErr: failure, status: 503},
 		{name: "bad reset token", method: "POST", path: "/api/auth/reset-password", body: reset, authErr: auth.ErrInvalidResetToken, status: 400},

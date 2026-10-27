@@ -23,7 +23,8 @@ func TestLoginSessionLifetimesAndRevocation(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				ctx := context.Background()
 				repo, sender := newMemoryRepository(), &recordingSender{}
-				s := auth.NewService(repo, sender, tc.options)
+				repo.mail = sender
+				s := auth.NewService(repo, tc.options)
 				registerFixture(t, s)
 				input := auth.LoginInput{Email: "person@example.test", Password: "good password", RememberMe: true}
 				if _, err := s.Login(ctx, input); !errors.Is(err, auth.ErrUnverified) || len(repo.sessions) != 0 {

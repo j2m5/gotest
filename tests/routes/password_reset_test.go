@@ -43,7 +43,7 @@ func TestResetPasswordFailuresAndNotificationOutcome(t *testing.T) {
 		{"token", auth.ErrInvalidResetToken, 400, "password_reset_token_invalid"},
 		{"password", &validation.Error{Fields: validation.Fields{"password": {"invalid"}}}, 422, "validation_failed"},
 		{"storage", errors.New("private database detail"), 500, "internal_error"},
-		{"notice", errors.Join(auth.ErrPasswordChangedDelivery, errors.New("private SMTP detail")), 200, ""},
+		{"notice queue", errors.New("private outbox detail"), 500, "internal_error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := request(router(t, &authStub{err: tc.err}, true, 30), "POST", "/api/auth/reset-password", `{"token":"token","password":"password"}`, nil)

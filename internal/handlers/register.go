@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"errors"
 	"gotest/internal/auth"
 	"gotest/internal/httpapi"
-	"gotest/internal/observability"
-	"log/slog"
 	"net/http"
 )
 
@@ -21,16 +18,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.auth.Register(r.Context(), auth.RegisterInput{Email: input.Email, Login: input.Login, Password: input.Password})
-	if errors.Is(err, auth.ErrDelivery) {
-		observability.Logger(r.Context()).LogAttrs(r.Context(), slog.LevelWarn, "registration_mail_failed", observability.ErrorAttrs(err)...)
-		httpapi.WriteJSON(w, 201, map[string]any{"message": "Аккаунт создан, но письмо не отправлено. Повторите отправку на странице входа", "verification_sent": false})
-		return
-	}
 	if err != nil {
 		respondError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, 201, map[string]any{"message": "Аккаунт создан. Проверьте почту для подтверждения email", "verification_sent": true})
+	httpapi.WriteJSON(w, 201, map[string]any{"message": "Аккаунт создан. Письмо подтверждения поставлено в очередь", "verification_queued": true})
 }
 func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
@@ -58,5 +50,5 @@ func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, err)
 		return
 	}
-	httpapi.WriteJSON(w, 200, map[string]string{"message": "Письмо подтверждения отправлено"})
+	httpapi.WriteJSON(w, 200, map[string]string{"message": "Письмо подтверждения поставлено в очередь"})
 }

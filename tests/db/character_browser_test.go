@@ -12,17 +12,20 @@ import (
 
 	"gotest/internal/auth"
 	"gotest/internal/mailer"
+	"gotest/internal/notification"
 	"gotest/tests/testenv"
 )
 
 type browserMail struct {
-	auth.EmailSender
-	verificationToken string
+	flowMail
+	sender notification.Sender
 }
 
-func (m *browserMail) SendVerification(ctx context.Context, email, token string) error {
-	m.verificationToken = token
-	return m.EmailSender.SendVerification(ctx, email, token)
+func (m *browserMail) Deliver(ctx context.Context, delivery notification.Delivery) error {
+	if err := m.sender.Deliver(ctx, delivery); err != nil {
+		return err
+	}
+	return m.flowMail.Deliver(ctx, delivery)
 }
 
 // This optional smoke test uses the real built SPA, HTTP API and isolated SQL
@@ -40,12 +43,12 @@ func TestCharacterBrowserFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mail := &browserMail{EmailSender: delivery}
+	mail := &browserMail{sender: delivery}
 	h, service := characterFlowRouter(t, s, mail)
 	if err := service.Register(ctx, auth.RegisterInput{Email: "browser@example.test", Login: "browser", Password: "browser-password"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.VerifyEmail(ctx, mail.verificationToken); err != nil {
+	if err := service.VerifyEmail(ctx, mail.waitVerification(t)); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Register(ctx, auth.RegisterInput{Email: "unverified@example.test", Login: "unverified", Password: "browser-password"}); err != nil {

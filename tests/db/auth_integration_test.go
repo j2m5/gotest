@@ -65,7 +65,7 @@ func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context)
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	s := &testStorage{AuthRepository: db.NewAuthRepository(pool), pool: pool}
+	s := &testStorage{AuthRepository: db.NewAuthRepository(pool, testCipher()), pool: pool}
 	for _, name := range []string{"000001_create_users.up.sql", "20260514075823_create_sessions.up.sql", "20260516144648_create_email_verifications.up.sql"} {
 		executeMigration(t, ctx, s, name)
 	}
@@ -138,9 +138,10 @@ func TestAuthRegistrationRollbackAndConflicts(t *testing.T) {
 func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
 	now := time.Now().Truncate(time.Microsecond)
-	if err := s.CreateRegistration(ctx, auth.Registration{Email: "user@example.com", Login: "user", PasswordHash: "hash", VerificationTokenHash: "expired", VerificationExpiresAt: now}); err != nil {
+	if err := s.CreateRegistration(ctx, auth.Registration{Email: "user@example.com", Login: "user", PasswordHash: "hash", VerificationTokenHash: "expired", VerificationExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
+	mustExec(t, ctx, s, `UPDATE email_verifications SET expired_at=$1 WHERE token='expired'`, now)
 	if err := s.ConsumeVerification(ctx, "expired", now); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("exact expiry: %v", err)
 	}

@@ -105,7 +105,7 @@ func protocolStorage(t *testing.T, code string) *db.AuthRepository {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	return db.NewAuthRepository(pool)
+	return db.NewAuthRepository(pool, testCipher())
 }
 
 func TestAuthErrorClassification(t *testing.T) {

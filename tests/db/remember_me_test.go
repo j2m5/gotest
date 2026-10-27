@@ -14,7 +14,7 @@ func TestLoginSessionModesThroughHTTPAndPostgres(t *testing.T) {
 	mail := &flowMail{}
 	h, _ := characterFlowRouter(t, s, mail, auth.Options{SessionTTL: 2 * time.Hour, RememberMeTTL: 48 * time.Hour})
 	flowRequest(t, h, "POST", "/api/auth/register", `{"email":"remember@example.test","login":"remember","password":"browser-password"}`, nil, 201)
-	flowRequest(t, h, "POST", "/api/auth/verify", fmt.Sprintf(`{"token":%q}`, mail.token), nil, 200)
+	flowRequest(t, h, "POST", "/api/auth/verify", fmt.Sprintf(`{"token":%q}`, mail.waitVerification(t)), nil, 200)
 	login := func(remember bool, ttl time.Duration) *http.Cookie {
 		t.Helper()
 		before := time.Now()

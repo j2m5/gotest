@@ -217,7 +217,7 @@ func sessionFor(t *testing.T, ctx context.Context, s *testStorage, userID int, m
 
 func TestLogoutClearsSharedSelectionAndPreservesOtherSessions(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	service := auth.NewService(s, nil, auth.Options{})
+	service := auth.NewService(s.AuthRepository, auth.Options{})
 	first := sessionFor(t, ctx, s, 1, "a", time.Now().Add(time.Hour))
 	otherDevice := sessionFor(t, ctx, s, 1, "b", time.Now().Add(time.Hour))
 	otherAccount := sessionFor(t, ctx, s, 2, "c", time.Now().Add(time.Hour))
@@ -253,7 +253,7 @@ func TestLogoutClearsSharedSelectionAndPreservesOtherSessions(t *testing.T) {
 
 func TestExpiredLogoutCannotChangeSelection(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	service := auth.NewService(s, nil, auth.Options{})
+	service := auth.NewService(s.AuthRepository, auth.Options{})
 	raw := sessionFor(t, ctx, s, 1, "a", time.Now().Add(-time.Hour))
 	mustExec(t, ctx, s, "UPDATE users SET character_id=1 WHERE id=1")
 	if err := service.Logout(ctx, raw); err != nil {
@@ -270,7 +270,7 @@ func TestExpiredLogoutCannotChangeSelection(t *testing.T) {
 
 func TestLogoutRollsBackRevocationIfSelectionResetFails(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	service := auth.NewService(s, nil, auth.Options{})
+	service := auth.NewService(s.AuthRepository, auth.Options{})
 	raw := sessionFor(t, ctx, s, 1, "a", time.Now().Add(time.Hour))
 	mustExec(t, ctx, s, `UPDATE users SET character_id=1 WHERE id=1;
 		CREATE FUNCTION reject_selection_reset() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected reset failure'; END $$;
@@ -288,7 +288,7 @@ func TestLogoutRollsBackRevocationIfSelectionResetFails(t *testing.T) {
 
 func TestLogoutRechecksSessionAfterWaitingForAccountLock(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	service := auth.NewService(s, nil, auth.Options{})
+	service := auth.NewService(s.AuthRepository, auth.Options{})
 	raw := sessionFor(t, ctx, s, 1, "a", time.Now().Add(time.Hour))
 	mustExec(t, ctx, s, "UPDATE users SET character_id=1 WHERE id=1")
 	blocker, err := s.pool.Begin(ctx)

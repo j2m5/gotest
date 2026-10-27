@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"gotest/internal/notification"
 	"mime/quotedprintable"
 	"net"
 	"net/mail"
@@ -108,6 +109,52 @@ func (m *Mailer) link(path, token string) string {
 	return link.String()
 }
 
+// Deliver preserves the queue identity and creation date across retries.
+func (m *Mailer) Deliver(ctx context.Context, d notification.Delivery) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !validQueueHex(d.ID) || d.CreatedAt.IsZero() || !validAddress(d.Email) {
+		return errors.New("invalid queued mail metadata")
+	}
+	var subject, body string
+	switch d.Kind {
+	case notification.Verification:
+		if !validQueueHex(d.Token) {
+			return errors.New("invalid queued mail token")
+		}
+		subject = "Verify your email address"
+		body = fmt.Sprintf("Please confirm your email address by opening this link:\r\n\r\n%s\r\n", m.link("/verify", d.Token))
+	case notification.PasswordReset:
+		if !validQueueHex(d.Token) {
+			return errors.New("invalid queued mail token")
+		}
+		subject = "Reset your password"
+		body = fmt.Sprintf("Use this single-use link to reset your password:\r\n\r\n%s\r\n\r\nIf you did not request a password reset, you can ignore this email.\r\n", m.link("/reset-password", d.Token))
+	case notification.PasswordChanged:
+		if d.Token != "" {
+			return errors.New("invalid queued mail token")
+		}
+		subject = "Your password was changed"
+		body = "Your password was changed. All sessions have been closed. Please sign in again.\r\n\r\nIf you did not make this change, contact support.\r\n"
+	default:
+		return errors.New("invalid queued mail kind")
+	}
+	return m.sendMessage(ctx, d.Email, subject, "deliver queued email", body, d.ID, d.CreatedAt)
+}
+
+func validQueueHex(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, r := range value {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *Mailer) send(ctx context.Context, email, subject, failure string, render func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -119,14 +166,18 @@ func (m *Mailer) send(ctx context.Context, email, subject, failure string, rende
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
 	id := make([]byte, 16)
 	if _, err := rand.Read(id); err != nil {
 		return fmt.Errorf("message identifier: %w", err)
 	}
+	return m.sendMessage(ctx, email, subject, failure, body, hex.EncodeToString(id), time.Now())
+}
+
+func (m *Mailer) sendMessage(ctx context.Context, email, subject, failure, body, id string, created time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
 	var message bytes.Buffer
-	fmt.Fprintf(&message, "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMessage-ID: <%s@%s>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", m.from, email, subject, time.Now().UTC().Format(time.RFC1123Z), hex.EncodeToString(id), m.publicURL.Hostname())
+	fmt.Fprintf(&message, "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMessage-ID: <%s@%s>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", m.from, email, subject, created.UTC().Format(time.RFC1123Z), id, m.publicURL.Hostname())
 	writer := quotedprintable.NewWriter(&message)
 	if _, err := writer.Write([]byte(body)); err != nil {
 		return err

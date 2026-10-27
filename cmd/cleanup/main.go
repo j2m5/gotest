@@ -38,7 +38,7 @@ func run(logger *slog.Logger) error {
 	flags.SetOutput(io.Discard)
 	batch := flags.Int("batch-size", maintenance.DefaultBatchSize, "maximum rows per DELETE (1..10000)")
 	timeout := flags.Duration("timeout", time.Minute, "time limit including database connection")
-	dryRun := flags.Bool("dry-run", false, "count expired rows without deleting")
+	dryRun := flags.Bool("dry-run", false, "count cleanup candidates without deleting")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			flags.SetOutput(os.Stdout)
@@ -84,9 +84,9 @@ func run(logger *slog.Logger) error {
 	event := "cleanup_completed"
 	if options.DryRun {
 		event = "cleanup_preview"
-		attrs = append(attrs, slog.Int64("sessions_matched", result.Sessions), slog.Int64("verifications_matched", result.Verifications), slog.Int64("password_resets_matched", result.PasswordResets))
+		attrs = append(attrs, slog.Int64("sessions_matched", result.Sessions), slog.Int64("verifications_matched", result.Verifications), slog.Int64("password_resets_matched", result.PasswordResets), slog.Int64("mail_jobs_matched", result.MailJobs))
 	} else {
-		attrs = append(attrs, slog.Int64("sessions_deleted", result.Sessions), slog.Int64("verifications_deleted", result.Verifications), slog.Int64("password_resets_deleted", result.PasswordResets))
+		attrs = append(attrs, slog.Int64("sessions_deleted", result.Sessions), slog.Int64("verifications_deleted", result.Verifications), slog.Int64("password_resets_deleted", result.PasswordResets), slog.Int64("mail_jobs_deleted", result.MailJobs))
 	}
 	if err != nil {
 		return failure(logger, "cleanup", err, attrs...)

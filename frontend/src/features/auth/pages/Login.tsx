@@ -49,7 +49,7 @@ export default function Login() {
     setMessage('')
     try {
       await resendVerification(email, password)
-      setMessage('Письмо отправлено. Перейдите по ссылке в письме для подтверждения почты.')
+      setMessage('Письмо подтверждения поставлено в очередь. Когда оно придёт, перейдите по ссылке в письме.')
       setPassword('')
     } catch (error) {
       setError(apiError(error).message)

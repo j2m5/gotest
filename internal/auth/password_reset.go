@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -17,16 +16,28 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 	if err != nil {
 		return err
 	}
-	token := newToken()
-	created, err := s.repository.CreatePasswordReset(ctx, email, TokenDigest(token), s.now().Add(s.options.PasswordResetTTL))
+	if err := s.repository.EnqueuePasswordReset(ctx, email, s.now().Add(s.options.PasswordResetTTL)); err != nil {
+		return fmt.Errorf("enqueue password reset: %w", err)
+	}
+	return nil
+}
+
+// ProcessPasswordReset runs only from the durable worker. Persistence consumes
+// the input lease atomically even for unknown accounts or cooldown suppression.
+func (s *Service) ProcessPasswordReset(ctx context.Context, request QueuedResetRequest) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	email, err := ValidatePasswordResetEmail(request.Email)
 	if err != nil {
-		return fmt.Errorf("create password reset: %w", err)
+		return err
 	}
-	if !created {
-		return nil
-	}
-	if err := s.sender.SendPasswordReset(ctx, email, token); err != nil {
-		return errors.Join(ErrDelivery, fmt.Errorf("send password reset: %w", err))
+	token := newToken()
+	_, err = s.repository.CreatePasswordReset(ctx, PasswordReset{Email: email, Token: token,
+		TokenHash: TokenDigest(token), ExpiresAt: s.now().Add(s.options.PasswordResetTTL),
+		RequestID: request.ID, RequestLease: request.Lease})
+	if err != nil {
+		return fmt.Errorf("process password reset: %w", err)
 	}
 	return nil
 }
@@ -45,12 +56,9 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	if err != nil {
 		return fmt.Errorf("hash reset password: %w", err)
 	}
-	email, err := s.repository.ResetPassword(ctx, TokenDigest(input.Token), string(password))
+	_, err = s.repository.ResetPassword(ctx, TokenDigest(input.Token), string(password))
 	if err != nil {
 		return fmt.Errorf("reset password: %w", err)
-	}
-	if err := s.sender.SendPasswordChanged(ctx, email); err != nil {
-		return errors.Join(ErrPasswordChangedDelivery, err)
 	}
 	return nil
 }

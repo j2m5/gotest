@@ -21,7 +21,7 @@ var dummyPasswordHash = func() []byte {
 	return hash
 }()
 
-func NewService(repository Repository, sender EmailSender, options Options) *Service {
+func NewService(repository Repository, options Options) *Service {
 	if options.SessionTTL <= 0 {
 		options.SessionTTL = 24 * time.Hour
 	}
@@ -34,7 +34,7 @@ func NewService(repository Repository, sender EmailSender, options Options) *Ser
 	if options.PasswordResetTTL <= 0 {
 		options.PasswordResetTTL = 30 * time.Minute
 	}
-	return &Service{repository: repository, sender: sender, options: options, now: time.Now, passwordCost: bcrypt.DefaultCost}
+	return &Service{repository: repository, options: options, now: time.Now, passwordCost: bcrypt.DefaultCost}
 }
 func (s *Service) Register(ctx context.Context, input RegisterInput) error {
 	if err := ctx.Err(); err != nil {
@@ -55,12 +55,13 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) error {
 		Login:                 input.Login,
 		PasswordHash:          string(password),
 		VerificationTokenHash: TokenDigest(token),
+		VerificationToken:     token,
 		VerificationExpiresAt: s.now().Add(s.options.VerificationTTL),
 	}
 	if err = s.repository.CreateRegistration(ctx, registration); err != nil {
 		return fmt.Errorf("create registration: %w", err)
 	}
-	return s.deliver(ctx, input.Email, token)
+	return nil
 }
 func (s *Service) Login(ctx context.Context, input LoginInput) (*LoginResult, error) {
 	credentials, err := s.checkCredentials(ctx, input.Email, input.Password)
@@ -123,10 +124,10 @@ func (s *Service) ResendVerification(ctx context.Context, email, password string
 		return ErrAlreadyVerified
 	}
 	token := newToken()
-	if err = s.repository.ReplaceVerification(ctx, user.ID, TokenDigest(token), s.now().Add(s.options.VerificationTTL)); err != nil {
+	if err = s.repository.ReplaceVerification(ctx, Verification{UserID: user.ID, Token: token, TokenHash: TokenDigest(token), ExpiresAt: s.now().Add(s.options.VerificationTTL)}); err != nil {
 		return fmt.Errorf("replace verification: %w", err)
 	}
-	return s.deliver(ctx, user.Email, token)
+	return nil
 }
 func (s *Service) checkCredentials(ctx context.Context, email, password string) (*Credentials, error) {
 	if err := ctx.Err(); err != nil {
@@ -151,12 +152,6 @@ func (s *Service) checkCredentials(ctx context.Context, email, password string) 
 		return nil, fmt.Errorf("check stored password: %w", err)
 	}
 	return credentials, nil
-}
-func (s *Service) deliver(ctx context.Context, email, token string) error {
-	if err := s.sender.SendVerification(ctx, email, token); err != nil {
-		return errors.Join(ErrDelivery, fmt.Errorf("send verification: %w", err))
-	}
-	return nil
 }
 func newToken() string {
 	var token [32]byte

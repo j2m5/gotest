@@ -25,7 +25,7 @@ func TestReadinessTracksRealDatabaseAvailability(t *testing.T) {
 		t.Fatal("cannot configure dedicated test pool")
 	}
 	t.Cleanup(pool.Close)
-	service := auth.NewService(db.NewAuthRepository(pool), &flowMail{}, auth.Options{})
+	service := auth.NewService(db.NewAuthRepository(pool, testCipher()), auth.Options{})
 	h, err := routes.New(handlers.NewHandler(service, false, service), handlers.NewCharacterHandler(character.NewService(db.NewCharacterRepository(pool))), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: t.TempDir(), Ready: pool.Ping, Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	})

@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gotest/internal/auth"
+	"gotest/internal/notification"
 )
 
 var _ auth.Repository = (*AuthRepository)(nil)
@@ -35,6 +36,13 @@ func (s *AuthRepository) CreateRegistration(ctx context.Context, registration au
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO email_verifications(user_id,token,expired_at) VALUES($1,$2,$3)`, userID, registration.VerificationTokenHash, registration.VerificationExpiresAt); err != nil {
 		return authStorageError(err)
+	}
+	message, err := s.cipher.Seal(notification.Verification, registration.Email, registration.VerificationToken, registration.VerificationExpiresAt)
+	if err != nil {
+		return err
+	}
+	if err := enqueueMail(ctx, tx, message, &userID); err != nil {
+		return err
 	}
 	return authStorageError(tx.Commit(ctx))
 }

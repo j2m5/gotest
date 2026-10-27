@@ -25,6 +25,9 @@ type memoryRepository struct {
 	err             error
 	credentialReads int
 	resets          map[string]resetRecord
+	mail            *recordingSender
+	requests        []auth.QueuedResetRequest
+	requestExpires  []time.Time
 }
 
 func newMemoryRepository() *memoryRepository {
@@ -45,6 +48,9 @@ func (m *memoryRepository) CreateRegistration(ctx context.Context, registration 
 		if u.User.Email == registration.Email || u.User.Login == registration.Login {
 			return auth.ErrConflict
 		}
+	}
+	if err := m.mail.SendVerification(ctx, registration.Email, registration.VerificationToken); err != nil {
+		return err
 	}
 	u := &auth.Credentials{
 		User:         auth.Identity{ID: len(m.users) + 1, Email: registration.Email, Login: registration.Login},
@@ -137,7 +143,8 @@ func (m *memoryRepository) ConsumeVerification(ctx context.Context, token string
 	}
 	return nil
 }
-func (m *memoryRepository) ReplaceVerification(ctx context.Context, id int, token string, expires time.Time) error {
+func (m *memoryRepository) ReplaceVerification(ctx context.Context, input auth.Verification) error {
+	id, token, expires := input.UserID, input.TokenHash, input.ExpiresAt
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -147,6 +154,13 @@ func (m *memoryRepository) ReplaceVerification(ctx context.Context, id int, toke
 	for _, u := range m.users {
 		if u.User.ID == id && u.User.EmailVerifiedAt != nil {
 			return auth.ErrAlreadyVerified
+		}
+	}
+	for _, u := range m.users {
+		if u.User.ID == id {
+			if err := m.mail.SendVerification(ctx, u.User.Email, input.Token); err != nil {
+				return err
+			}
 		}
 	}
 	for k, v := range m.verifications {
@@ -161,6 +175,8 @@ func (m *memoryRepository) ReplaceVerification(ctx context.Context, id int, toke
 	return nil
 }
 
+// recordingSender captures committed outbox content at the repository boundary;
+// these helpers never invoke a transport or contact SMTP.
 type recordingSender struct {
 	email, token             string
 	err                      error
@@ -173,6 +189,9 @@ func (m *recordingSender) SendVerification(ctx context.Context, email, token str
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if m.err != nil {
+		return m.err
+	}
 	m.email, m.token = email, token
 	m.count++
 	return m.err
@@ -180,7 +199,8 @@ func (m *recordingSender) SendVerification(ctx context.Context, email, token str
 func fixture(t *testing.T) (*auth.Service, *memoryRepository, *recordingSender) {
 	t.Helper()
 	repo, mail := newMemoryRepository(), &recordingSender{}
-	s := auth.NewService(repo, mail, auth.Options{SessionTTL: time.Hour, VerificationTTL: 30 * time.Minute})
+	repo.mail = mail
+	s := auth.NewService(repo, auth.Options{SessionTTL: time.Hour, VerificationTTL: 30 * time.Minute})
 	return s, repo, mail
 }
 func registerFixture(t *testing.T, s *auth.Service) {
@@ -265,19 +285,29 @@ func TestExpiredTokensAreRejectedAtBoundary(t *testing.T) {
 	})
 }
 
-func TestMailFailureCanBeRecoveredWithoutAnotherAccount(t *testing.T) {
+func TestRegistrationAndResendOutboxFailuresPreserveAtomicState(t *testing.T) {
 	s, repo, mail := fixture(t)
 	ctx := context.Background()
-	mail.err = errors.New("smtp unavailable")
+	failure := errors.New("outbox unavailable")
+	mail.err = failure
 	err := s.Register(ctx, auth.RegisterInput{Email: "person@example.test", Login: "player", Password: "good password"})
-	if !errors.Is(err, auth.ErrDelivery) || len(repo.users) != 1 {
-		t.Fatalf("delivery failure must preserve created account: %v", err)
+	if !errors.Is(err, failure) || len(repo.users) != 0 || len(repo.verifications) != 0 || mail.count != 0 {
+		t.Fatalf("outbox failure must roll back registration: %v", err)
 	}
-	old := mail.token
 	mail.err = nil
+	registerFixture(t, s)
+	old := mail.token
 	if err = s.ResendVerification(ctx, "person@example.test", "wrong password"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Fatalf("unauthorized resend: %v", err)
 	}
+	mail.err = failure
+	if err = s.ResendVerification(ctx, "person@example.test", "good password"); !errors.Is(err, failure) {
+		t.Fatalf("enqueue error lost: %v", err)
+	}
+	if _, ok := repo.verifications[auth.TokenDigest(old)]; !ok || mail.count != 1 {
+		t.Fatal("failed resend replaced token")
+	}
+	mail.err = nil
 	if err = s.ResendVerification(ctx, "person@example.test", "good password"); err != nil {
 		t.Fatal(err)
 	}

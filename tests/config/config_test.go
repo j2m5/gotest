@@ -12,10 +12,12 @@ import (
 
 func clearConfigEnv(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "STATIC_DIR", "TRUSTED_PROXIES", "SESSION_TTL", "REMEMBER_ME_TTL", "PASSWORD_RESET_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
+	for _, key := range []string{"DATABASE_URL", "APP_PORT", "APP_ENV", "PUBLIC_URL", "STATIC_DIR", "TRUSTED_PROXIES", "SESSION_TTL", "REMEMBER_ME_TTL", "PASSWORD_RESET_TTL", "VERIFICATION_TTL", "MAIL_DRIVER", "MAIL_FROM", "MAIL_DIR", "MAIL_QUEUE_KEY", "SMTP_ADDR", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TLS_MODE", "SMTP_TIMEOUT"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
+	// Public test fixture, never used as an application secret.
+	t.Setenv("MAIL_QUEUE_KEY", publicQueueKey)
 }
 
 func TestLoadDefaults(t *testing.T) {

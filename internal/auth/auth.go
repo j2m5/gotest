@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// Repository owns persistence and atomic state changes. Token arguments are SHA-256 digests.
+// Repository owns persistence and atomic state changes. Lookup keys are SHA-256
+// digests; transient raw email tokens must be encrypted before persistence.
 type Repository interface {
 	CreateRegistration(context.Context, Registration) error
 	FindCredentialsByEmail(context.Context, string) (*Credentials, error)
@@ -15,14 +16,10 @@ type Repository interface {
 	// selection atomically if the session still exists and has not expired.
 	DeleteSession(context.Context, string) error
 	ConsumeVerification(context.Context, string, time.Time) error
-	ReplaceVerification(context.Context, int, string, time.Time) error
-	CreatePasswordReset(context.Context, string, string, time.Time) (bool, error)
+	ReplaceVerification(context.Context, Verification) error
+	EnqueuePasswordReset(context.Context, string, time.Time) error
+	CreatePasswordReset(context.Context, PasswordReset) (bool, error)
 	ResetPassword(context.Context, string, string) (string, error)
-}
-type EmailSender interface {
-	SendVerification(context.Context, string, string) error
-	SendPasswordReset(context.Context, string, string) error
-	SendPasswordChanged(context.Context, string) error
 }
 
 // Identity is the account data needed by authenticated application code. It
@@ -50,7 +47,32 @@ type Registration struct {
 	Login                 string
 	PasswordHash          string `json:"-"`
 	VerificationTokenHash string `json:"-"`
+	VerificationToken     string `json:"-"`
 	VerificationExpiresAt time.Time
+}
+
+type Verification struct {
+	UserID    int
+	Token     string `json:"-"`
+	TokenHash string `json:"-"`
+	ExpiresAt time.Time
+}
+
+// QueuedResetRequest identifies the durable input whose lease must be consumed
+// in the same transaction as a new reset token and outgoing notification.
+type QueuedResetRequest struct {
+	ID    string
+	Lease string `json:"-"`
+	Email string `json:"-"`
+}
+
+type PasswordReset struct {
+	Email        string `json:"-"`
+	Token        string `json:"-"`
+	TokenHash    string `json:"-"`
+	ExpiresAt    time.Time
+	RequestID    string
+	RequestLease string `json:"-"`
 }
 
 type Session struct {
@@ -81,7 +103,6 @@ type LoginResult struct {
 type Options struct{ SessionTTL, RememberMeTTL, VerificationTTL, PasswordResetTTL time.Duration }
 type Service struct {
 	repository   Repository
-	sender       EmailSender
 	options      Options
 	now          func() time.Time
 	passwordCost int

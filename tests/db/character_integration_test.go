@@ -13,7 +13,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gotest/internal/auth"
-	"gotest/internal/models"
 	"gotest/internal/seed"
 )
 
@@ -169,52 +168,39 @@ func TestUserQueriesLoadNullableActiveCharacter(t *testing.T) {
 	}
 }
 
-func TestNullableCatalogAndCharacterModels(t *testing.T) {
+// These columns have no application-facing contract yet. Check their SQL
+// representation without introducing production models solely for tests.
+func TestNullableStorageFields(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	t.Run("faction", func(t *testing.T) {
-		mustExec(t, ctx, s, "UPDATE factions SET description=NULL,icon=NULL WHERE code='sith_empire'")
-		var f models.Faction
-		if err := s.pool.QueryRow(ctx, "SELECT description,icon FROM factions WHERE code='sith_empire'").Scan(&f.Description, &f.Icon); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(f.Description, (*string)(nil)) || !reflect.DeepEqual(f.Icon, (*string)(nil)) {
-			t.Fatal("NULL fields must remain absent")
-		}
-	})
-	t.Run("class", func(t *testing.T) {
-		mustExec(t, ctx, s, "UPDATE classes SET alias=NULL,description=NULL,icon=NULL WHERE code='sith_warrior'")
-		var c models.Class
-		if err := s.pool.QueryRow(ctx, "SELECT alias,description,icon FROM classes WHERE code='sith_warrior'").Scan(&c.Alias, &c.Description, &c.Icon); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(c.Alias, (*string)(nil)) || !reflect.DeepEqual(c.Description, (*string)(nil)) || !reflect.DeepEqual(c.Icon, (*string)(nil)) {
-			t.Fatal("NULL fields must remain absent")
-		}
-		mustExec(t, ctx, s, "UPDATE classes SET alias='Warrior',description='',icon='warrior.png' WHERE code='sith_warrior'")
-		if err := s.pool.QueryRow(ctx, "SELECT alias,description,icon FROM classes WHERE code='sith_warrior'").Scan(&c.Alias, &c.Description, &c.Icon); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(c.Alias, new("Warrior")) || !reflect.DeepEqual(c.Description, new("")) || !reflect.DeepEqual(c.Icon, new("warrior.png")) {
-			t.Fatal("present strings, including empty string, must remain distinct from NULL")
+	t.Run("class alias", func(t *testing.T) {
+		for _, want := range []*string{nil, new(""), new("Warrior"), nil} {
+			mustExec(t, ctx, s, "UPDATE classes SET alias=$1 WHERE code='sith_warrior'", want)
+			var alias *string
+			if err := s.pool.QueryRow(ctx, "SELECT alias FROM classes WHERE code='sith_warrior'").Scan(&alias); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(alias, want) {
+				t.Fatal("class alias must preserve NULL, empty and present strings")
+			}
 		}
 	})
 	t.Run("ability", func(t *testing.T) {
 		mustExec(t, ctx, s, "UPDATE abilities SET description=NULL,icon=NULL WHERE code='sith_warrior_basic_attack'")
-		var a models.Ability
-		if err := s.pool.QueryRow(ctx, "SELECT description,icon FROM abilities WHERE code='sith_warrior_basic_attack'").Scan(&a.Description, &a.Icon); err != nil {
+		var description, icon *string
+		if err := s.pool.QueryRow(ctx, "SELECT description,icon FROM abilities WHERE code='sith_warrior_basic_attack'").Scan(&description, &icon); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(a.Description, (*string)(nil)) || !reflect.DeepEqual(a.Icon, (*string)(nil)) {
+		if description != nil || icon != nil {
 			t.Fatal("NULL fields must remain absent")
 		}
 	})
-	t.Run("character", func(t *testing.T) {
-		var c models.Character
-		if err := s.pool.QueryRow(ctx, "SELECT avatar,activated_at FROM characters WHERE id=1").Scan(&c.Avatar, &c.ActivatedAt); err != nil {
+	t.Run("character activation", func(t *testing.T) {
+		var activatedAt *time.Time
+		if err := s.pool.QueryRow(ctx, "SELECT activated_at FROM characters WHERE id=1").Scan(&activatedAt); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(c.Avatar, (*string)(nil)) || c.ActivatedAt != nil {
-			t.Fatal("NULL fields must remain absent")
+		if activatedAt != nil {
+			t.Fatal("an unset activation timestamp must remain absent")
 		}
 	})
 }

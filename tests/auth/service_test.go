@@ -10,14 +10,13 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	"gotest/internal/auth"
-	"gotest/internal/models"
 	"gotest/internal/validation"
 )
 
 // This in-memory boundary substitutes only PostgreSQL; the service, password
 // hashing, token generation and all authorization decisions remain real.
 type memoryRepository struct {
-	users         map[string]*models.User
+	users         map[string]*auth.Credentials
 	sessions      map[string]*auth.Session
 	verifications map[string]struct {
 		userID  int
@@ -28,7 +27,7 @@ type memoryRepository struct {
 }
 
 func newMemoryRepository() *memoryRepository {
-	return &memoryRepository{users: map[string]*models.User{}, sessions: map[string]*auth.Session{}, verifications: map[string]struct {
+	return &memoryRepository{users: map[string]*auth.Credentials{}, sessions: map[string]*auth.Session{}, verifications: map[string]struct {
 		userID  int
 		expires time.Time
 	}{}}
@@ -42,16 +41,19 @@ func (m *memoryRepository) CreateRegistration(ctx context.Context, registration 
 		return m.err
 	}
 	for _, u := range m.users {
-		if u.Email == registration.Email || u.Login == registration.Login {
+		if u.User.Email == registration.Email || u.User.Login == registration.Login {
 			return auth.ErrConflict
 		}
 	}
-	u := &models.User{ID: len(m.users) + 1, Email: registration.Email, Login: registration.Login, Password: registration.PasswordHash}
+	u := &auth.Credentials{
+		User:         auth.Identity{ID: len(m.users) + 1, Email: registration.Email, Login: registration.Login},
+		PasswordHash: registration.PasswordHash,
+	}
 	m.users[registration.Email] = u
 	m.verifications[registration.VerificationTokenHash] = struct {
 		userID  int
 		expires time.Time
-	}{u.ID, registration.VerificationExpiresAt}
+	}{u.User.ID, registration.VerificationExpiresAt}
 	return nil
 }
 func (m *memoryRepository) FindCredentialsByEmail(ctx context.Context, email string) (*auth.Credentials, error) {
@@ -66,11 +68,8 @@ func (m *memoryRepository) FindCredentialsByEmail(ctx context.Context, email str
 	if !ok {
 		return nil, auth.ErrNotFound
 	}
-	return &auth.Credentials{User: identityFromRecord(u), PasswordHash: u.Password}, nil
-}
-
-func identityFromRecord(u *models.User) auth.Identity {
-	return auth.Identity{ID: u.ID, RoleID: u.RoleID, CharacterID: u.CharacterID, Email: u.Email, Login: u.Login, EmailVerifiedAt: u.EmailVerifiedAt}
+	credentials := *u
+	return &credentials, nil
 }
 func (m *memoryRepository) CreateSession(ctx context.Context, id int, token string, expires time.Time) error {
 	if err := ctx.Err(); err != nil {
@@ -80,8 +79,8 @@ func (m *memoryRepository) CreateSession(ctx context.Context, id int, token stri
 		return m.err
 	}
 	for _, u := range m.users {
-		if u.ID == id {
-			identity := identityFromRecord(u)
+		if u.User.ID == id {
+			identity := u.User
 			m.sessions[token] = &auth.Session{User: &identity, ExpiresAt: expires}
 			return nil
 		}
@@ -123,8 +122,8 @@ func (m *memoryRepository) ConsumeVerification(ctx context.Context, token string
 		return auth.ErrInvalidToken
 	}
 	for _, u := range m.users {
-		if u.ID == v.userID {
-			u.EmailVerifiedAt = &now
+		if u.User.ID == v.userID {
+			u.User.EmailVerifiedAt = &now
 		}
 	}
 	for k, other := range m.verifications {
@@ -142,7 +141,7 @@ func (m *memoryRepository) ReplaceVerification(ctx context.Context, id int, toke
 		return m.err
 	}
 	for _, u := range m.users {
-		if u.ID == id && u.EmailVerifiedAt != nil {
+		if u.User.ID == id && u.User.EmailVerifiedAt != nil {
 			return auth.ErrAlreadyVerified
 		}
 	}
@@ -190,16 +189,16 @@ func TestRegistrationVerificationSessionLifecycle(t *testing.T) {
 	ctx := context.Background()
 	registerFixture(t, s)
 	u := repo.users["person@example.test"]
-	if u == nil || u.Login != "player" || mail.email != "person@example.test" {
+	if u == nil || u.User.Login != "player" || mail.email != "person@example.test" {
 		t.Fatalf("normalization failed: %#v, %#v", u, mail)
 	}
-	if u.Password == "good password" || bcrypt.CompareHashAndPassword([]byte(u.Password), []byte("good password")) != nil {
+	if u.PasswordHash == "good password" || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte("good password")) != nil {
 		t.Fatal("password not securely hashed")
 	}
 	if _, ok := repo.verifications[mail.token]; ok {
 		t.Fatal("raw verification token stored")
 	}
-	if _, err := s.Login(ctx, u.Email, "good password"); !errors.Is(err, auth.ErrUnverified) {
+	if _, err := s.Login(ctx, u.User.Email, "good password"); !errors.Is(err, auth.ErrUnverified) {
 		t.Fatalf("unverified login: %v", err)
 	}
 	if err := s.VerifyEmail(ctx, mail.token); err != nil {
@@ -216,7 +215,7 @@ func TestRegistrationVerificationSessionLifecycle(t *testing.T) {
 		t.Fatal("raw session token stored")
 	}
 	user, err := s.CurrentUser(ctx, login.Token)
-	if err != nil || user.ID != u.ID {
+	if err != nil || user.ID != u.User.ID {
 		t.Fatalf("session: %v %v", user, err)
 	}
 	if err = s.Logout(ctx, login.Token); err != nil {

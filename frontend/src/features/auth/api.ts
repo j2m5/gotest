@@ -1,39 +1,33 @@
-import { http } from '../../shared/api/client'
-import type { MessageResponse } from '../../shared/api/types'
-import type { AuthResponse } from '../../entities/account/types'
+import { apiRequest } from '../../shared/api/client'
 
-export interface RegisterResponse extends MessageResponse {
-  verification_sent: boolean
+export function login(email: string, password: string, rememberMe = false) {
+  return apiRequest('post', '/api/auth/login', { body: { email, password, remember_me: rememberMe } })
 }
 
-export async function login(email: string, password: string, rememberMe = false): Promise<AuthResponse> {
-  return (await http.post<AuthResponse>('/auth/login', { email, password, remember_me: rememberMe })).data
+export function register(email: string, login: string, password: string) {
+  return apiRequest('post', '/api/auth/register', { body: { email, login, password } })
 }
 
-export async function register(email: string, login: string, password: string): Promise<RegisterResponse> {
-  return (await http.post<RegisterResponse>('/auth/register', { email, login, password })).data
+export function logout() {
+  return apiRequest('post', '/api/auth/logout')
 }
 
-export async function logout(): Promise<MessageResponse> {
-  return (await http.post<MessageResponse>('/auth/logout')).data
+export function currentUser(signal?: AbortSignal) {
+  return apiRequest('get', '/api/auth/me', { signal })
 }
 
-export async function currentUser(signal?: AbortSignal): Promise<AuthResponse> {
-  return (await http.get<AuthResponse>('/auth/me', { signal })).data
+export function verifyEmail(token: string) {
+  return apiRequest('post', '/api/auth/verify', { body: { token } })
 }
 
-export async function verifyEmail(token: string): Promise<MessageResponse> {
-  return (await http.post<MessageResponse>('/auth/verify', { token })).data
+export function resendVerification(email: string, password: string) {
+  return apiRequest('post', '/api/auth/resend-verification', { body: { email, password } })
 }
 
-export async function resendVerification(email: string, password: string): Promise<MessageResponse> {
-  return (await http.post<MessageResponse>('/auth/resend-verification', { email, password })).data
+export function forgotPassword(email: string) {
+  return apiRequest('post', '/api/auth/forgot-password', { body: { email } })
 }
 
-export async function forgotPassword(email: string): Promise<MessageResponse> {
-  return (await http.post<MessageResponse>('/auth/forgot-password', { email })).data
-}
-
-export async function resetPassword(token: string, password: string): Promise<MessageResponse> {
-  return (await http.post<MessageResponse>('/auth/reset-password', { token, password })).data
+export function resetPassword(token: string, password: string) {
+  return apiRequest('post', '/api/auth/reset-password', { body: { token, password } })
 }

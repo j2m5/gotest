@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node --test ../tests/frontend/*.test.mjs",
+    "test": "tsc -p tsconfig.contract.json && node --test ../tests/frontend/*.test.mjs",
+    "test:types": "tsc -p tsconfig.contract.json",
     "lint": "eslint .",
     "preview": "vite preview"
   },

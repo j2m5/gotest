@@ -1,2 +1,4 @@
 # gofmt checks bytes; keep Go source identical on Windows and Linux.
 *.go text eol=lf
+# The generator compares output bytes; checkout must preserve its LF endings.
+frontend/src/shared/api/schema.d.ts text eol=lf

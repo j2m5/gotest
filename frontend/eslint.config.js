@@ -16,7 +16,7 @@ const featureBoundary = (sibling) => ({
 })
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'src/shared/api/schema.d.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

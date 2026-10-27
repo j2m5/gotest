@@ -1,18 +1,18 @@
-import { http } from '../../shared/api/client'
-import type { Character, CharacterCatalog, CharacterRoster, CreateCharacterInput } from '../../entities/character/types'
+import { apiRequest } from '../../shared/api/client'
+import type { CreateCharacterInput } from '../../entities/character/types'
 
-export async function listCharacters(): Promise<CharacterRoster> {
-  return (await http.get<CharacterRoster>('/characters')).data
+export function listCharacters() {
+  return apiRequest('get', '/api/characters')
 }
 
-export async function characterCatalog(): Promise<CharacterCatalog> {
-  return (await http.get<CharacterCatalog>('/characters/catalog')).data
+export function characterCatalog() {
+  return apiRequest('get', '/api/characters/catalog')
 }
 
-export async function createCharacter(input: CreateCharacterInput): Promise<{ character: Character }> {
-  return (await http.post<{ character: Character }>('/characters', input)).data
+export function createCharacter(input: CreateCharacterInput) {
+  return apiRequest('post', '/api/characters', { body: input })
 }
 
-export async function setActiveCharacter(character_id: number | null): Promise<{ character: Character | null }> {
-  return (await http.put<{ character: Character | null }>('/characters/active', { character_id })).data
+export function setActiveCharacter(character_id: number | null) {
+  return apiRequest('put', '/api/characters/active', { body: { character_id } })
 }

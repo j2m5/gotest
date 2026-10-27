@@ -1,26 +1,8 @@
-export interface Character {
-  id: number
-  name: string
-  faction_id: number
-  class_id: number
-  role: string
-  level: number
-  experience: number
-  avatar: string | null
-  hp: number
-  mp: number
-  hp_current: number
-  mp_current: number
-}
+import type { components } from '../../shared/api/schema'
 
-export interface CatalogEntry {
-  id: number
-  code: string
-  name: string
-  description: string | null
-  icon: string | null
-}
-export interface CharacterClass extends CatalogEntry { faction_id: number }
-export interface CharacterCatalog { factions: CatalogEntry[]; classes: CharacterClass[] }
-export interface CharacterRoster { characters: Character[]; active_character_id: number | null }
-export interface CreateCharacterInput { name: string; faction_id: number; class_id: number }
+export type Character = components['schemas']['Character']
+export type CatalogEntry = components['schemas']['CatalogEntry']
+export type CharacterClass = components['schemas']['CharacterClass']
+export type CharacterCatalog = components['schemas']['CharacterCatalog']
+export type CharacterRoster = components['schemas']['CharacterRoster']
+export type CreateCharacterInput = components['schemas']['CreateCharacterRequest']

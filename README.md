@@ -85,29 +85,32 @@ CLI `seed` и `cleanup` по-прежнему ищут `.env` в своей ра
 
 ## Команды разработки и CI
 
-Команды из корня одинаковы для PowerShell и Linux. Корневой package.json не добавляет
-зависимостей: `scripts/dev.mjs` использует встроенные возможности Node.js.
+Команды из корня одинаковы для PowerShell и Linux. В корневом package.json находятся
+инструменты генерации API; зависимости приложения и сборки frontend — в frontend/package.json.
 
 | Команда | Что выполняется |
 | --- | --- |
-| npm run setup | go mod download и npm ci во frontend по lock-файлу |
+| npm run setup | go mod download и npm ci в корне и frontend по двум lock-файлам |
 | npm run dev:api | Go API; можно передать `-- -env-file ./config/app.env` |
 | npm run dev:web | Vite; запускается в отдельном терминале |
 | npm run build | Go-бинарники в .local/bin и frontend/dist |
 | npm run lint | Проверка gofmt, go vet и frontend ESLint |
 | npm run audit | Проверка npm-зависимостей приложения и сборки; нужен доступ к npm Registry |
+| npm run api:generate | Генерация TypeScript-типов из api/openapi.yaml |
+| npm run api:check | Актуальность типов, проверки TypeScript и HTTP-контракта; БД и браузер не нужны |
 | npm run migrate | Применение up-миграций; `-- version` показывает версию |
 | npm run seed | Транзакционные сиды; можно передать `-- -dir ./seeds -timeout 30s` |
 | npm run cleanup | Пакетное удаление истёкших сессий и токенов подтверждения/сброса; `-- -dry-run` для предварительного подсчёта |
 | npm test | Тесты команд, Go и frontend; локально допускает ненастроенные интеграционные проверки |
 | npm run test:integration | SQL-тесты db/seed; TEST_DATABASE_URL обязателен |
-| npm run check | lint, обе сборки и все тесты; БД и браузер обязательны |
+| npm run check | Актуальность API-типов, lint, обе сборки и все тесты; БД и браузер обязательны |
 | npm run test:db:up | Отдельная тестовая PostgreSQL через Docker Compose с ожиданием готовности |
 | npm run test:db:down | Удаление только Compose-окружения тестовой БД и его данных |
 
 Go-команды ограничены каталогами cmd/internal/tests: Go-файлы из node_modules не участвуют
 в проверках. Для Go-исходников `.gitattributes` закрепляет LF, чтобы gofmt одинаково
-работал после checkout на Windows и Linux. Любая ошибка команды останавливает общий запуск.
+работал после checkout на Windows и Linux. LF также закреплён для генерируемого schema.d.ts:
+проверка генератора сравнивает содержимое побайтно. Любая ошибка команды останавливает общий запуск.
 
 Для полного локального прогона скопируйте `.env.test.example` в `.env.test` (если файла
 ещё нет) и укажите абсолютный путь CHARACTER_BROWSER_BINARY к Chrome/Chromium/Edge.
@@ -143,6 +146,46 @@ Ubuntu 24.04, Go из go.mod, Node из .node-version, отдельный Postgr
 выбирается runner автоматически и передаётся в шаг проверки по
 [контракту service containers GitHub Actions](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers).
 Actions закреплены по SHA, права ограничены чтением репозитория; секреты и деплой не нужны.
+
+## Контракт HTTP API
+
+[`api/openapi.yaml`](api/openapi.yaml) описывает существующие операции auth/character,
+health/readiness, тела запросов и ответов, ошибки, заголовки и cookie сессии в OpenAPI 3.0.3.
+Это источник публичных TypeScript-контрактов. Go DTO остаются в модулях, которым принадлежат;
+соответствие их HTTP-представления схеме проверяется тестами.
+
+[`openapi-typescript`](https://openapi-ts.dev/cli) генерирует
+`frontend/src/shared/api/schema.d.ts`. Файл хранится в Git и не редактируется вручную.
+Типы entities ссылаются на schemas из этого файла; shared/api/client связывает URL и метод
+с входными данными и успешным ответом. Axios сохраняет отправку cookies, ошибки и отмену
+запросов. Строгий режим TypeScript сохраняет различие между null, отсутствующим полем и значением.
+
+При изменении API обновите схему, обработчик и сценарии в tests/routes/openapi_test.go,
+затем выполните из корня:
+
+~~~powershell
+npm run api:generate
+npm run api:check
+~~~
+
+Проверка не переписывает артефакт: устаревшие типы завершают её с ошибкой. Схему и результат
+генерации коммитьте вместе. `npm run check` включает эту проверку и весь набор контрактных
+тестов; `npm test` во frontend также компилирует негативные type-тесты из tests/frontend.
+Генератор использует собственный TypeScript 5 в корневых devDependencies из-за своего
+peer-ограничения; frontend продолжает использовать TypeScript 6. Обе версии закреплены lock-файлами.
+
+Go-тесты используют [`kin-openapi`](https://github.com/getkin/kin-openapi) только при тестировании:
+настоящий роутер, middleware и handlers, сервисы с контролируемыми результатами. Проверяются
+запросы, статусы, JSON и заголовки ответов, nullable-поля, cookies, ошибки и HEAD без тела.
+Для каждой описанной операции требуется успешный HTTP-сценарий; Allow сверяется со схемой.
+Новый маршрут нужно добавить и в схему, и в сценарии. Проверки с PostgreSQL и браузером
+отдельно подтверждают работу сервисов и пользовательских сценариев. В production нет
+дополнительной OpenAPI-валидации каждого запроса.
+
+Не все правила выражаются JSON Schema: пароль ограничен 8–72 байтами UTF-8, email —
+254 байтами после нормализации, имя персонажа проверяется после NFC/trim. Эти правила
+описаны в схеме и проверяются доменными тестами. Legacy query-token у verify поддерживается
+только без тела; frontend отправляет token в JSON.
 Результаты запусков доступны в [GitHub Actions](https://github.com/j2m5/gotest/actions).
 
 `audit` — отдельная сетевая проверка: она завершает CI с ошибкой при advisory уровня
@@ -752,7 +795,8 @@ Down-миграция отзывает сессии и ссылки: исход�
 - frontend/src/features/auth и features/character — экраны и HTTP-вызовы своих модулей.
 - frontend/src/entities/account — типы аккаунта, общий AccountStore, Context и AccountGate.
 - frontend/src/entities/character — контракты персонажей, каталога, списка и создания.
-- frontend/src/shared/api — единый HTTP-клиент, разбор ошибок и общие типы ответов.
+- api/openapi.yaml — публичный HTTP-контракт и источник типов frontend.
+- frontend/src/shared/api — типизированный HTTP-клиент, генерируемая схема и разбор ошибок.
 - frontend/src/shared/ui — общие Layout и FieldFeedback.
 
 Интерфейс целиком находится во frontend: Go отдаёт собранную SPA из frontend/dist.
@@ -765,8 +809,8 @@ Store остаётся единственным источником состо�
 импортирует из entities/character только типы списка и персонажей. Это сохраняет общую
 обработку истёкшей сессии, объединение обновлений и защиту от запоздавших ответов.
 
-Все запросы используют shared/api/client с baseURL `/api`; пути конкретных операций
-находятся в features/*/api.ts. Признак неподтверждённого email принадлежит features/auth/errors,
+Все запросы используют shared/api/client с путями `/api/...` из OpenAPI; вызовы конкретных
+операций находятся в features/*/api.ts. Признак неподтверждённого email принадлежит features/auth/errors,
 а общий разбор HTTP-ошибок — shared/api/errors. Общего файла всех моделей и API-вызовов нет.
 
 ESLint проверяет статические импорты: запрещает зависимости shared/entities от верхних
@@ -803,10 +847,10 @@ tests/
   mailer/     # local и SMTP, тестовые сертификаты
   middleware/ # request ID, учёт ответа, потоковая отправка и обработка паник
   progression/ # накопительный опыт, пороги, максимум, балансировка и входные награды
-  routes/     # HTTP API, cookie, защита запросов и SPA
+  routes/     # HTTP API, OpenAPI-контракт, cookie, защита запросов и SPA
   seed/       # запуск CLI сидов и миграции справочников на PostgreSQL
   testenv/    # требования к окружению интеграционных тестов
-  frontend/   # ошибки API, состояние аккаунта и browser smoke test
+  frontend/   # type-тесты контракта, ошибки API, состояние аккаунта и browser smoke test
 ~~~
 
 Go-тесты импортируют публичные интерфейсы из internal/. Для проверки времени используется

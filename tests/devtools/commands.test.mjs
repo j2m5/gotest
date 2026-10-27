@@ -78,6 +78,32 @@ test('unknown commands fail and help works outside the repository directory', t 
   assert.match(result.stdout, /check/)
 })
 
+test('API generation works outside the repository without database configuration', t => {
+  const f = fixture(t)
+  mkdirSync(path.join(f.root, 'node_modules/openapi-typescript/bin'), { recursive: true })
+  f.write('node_modules/openapi-typescript/bin/cli.js', 'console.log(JSON.stringify({args:process.argv.slice(2),cwd:process.cwd()}))')
+  const result = f.run('api:generate')
+  assert.equal(result.status, 0, result.stderr)
+  const probe = JSON.parse(result.stdout.split('\n').find(line => line.startsWith('{')))
+  assert.deepEqual(probe.args, ['api/openapi.yaml', '-o', 'frontend/src/shared/api/schema.d.ts'])
+  assert.equal(probe.cwd, f.root)
+})
+
+test('API and full checks stop at stale types without rewriting or starting downstream tools', t => {
+  const f = fixture(t)
+  mkdirSync(path.join(f.root, 'node_modules/openapi-typescript/bin'), { recursive: true })
+  f.write('node_modules/openapi-typescript/bin/cli.js', `
+    if (!process.argv.includes('--check')) throw new Error('must check, not regenerate');
+    console.error('Generated types are not up-to-date!'); process.exitCode = 1;
+  `)
+  f.write('browser', '')
+  for (const task of ['api:check', 'check']) {
+    const result = f.run(task, { PATH: path.join(f.root, 'missing-bin'), TEST_DATABASE_URL: 'postgres://test', CHARACTER_BROWSER_BINARY: path.join(f.root, 'browser') })
+    failure(result, /Generated types are not up-to-date/)
+    assert.doesNotMatch(result.stdout + result.stderr, /Go formatting|Go tests|frontend:|could not start/)
+  }
+})
+
 test('dev API forwards app flags and preserves the repository working directory', t => {
   const f = fixture(t)
   f.write('go-probe.go', `package main

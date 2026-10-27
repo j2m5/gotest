@@ -1,10 +1,4 @@
-export interface User {
-  id: number
-  email: string
-  login: string
-  character_id: number | null
-}
+import type { components } from '../../shared/api/schema'
 
-export interface AuthResponse {
-  user: User
-}
+export type User = components['schemas']['User']
+export type AuthResponse = components['schemas']['AuthResponse']

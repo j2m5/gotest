@@ -1,3 +1,3 @@
-export interface MessageResponse {
-  message: string
-}
+import type { components } from './schema'
+
+export type MessageResponse = components['schemas']['MessageResponse']

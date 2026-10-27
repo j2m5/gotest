@@ -1,7 +1,9 @@
 {
   "name": "gotest-development",
   "private": true,
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "help": "node scripts/dev.mjs help",
     "setup": "node scripts/dev.mjs setup",
@@ -10,6 +12,8 @@
     "build": "node scripts/dev.mjs build",
     "lint": "node scripts/dev.mjs lint",
     "audit": "node scripts/dev.mjs audit",
+    "api:generate": "node scripts/dev.mjs api:generate",
+    "api:check": "node scripts/dev.mjs api:check",
     "migrate": "node scripts/dev.mjs migrate",
     "seed": "node scripts/dev.mjs seed",
     "cleanup": "node scripts/dev.mjs cleanup",
@@ -18,5 +22,9 @@
     "check": "node scripts/dev.mjs check",
     "test:db:up": "node scripts/dev.mjs test:db:up",
     "test:db:down": "node scripts/dev.mjs test:db:down"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
   }
 }

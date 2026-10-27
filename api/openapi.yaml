@@ -1,0 +1,738 @@
+openapi: 3.0.3
+info:
+  title: Gotest API
+  version: 1.0.0
+  description: |
+    Public HTTP contract for accounts and characters. JSON request bodies must be
+    objects, contain no unknown fields and fit within 16 KiB. Field validation and
+    normalization are performed by the application; invalid input can produce 422.
+    Password lengths are measured in UTF-8 bytes, not Unicode characters.
+
+    All responses have Cache-Control: no-store and a server-generated X-Request-ID.
+    Errors contain a stable code and a human-readable error message. Optional fields
+    maps field names to messages; errors is the flattened list for compatibility.
+    Unknown /api paths return 404 route_not_found; unsupported methods return 405
+    method_not_allowed with Allow. These also use the ErrorResponse schema.
+
+    Mutations require same-origin browser requests (or the configured trusted
+    PUBLIC_URL origin). Cross-site requests are rejected with 403 origin_forbidden.
+    The six public authentication actions share a per-client-IP rate limiter.
+    JSON responses never expose passwords, token hashes, session tokens or account roles.
+servers:
+  - url: /
+tags:
+  - name: Auth
+  - name: Characters
+  - name: Health
+paths:
+  /api/auth/register:
+    post:
+      operationId: register
+      tags: [Auth]
+      summary: Create an account and send an email verification link
+      description: A mail delivery failure still creates the account and returns 201 with verification_sent=false.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Account created; verification_sent reports mail delivery
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/auth/login:
+    post:
+      operationId: login
+      tags: [Auth]
+      summary: Sign in to a verified account
+      description: |
+        remember_me=true issues a persistent cookie with a fixed expiry. Otherwise
+        the cookie lasts for the browser session. Both have a server-side expiry;
+        neither is extended by activity. Login does not select a character.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Account and session cookie
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+            Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/auth/logout:
+    post:
+      operationId: logout
+      tags: [Auth]
+      summary: Revoke the presented session and clear its cookie
+      description: |
+        Idempotent, including with no cookie. A valid session also clears the
+        account's shared active character. Other sessions are not revoked.
+      security:
+        - {}
+        - sessionCookie: []
+      responses:
+        '200': { $ref: '#/components/responses/SessionCleared' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/auth/me:
+    get:
+      operationId: currentUser
+      tags: [Auth]
+      summary: Get the signed-in account
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Current account; character_id may be null
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/auth/verify:
+    post:
+      operationId: verifyEmail
+      tags: [Auth]
+      summary: Confirm an email address
+      description: |
+        Send a JSON token. For compatibility a token query parameter is accepted
+        only when the request has no body. When a body is present its token wins.
+        At least one of these forms is required; OpenAPI 3.0 cannot express this
+        dependency between a query parameter and requestBody.
+      parameters:
+        - name: token
+          in: query
+          deprecated: true
+          description: Legacy alternative to the JSON body
+          schema: { $ref: '#/components/schemas/Token' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/auth/resend-verification:
+    post:
+      operationId: resendVerification
+      tags: [Auth]
+      summary: Resend an email verification link
+      description: Credentials are required. The optional remember_me field is accepted for compatibility and ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [Auth]
+      summary: Request a password reset link
+      description: |
+        A valid email is accepted into an in-memory queue before looking up the
+        account. The response is identical for known and unknown emails. Accepted
+        does not guarantee delivery; each account has a one-minute mail cooldown.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ForgotPasswordRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [Auth]
+      summary: Replace a password using a single-use reset link
+      description: |
+        Revokes all sessions of the target account, clears its active character
+        and consumes all its reset links atomically. Email verification is unchanged.
+        Clears the browser's session cookie on success. Notification delivery
+        failure does not undo the password change or change the successful response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResetPasswordRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SessionCleared' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/characters:
+    get:
+      operationId: listCharacters
+      tags: [Characters]
+      summary: List characters owned by the signed-in account
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Owned characters and shared active selection; the list may be empty
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CharacterRoster' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      operationId: createCharacter
+      tags: [Characters]
+      summary: Create a character for the signed-in account
+      description: The class must belong to the selected faction. Creating a character does not select it.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCharacterRequest' }
+      responses:
+        '201':
+          description: Created character
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CharacterResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/characters/catalog:
+    get:
+      operationId: characterCatalog
+      tags: [Characters]
+      summary: Get available factions and their classes
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Character creation catalog
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CharacterCatalog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/characters/active:
+    put:
+      operationId: setActiveCharacter
+      tags: [Characters]
+      summary: Select an owned character or clear the selection
+      description: |
+        Selection is shared by all sessions of this account. character_id must be
+        present; an explicit null clears it. A missing field is a 400 invalid_request.
+        A character not owned by this account is reported as not found.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetActiveCharacterRequest' }
+      responses:
+        '200':
+          description: Selected character, or null after clearing selection
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveCharacterResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /healthz:
+    get:
+      operationId: health
+      tags: [Health]
+      summary: Check process liveness
+      responses:
+        '200': { $ref: '#/components/responses/Healthy' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    head:
+      operationId: healthHead
+      tags: [Health]
+      summary: Check process liveness without a response body
+      responses:
+        '200': { $ref: '#/components/responses/Head' }
+        '500': { $ref: '#/components/responses/Head' }
+  /readyz:
+    get:
+      operationId: readiness
+      tags: [Health]
+      summary: Check database readiness and application lifecycle
+      responses:
+        '200': { $ref: '#/components/responses/Healthy' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    head:
+      operationId: readinessHead
+      tags: [Health]
+      summary: Check readiness without a response body
+      responses:
+        '200': { $ref: '#/components/responses/Head' }
+        '500': { $ref: '#/components/responses/Head' }
+        '503': { $ref: '#/components/responses/Head' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: |
+        Opaque session cookie set by login. HttpOnly, SameSite=Lax, Path=/; Secure
+        when PUBLIC_URL uses HTTPS. JavaScript never reads or persists the token.
+  headers:
+    NoStore:
+      required: true
+      schema: { type: string, enum: [no-store] }
+    RequestID:
+      description: Server-generated identifier for correlating server logs
+      required: true
+      schema: { type: string, minLength: 1 }
+    SessionCookie:
+      description: |
+        session_token; Path=/; HttpOnly; SameSite=Lax. Secure on HTTPS. Login with
+        remember_me=true adds Expires and Max-Age; ordinary login omits both.
+        Logout and reset-password expire this cookie with Max-Age=0.
+      required: true
+      schema: { type: string, pattern: '^session_token=' }
+  schemas:
+    Token:
+      type: string
+      pattern: '^[0-9a-fA-F]{64}$'
+      description: Single-use opaque token from an email link
+    NewPassword:
+      type: string
+      description: Between 8 and 72 UTF-8 bytes, inclusive; not a character-count limit
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, login, password]
+      properties:
+        email:
+          type: string
+          description: Email address; trimmed and lowercased, then validated (maximum 254 UTF-8 bytes)
+        login:
+          type: string
+          description: Trimmed; 1 to 32 Unicode characters, without control characters
+        password: { $ref: '#/components/schemas/NewPassword' }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+        remember_me:
+          type: boolean
+          nullable: true
+          description: Omitted or null is equivalent to false
+    VerifyEmailRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { $ref: '#/components/schemas/Token' }
+    ForgotPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          description: Trimmed and lowercased, then validated as an email address (maximum 254 UTF-8 bytes)
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { $ref: '#/components/schemas/Token' }
+        password: { $ref: '#/components/schemas/NewPassword' }
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, login, character_id]
+      properties:
+        id: { type: integer, format: int32 }
+        email: { type: string }
+        login: { type: string }
+        character_id: { type: integer, format: int32, nullable: true }
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      required: [user]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+    MessageResponse:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message: { type: string }
+    RegisterResponse:
+      type: object
+      additionalProperties: false
+      required: [message, verification_sent]
+      properties:
+        message: { type: string }
+        verification_sent: { type: boolean }
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          enum:
+            - invalid_json
+            - invalid_request
+            - unsupported_media_type
+            - request_too_large
+            - method_not_allowed
+            - route_not_found
+            - origin_forbidden
+            - rate_limited
+            - internal_error
+            - unauthenticated
+            - validation_failed
+            - invalid_credentials
+            - email_unverified
+            - account_conflict
+            - email_already_verified
+            - verification_token_invalid
+            - mail_delivery_failed
+            - password_reset_unavailable
+            - password_reset_token_invalid
+            - character_not_found
+            - character_name_taken
+            - character_class_mismatch
+            - not_ready
+        fields:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+        errors:
+          type: array
+          items: { type: string }
+    Character:
+      type: object
+      additionalProperties: false
+      required: [id, name, faction_id, class_id, role, level, experience, avatar, hp, mp, hp_current, mp_current]
+      properties:
+        id: { type: integer, format: int32 }
+        name: { type: string }
+        faction_id: { type: integer, format: int32 }
+        class_id: { type: integer, format: int32 }
+        role: { type: string }
+        level: { type: integer }
+        experience: { type: integer }
+        avatar: { type: string, nullable: true }
+        hp: { type: integer }
+        mp: { type: integer }
+        hp_current: { type: integer }
+        mp_current: { type: integer }
+    CatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, description, icon]
+      properties:
+        id: { type: integer, format: int32 }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        icon: { type: string, nullable: true }
+    CharacterClass:
+      type: object
+      additionalProperties: false
+      required: [id, faction_id, code, name, description, icon]
+      properties:
+        id: { type: integer, format: int32 }
+        faction_id: { type: integer, format: int32 }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        icon: { type: string, nullable: true }
+    CharacterCatalog:
+      type: object
+      additionalProperties: false
+      required: [factions, classes]
+      properties:
+        factions:
+          type: array
+          items: { $ref: '#/components/schemas/CatalogEntry' }
+        classes:
+          type: array
+          items: { $ref: '#/components/schemas/CharacterClass' }
+    CharacterRoster:
+      type: object
+      additionalProperties: false
+      required: [characters, active_character_id]
+      properties:
+        characters:
+          type: array
+          items: { $ref: '#/components/schemas/Character' }
+        active_character_id: { type: integer, format: int32, nullable: true }
+    CreateCharacterRequest:
+      type: object
+      additionalProperties: false
+      required: [name, faction_id, class_id]
+      properties:
+        name:
+          type: string
+          description: |
+            NFC-normalized, trimmed, repeated spaces collapsed. Result must have
+            3 to 32 Unicode characters, start/end with a Latin or Cyrillic letter,
+            and contain only those letters, spaces, hyphens or apostrophes.
+        faction_id: { type: integer, format: int32, minimum: 1 }
+        class_id: { type: integer, format: int32, minimum: 1 }
+    SetActiveCharacterRequest:
+      type: object
+      additionalProperties: false
+      required: [character_id]
+      properties:
+        character_id: { type: integer, format: int32, minimum: 1, nullable: true }
+    CharacterResponse:
+      type: object
+      additionalProperties: false
+      required: [character]
+      properties:
+        character: { $ref: '#/components/schemas/Character' }
+    ActiveCharacterResponse:
+      type: object
+      additionalProperties: false
+      required: [character]
+      properties:
+        character:
+          anyOf:
+            - $ref: '#/components/schemas/Character'
+            - type: object
+              nullable: true
+              enum: [null]
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+  responses:
+    Message:
+      description: Operation completed
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MessageResponse' }
+    SessionCleared:
+      description: Operation completed and session cookie expired
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+        Set-Cookie: { $ref: '#/components/headers/SessionCookie' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/MessageResponse' }
+    Healthy:
+      description: Healthy
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/HealthResponse' }
+    Head:
+      description: Status and headers only; no response body
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+    BadRequest:
+      description: invalid_json, invalid_request, verification_token_invalid or password_reset_token_invalid
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: unauthenticated or invalid_credentials
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: origin_forbidden or email_unverified
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: character_not_found; for unknown /api paths, route_not_found
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    MethodNotAllowed:
+      description: method_not_allowed
+      headers:
+        Allow:
+          required: true
+          schema: { type: string, minLength: 1 }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: account_conflict, email_already_verified or character_name_taken
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RequestTooLarge:
+      description: request_too_large; JSON body exceeds 16 KiB
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UnsupportedMediaType:
+      description: unsupported_media_type; a JSON body requires application/json
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ValidationFailed:
+      description: validation_failed or character_class_mismatch; fields contains validation messages
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RateLimited:
+      description: rate_limited; retry after the number of seconds in Retry-After
+      headers:
+        Retry-After:
+          required: true
+          schema: { type: integer, minimum: 1 }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: internal_error; internal diagnostic details are not returned to clients
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unavailable:
+      description: mail_delivery_failed, password_reset_unavailable or not_ready
+      headers:
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
+        X-Request-ID: { $ref: '#/components/headers/RequestID' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }

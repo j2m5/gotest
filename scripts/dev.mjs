@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const frontend = path.join(root, 'frontend')
 const goPackages = ['./cmd/...', './internal/...', './tests/...']
-const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'migrate', 'seed', 'cleanup', 'test', 'test:integration', 'check', 'test:db:up', 'test:db:down']
+const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'api:generate', 'api:check', 'migrate', 'seed', 'cleanup', 'test', 'test:integration', 'check', 'test:db:up', 'test:db:down']
 
 function run(label, command, args, { cwd = root, capture = false, secrets = [] } = {}) {
   console.log(`> ${label}`)
@@ -22,10 +22,17 @@ function run(label, command, args, { cwd = root, capture = false, secrets = [] }
   return result.stdout ?? ''
 }
 
-function npm(args) {
+function npm(args, cwd = frontend) {
   // Invoking the Node CLI also works on Windows, without a shell or npm.cmd quoting.
   if (!process.env.npm_execpath) throw new Error('Run this command through npm run (see npm run help)')
-  run(`frontend: npm ${args.join(' ')}`, process.execPath, [process.env.npm_execpath, ...args], { cwd: frontend })
+  run(`${cwd === root ? 'tooling' : 'frontend'}: npm ${args.join(' ')}`, process.execPath, [process.env.npm_execpath, ...args], { cwd })
+}
+
+function apiTypes(check) {
+  run(check ? 'Check generated API types' : 'Generate API types', process.execPath, [
+    path.join(root, 'node_modules', 'openapi-typescript', 'bin', 'cli.js'),
+    'api/openapi.yaml', '-o', 'frontend/src/shared/api/schema.d.ts', ...(check ? ['--check'] : []),
+  ])
 }
 
 function loadEnvironment(name) {
@@ -117,17 +124,26 @@ function main() {
       return
     case 'setup':
       run('Go dependencies', 'go', ['mod', 'download'])
+      npm(['ci'], root)
       npm(['ci'])
       return
     case 'dev:api': return run('Go API', 'go', ['run', './cmd/app', ...args])
     case 'dev:web': return npm(['run', 'dev'])
     case 'build': return build()
     case 'lint': return lint()
-    case 'audit': return npm(['audit', '--include=dev', '--audit-level=moderate'])
+    case 'audit':
+      npm(['audit', '--include=dev', '--audit-level=moderate'], root)
+      return npm(['audit', '--include=dev', '--audit-level=moderate'])
+    case 'api:generate': return apiTypes(false)
+    case 'api:check':
+      apiTypes(true)
+      npm(['run', 'test:types'])
+      return run('Go HTTP contract tests', 'go', ['test', '-count=1', './tests/routes', '-run', '^TestOpenAPI'])
     case 'migrate': return migrate(args[0] ?? 'up')
     case 'seed': return run('Seed application catalogs', 'go', ['run', './cmd/seed', ...args])
     case 'cleanup': return run('Clean expired sessions and authentication tokens', 'go', ['run', './cmd/cleanup', ...args])
     case 'check':
+      apiTypes(true)
       lint()
       build()
       return tests()

@@ -16,6 +16,9 @@ function messages(value: unknown): string[] {
 
 // Inline forms omit their rendered field details; other callers retain the full message.
 export function apiError(error: unknown, inlineFields: readonly string[] = []): APIError {
+  if (record(error)?.code === 'ETIMEDOUT' || record(error)?.code === 'ECONNABORTED') {
+    return { message: 'Время ожидания ответа истекло. Попробуйте ещё раз.', code: 'timeout', fields: {} }
+  }
   const response = record(record(error)?.response)
   const status = typeof response?.status === 'number' ? response.status : undefined
   const data = record(response?.data)

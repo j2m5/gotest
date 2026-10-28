@@ -14,7 +14,9 @@ import (
 	"gotest/internal/middleware"
 	"gotest/internal/notification"
 	"gotest/internal/observability"
+	"gotest/internal/realtime"
 	"gotest/internal/routes"
+	"gotest/internal/social"
 	"io"
 	"log/slog"
 	"net"
@@ -99,9 +101,12 @@ func run(logger *slog.Logger) error {
 		return service.ProcessPasswordReset(ctx, auth.QueuedResetRequest{ID: job.ID, Lease: job.Lease, Email: content.Email})
 	}, logger)
 	characterService := character.NewService(db.NewCharacterRepository(pool))
+	socialService := social.NewService(db.NewSocialRepository(pool))
+	hub := realtime.New(ctx, service, cfg.PublicURL)
 	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), service), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: cfg.StaticDir, RequireStatic: cfg.AppEnv == "production", TrustedOrigin: cfg.PublicURL, TrustedProxies: cfg.TrustedProxies, Logger: logger,
 		Ready: pool.Ping, Lifecycle: ctx,
+		Social: handlers.NewSocialHandler(socialService, hub.Notify), ChatEvents: hub.ServeHTTP,
 	})
 	if err != nil {
 		return applicationFailure(logger, "routes", err, slog.String("reason", "cannot configure HTTP routes; check PUBLIC_URL and STATIC_DIR"))

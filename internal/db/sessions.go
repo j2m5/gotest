@@ -26,6 +26,14 @@ func (s *AuthRepository) CreateSession(ctx context.Context, input auth.SessionIn
 	if password != input.PasswordHash {
 		return auth.ErrInvalidCredentials
 	}
+	var banned auth.AccountBannedError
+	err = tx.QueryRow(ctx, `SELECT reason,expires_at FROM user_bans WHERE user_id=$1 AND scope='account' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp()) ORDER BY id DESC LIMIT 1`, input.UserID).Scan(&banned.Reason, &banned.ExpiresAt)
+	if err == nil {
+		return &banned
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return authStorageError(err)
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO sessions(user_id,token,expires_at) VALUES($1,$2,$3)`, input.UserID, input.TokenHash, input.ExpiresAt); err != nil {
 		return authStorageError(err)
 	}
@@ -78,7 +86,7 @@ func (s *AuthRepository) DeleteSession(ctx context.Context, tokenHash string) er
 func (s *AuthRepository) FindSession(ctx context.Context, tokenHash string) (*auth.Session, error) {
 	u := &auth.Identity{}
 	session := &auth.Session{User: u}
-	err := s.pool.QueryRow(ctx, `SELECT u.id,u.role_id,u.character_id,u.email,u.login,u.email_verified_at,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1`, tokenHash).Scan(
+	err := s.pool.QueryRow(ctx, `SELECT u.id,u.role_id,u.character_id,u.email,u.login,u.email_verified_at,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1 AND NOT EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id AND b.scope='account' AND b.revoked_at IS NULL AND (b.expires_at IS NULL OR b.expires_at>clock_timestamp()))`, tokenHash).Scan(
 		&u.ID, &u.RoleID, &u.CharacterID, &u.Email, &u.Login, &u.EmailVerifiedAt, &session.ExpiresAt,
 	)
 	if err != nil {

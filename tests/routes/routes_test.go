@@ -104,10 +104,10 @@ func assertPublicUserFields(t *testing.T, w *httptest.ResponseRecorder) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.User) != 4 {
+	if len(body.User) != 5 {
 		t.Fatalf("unexpected public account fields: %s", w.Body)
 	}
-	for _, name := range []string{"id", "email", "login", "character_id"} {
+	for _, name := range []string{"id", "email", "login", "role", "character_id"} {
 		if _, ok := body.User[name]; !ok {
 			t.Errorf("missing public account field %s", name)
 		}

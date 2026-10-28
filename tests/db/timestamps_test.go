@@ -140,8 +140,7 @@ func TestTimestampDefaultsAndVerificationAcrossTimeZones(t *testing.T) {
 			if !created.Equal(updated) || created.Before(before) || created.After(after) {
 				t.Fatalf("insert defaults depend on timezone: created=%v updated=%v bounds=[%v,%v]", created, updated, before, after)
 			}
-			eventTime := before.Add(-time.Minute).In(time.FixedZone("event offset", 5*3600+45*60))
-			if err := s.ConsumeVerification(ctx, zone, eventTime); err != nil {
+			if err := s.ConsumeVerification(ctx, zone); err != nil {
 				t.Fatal(err)
 			}
 			user, err := s.FindCredentialsByEmail(ctx, email)
@@ -151,8 +150,8 @@ func TestTimestampDefaultsAndVerificationAcrossTimeZones(t *testing.T) {
 			if err := s.pool.QueryRow(ctx, `SELECT updated_at,clock_timestamp() FROM users WHERE id=$1`, user.User.ID).Scan(&updated, &after); err != nil {
 				t.Fatal(err)
 			}
-			if user.User.EmailVerifiedAt == nil || user.User.EmailVerifiedAt.Sub(eventTime).Abs() > time.Microsecond || updated.Before(before) || updated.After(after) {
-				t.Fatal("verification event must keep its instant; updated_at must use database update time")
+			if user.User.EmailVerifiedAt == nil || user.User.EmailVerifiedAt.Before(before) || user.User.EmailVerifiedAt.After(after) || updated.Before(before) || updated.After(after) {
+				t.Fatal("verification event and updated_at must use database time")
 			}
 		})
 	}
@@ -281,8 +280,8 @@ func TestDatabaseTimestampsHaveTimezone(t *testing.T) {
 		FROM information_schema.columns WHERE table_schema=current_schema()`).Scan(&withZone, &withoutZone); err != nil {
 		t.Fatal(err)
 	}
-	if withZone != 26 || withoutZone != 0 {
-		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 26/0", withZone, withoutZone)
+	if withZone != 35 || withoutZone != 0 {
+		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 35/0", withZone, withoutZone)
 	}
 }
 

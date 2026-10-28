@@ -30,6 +30,7 @@ type userDTO struct {
 	ID          int    `json:"id"`
 	Email       string `json:"email"`
 	Login       string `json:"login"`
+	Role        string `json:"role"`
 	CharacterID *int   `json:"character_id"`
 }
 
@@ -38,5 +39,5 @@ type accountResponse struct {
 }
 
 func userResponse(user *auth.Identity) accountResponse {
-	return accountResponse{User: userDTO{ID: user.ID, Email: user.Email, Login: user.Login, CharacterID: user.CharacterID}}
+	return accountResponse{User: userDTO{ID: user.ID, Email: user.Email, Login: user.Login, Role: auth.RoleName(user.RoleID), CharacterID: user.CharacterID}}
 }

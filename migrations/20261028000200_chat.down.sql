@@ -1,0 +1,2 @@
+ALTER TABLE moderation_actions DROP CONSTRAINT moderation_actions_message_id_fkey;
+DROP TABLE chat_messages;

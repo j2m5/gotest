@@ -112,7 +112,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	if !validToken(token) {
 		return ErrInvalidToken
 	}
-	return s.repository.ConsumeVerification(ctx, TokenDigest(token), s.now())
+	return s.repository.ConsumeVerification(ctx, TokenDigest(token))
 }
 func (s *Service) ResendVerification(ctx context.Context, email, password string) error {
 	credentials, err := s.checkCredentials(ctx, email, password)

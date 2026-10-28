@@ -1,23 +1,27 @@
-import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAccount } from '../../../entities/account/context'
-import { apiError } from '../../../shared/api/errors'
-import Layout from '../../../shared/ui/Layout'
+import { factionArtwork } from '../../../entities/character/appearance'
+import { useCharacterCatalog } from '../model/useCharacterCatalog'
+import CatalogFeedback from '../ui/CatalogFeedback'
+import GameLayout from '../ui/GameLayout'
+
 export default function Game() {
-  const { roster, pending, store } = useAccount()
-  const [error, setError] = useState('')
-  const navigate = useNavigate()
+  const { roster, user } = useAccount()
+  const catalogState = useCharacterCatalog()
   const character = roster?.characters.find(item => item.id === roster.active_character_id)
   if (!character) return <Navigate to="/characters" replace />
-  const clear = async () => {
-    setError('')
-    try { await store.select(null); navigate('/characters', { replace: true }) }
-    catch (error) { setError(apiError(error).message) }
-  }
-  return <Layout><h1>{character.name}</h1>
-    {error && <p role="alert" className="flash-error">{error}</p>}
-    <p>Уровень {character.level} · Опыт {character.experience}</p>
-    <p>Здоровье: {character.hp_current}/{character.hp}</p><p>Мана: {character.mp_current}/{character.mp}</p><p>Персонаж готов к игре.</p>
-    <button className="btn-primary" disabled={pending} onClick={() => void clear()}>{pending ? 'Подождите…' : 'К выбору персонажа'}</button>
-  </Layout>
+  const faction = catalogState.catalog?.factions.find(item => item.id === character.faction_id)
+  const artwork = factionArtwork(faction)
+  return <GameLayout character={character} catalog={catalogState.catalog}>
+    {artwork.scene && <img className="scene-image" src={artwork.scene} alt={artwork.sceneAlt} width={550} height={120} />}
+    <h1>{character.name}</h1>
+    <p className="text-center">Уровень {character.level} · Опыт {character.experience}</p>
+    <CatalogFeedback {...catalogState} />
+    {faction && <p className="text-center muted">{faction.name}</p>}
+    <nav className="section-menu" aria-label="Разделы игры">
+      <Link to="/chat">Общий чат</Link>
+      {user && user.role !== 'user' && <Link to="/moderation">Модерация</Link>}
+      <Link to="/profile"><img className="icon" src={artwork.icon} alt="" width={25} height={25} />Мой персонаж</Link>
+    </nav>
+  </GameLayout>
 }

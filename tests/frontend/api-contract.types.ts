@@ -7,6 +7,7 @@ export async function checkAPIContract() {
     body: { email: 'p@example.test', password: 'password', remember_me: true },
   })
   account.user.login.toUpperCase()
+  account.user.role satisfies 'user' | 'moderator' | 'administrator'
   await apiRequest('post', '/api/auth/login', { body: { email: 'p@example.test', password: 'password' } })
   await apiRequest('post', '/api/auth/login', { body: { email: 'p@example.test', password: 'password', remember_me: null } })
   await apiRequest('get', '/api/auth/me', { signal: new AbortController().signal })
@@ -47,4 +48,38 @@ export async function checkAPIContract() {
   selected.character.name.toUpperCase()
   // @ts-expect-error internal account role is not a public response field
   account.user.role_id.toFixed()
+}
+
+export async function checkSocialContract() {
+  const page = await apiRequest('get', '/api/chat/messages', { query: { before_id: 50 }, headers: { 'X-Account-ID': 1 } })
+  page.messages.forEach(message => message.body?.toUpperCase())
+  // @ts-expect-error cursor must be numeric
+  await apiRequest('get', '/api/chat/messages', { query: { before_id: '50' } })
+  // @ts-expect-error reject unsupported query keys
+  await apiRequest('get', '/api/chat/messages', { query: { user_id: 1 } })
+  // @ts-expect-error ordinary account lookup has no query parameters
+  await apiRequest('get', '/api/auth/me', { query: { before_id: 50 } })
+  // @ts-expect-error duration must be explicit to prevent accidental permanent ban
+  await apiRequest('post', '/api/moderation/bans', { body: { user_id: 1, scope: 'chat', reason: 'Spam' } })
+}
+
+export async function checkAccountHeaders() {
+  await apiRequest('get', '/api/characters', { headers: { 'X-Account-ID': 1 } })
+  // @ts-expect-error header is a numeric account ID
+  await apiRequest('get', '/api/characters', { headers: { 'X-Account-ID': '1' } })
+  // @ts-expect-error reject misspelled header names
+  await apiRequest('get', '/api/characters', { headers: { 'X-Account-Idd': 1 } })
+  // @ts-expect-error login does not support account preconditions
+  await apiRequest('post', '/api/auth/login', { headers: { 'X-Account-ID': 1 }, body: { email: 'a', password: 'b' } })
+  const { listCharacters, createCharacter, characterCatalog, setActiveCharacter } = await import('../../frontend/src/features/character/api')
+  const { logout } = await import('../../frontend/src/features/auth/api')
+  await listCharacters(1)
+  await createCharacter(1, { name: 'Valid', faction_id: 1, class_id: 1 })
+  await characterCatalog(1)
+  await setActiveCharacter(1, null)
+  await logout(1)
+  // @ts-expect-error first-party calls always require explicit account IDs
+  await listCharacters()
+  // @ts-expect-error logout never guesses an account
+  await logout()
 }

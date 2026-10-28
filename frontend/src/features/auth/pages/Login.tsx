@@ -60,6 +60,7 @@ export default function Login() {
 
   return (
     <Layout>
+      <img className="scene-image" src="/images/scenes/auth.jpg" width="550" height="120" alt="" />
       <h1>Вход</h1>
       {error && <p className="flash-error" role="alert">{error}</p>}
       {message && <p className="flash-success" role="status">{message}</p>}

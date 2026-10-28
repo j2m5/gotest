@@ -34,16 +34,23 @@ func TestLocalCreatesSeparatePrivateMIMEFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 {
-		t.Fatalf("got %d messages", len(entries))
+	if len(entries) != 4 {
+		t.Fatalf("got %d files, want two MIME/text pairs", len(entries))
 	}
 	for _, entry := range entries {
-		if filepath.Ext(entry.Name()) != ".eml" {
+		extension := filepath.Ext(entry.Name())
+		if extension != ".eml" && extension != ".txt" {
 			t.Fatalf("wrong extension: %s", entry.Name())
 		}
 		info, _ := entry.Info()
 		if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 			t.Fatalf("permissions: %v", info.Mode())
+		}
+		if extension == ".txt" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(o.Directory, strings.TrimSuffix(entry.Name(), ".eml")+".txt")); err != nil {
+			t.Fatal("missing paired text preview")
 		}
 		f, err := os.Open(filepath.Join(o.Directory, entry.Name()))
 		if err != nil {

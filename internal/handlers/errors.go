@@ -9,6 +9,7 @@ import (
 	"gotest/internal/character"
 	"gotest/internal/httpapi"
 	"gotest/internal/observability"
+	"gotest/internal/social"
 	"gotest/internal/validation"
 )
 
@@ -16,6 +17,7 @@ import (
 // transport codes, and wrapped errors keep their original meaning.
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var invalid *validation.Error
+	var banned *auth.AccountBannedError
 	switch {
 	case errors.As(err, &invalid):
 		httpapi.WriteError(w, 422, httpapi.CodeValidationFailed, "Проверьте заполненные поля", invalid.Fields)
@@ -23,6 +25,27 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteError(w, 401, httpapi.CodeUnauthenticated, "Необходимо войти в аккаунт", nil)
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		httpapi.WriteError(w, 401, "invalid_credentials", "Неверный email или пароль", nil)
+	case errors.As(err, &banned):
+		until := "бессрочно"
+		if banned.ExpiresAt != nil {
+			until = "до " + banned.ExpiresAt.UTC().Format("02.01.2006 15:04 MST")
+		}
+		httpapi.WriteError(w, 403, "account_banned", "Аккаунт заблокирован "+until+". Причина: "+banned.Reason, nil)
+	case errors.Is(err, social.ErrForbidden):
+		httpapi.WriteError(w, 403, "forbidden", "Недостаточно прав для этого действия", nil)
+	case errors.Is(err, social.ErrNotFound):
+		httpapi.WriteError(w, 404, "social_not_found", "Запись не найдена", nil)
+	case errors.Is(err, social.ErrChatBanned):
+		httpapi.WriteError(w, 403, "chat_banned", "Отправка сообщений временно заблокирована", nil)
+	case errors.Is(err, social.ErrNoCharacter):
+		httpapi.WriteError(w, 409, "character_required", "Сначала выберите персонажа", nil)
+	case errors.Is(err, social.ErrCharacterChanged):
+		httpapi.WriteError(w, 409, "character_changed", "Активный персонаж изменился. Обновите данные", nil)
+	case errors.Is(err, social.ErrBanActive):
+		httpapi.WriteError(w, 409, "ban_active", "В этом разделе уже действует бан. Сначала снимите его", nil)
+	case errors.Is(err, social.ErrTooFast):
+		w.Header().Set("Retry-After", "2")
+		httpapi.WriteError(w, 429, "rate_limited", "Подождите две секунды перед следующим сообщением", nil)
 	case errors.Is(err, auth.ErrUnverified):
 		httpapi.WriteError(w, 403, "email_unverified", "Подтвердите email перед входом", nil)
 	case errors.Is(err, auth.ErrConflict):

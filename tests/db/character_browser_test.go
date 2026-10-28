@@ -51,10 +51,30 @@ func TestCharacterBrowserFlow(t *testing.T) {
 	if err := service.VerifyEmail(ctx, mail.waitVerification(t)); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.Register(ctx, auth.RegisterInput{Email: "other-browser@example.test", Login: "other-browser", Password: "browser-password"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.VerifyEmail(ctx, mail.waitVerification(t)); err != nil {
+		t.Fatal(err)
+	}
+	// This account exercises valid resource boundaries and a stale local avatar.
+	if err := service.Register(ctx, auth.RegisterInput{Email: "profile-fixture@example.test", Login: "profile-fixture", Password: "browser-password"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.VerifyEmail(ctx, mail.waitVerification(t)); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, ctx, s, `INSERT INTO characters(user_id,faction_id,class_id,name,hp,hp_current,mp,mp_current,avatar)
+		SELECT u.id,c.faction_id,c.id,'Проверка',200,37,0,0,'images/avatars/browser-missing.png'
+		FROM users u CROSS JOIN classes c WHERE u.email='profile-fixture@example.test' AND c.code='imperial_agent'`)
 	if err := service.Register(ctx, auth.RegisterInput{Email: "unverified@example.test", Login: "unverified", Password: "browser-password"}); err != nil {
 		t.Fatal(err)
 	}
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/characters/catalog" && r.Header.Get("X-Browser-Test-Catalog-Failure") == "1" {
+			http.Error(w, "catalog temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		// Chromium forbids overriding Sec-Fetch-Site through extra headers.
 		// Inject that metadata at the test boundary so the real origin guard
 		// produces a readable 403 for the login UI, without disabling CORS.
@@ -65,7 +85,7 @@ func TestCharacterBrowserFlow(t *testing.T) {
 		h.ServeHTTP(w, r)
 	})
 	server.Start()
-	browserCtx, cancel := context.WithTimeout(context.Background(), 70*time.Second)
+	browserCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 	command := exec.CommandContext(browserCtx, "node", filepath.Join("..", "frontend", "characters.browser.mjs"), server.URL, browser, t.TempDir(), mailDirectory)
 	output, err := command.CombinedOutput()

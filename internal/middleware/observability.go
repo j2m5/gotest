@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"bufio"
 	"crypto/rand"
 	"log/slog"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -86,6 +88,10 @@ func (w *observedResponse) Write(body []byte) (int, error) {
 }
 
 func (w *observedResponse) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *observedResponse) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack()
+}
 
 func (w *observedResponse) FlushError() error {
 	if w.status == 0 {

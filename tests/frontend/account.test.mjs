@@ -6,7 +6,7 @@ const user = { id: 1, email: 'a@example.com', login: 'Alice', character_id: null
 const character = { id: 7, name: 'Алиса', faction_id: 1, class_id: 2, role: 'dd', level: 1, experience: 0, avatar: null, hp: 10, mp: 5, hp_current: 10, mp_current: 5 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 function setup(overrides = {}) {
-  return new AccountStore({ currentUser: async () => ({ user }), listCharacters: async () => ({ characters: [character], active_character_id: null }), login: async () => ({ user }), logout: async () => ({}), resetPassword: async () => ({ message: 'ok' }), setActiveCharacter: async id => ({ character: id === null ? null : character }), createCharacter: async () => ({ character }), characterCatalog: async () => ({ factions: [], classes: [] }), ...overrides })
+  return new AccountStore({ currentUser: async () => ({ user }), listCharacters: async () => ({ characters: [character], active_character_id: null }), login: async () => ({ user }), logout: async () => ({}), resetPassword: async () => ({ message: 'ok' }), setActiveCharacter: async (_accountId, id) => ({ character: id === null ? null : character }), createCharacter: async () => ({ character }), characterCatalog: async () => ({ factions: [], classes: [] }), ...overrides })
 }
 
 test('sign-in forwards an explicit persistence choice and defaults to a session cookie', async () => {
@@ -15,7 +15,7 @@ test('sign-in forwards an explicit persistence choice and defaults to a session 
   await store.signIn('a@example.com', 'password')
   await store.signIn('a@example.com', 'password', true)
   await store.signIn('a@example.com', 'password', false)
-  assert.deepEqual(calls, [false, true, false].map(flag => ['a@example.com', 'password', flag]))
+  assert.deepEqual(calls.map(args => args.slice(0, 3)), [false, true, false].map(flag => ['a@example.com', 'password', flag]))
   assert.equal(store.getSnapshot().status, 'ready')
 })
 test('initial roster and cross-device refresh derive the account choice from the same server snapshot', async () => {
@@ -163,6 +163,44 @@ test('catalog unauthorized response expires the session', async () => {
   await assert.rejects(store.catalog())
   assert.equal(store.getSnapshot().status, 'anonymous')
 })
+test('a same-account background refresh does not reject an in-flight catalog', async () => {
+  const request = deferred()
+  const store = setup({ characterCatalog: () => request.promise })
+  await store.refresh()
+  const catalog = store.catalog()
+  await store.refresh()
+  request.resolve({ factions: [{ id: 5, name: 'Republic' }], classes: [] })
+  assert.deepEqual(await catalog, { factions: [{ id: 5, name: 'Republic' }], classes: [] })
+})
+test('catalog responses stay invalid after a silent account switch and return to the original account', async () => {
+  for (const rejected of [false, true]) {
+    const request = deferred()
+    let current = user
+    const store = setup({ currentUser: async () => ({ user: current }), characterCatalog: () => request.promise })
+    await store.refresh()
+    const catalog = store.catalog()
+    const rejection = assert.rejects(catalog)
+    current = { ...user, id: 2 }
+    await store.refresh()
+    current = user
+    await store.refresh()
+    if (rejected) request.reject({ response: { status: 401 } })
+    else request.resolve({ factions: [], classes: [] })
+    await rejection
+    assert.equal(store.getSnapshot().status, 'ready')
+    assert.equal(store.getSnapshot().user.id, 1)
+  }
+})
+test('a current catalog 401 still expires the session after a same-account refresh', async () => {
+  const request = deferred()
+  const store = setup({ characterCatalog: () => request.promise })
+  await store.refresh()
+  const rejected = assert.rejects(store.catalog())
+  await store.refresh()
+  request.reject({ response: { status: 401 } })
+  await rejected
+  assert.equal(store.getSnapshot().status, 'anonymous')
+})
 test('failed mutations preserve the current selection and allow retry', async () => {
   let fails = true
   const store = setup({ setActiveCharacter: async () => { if (fails) throw { response: { status: 500 } }; return { character } } })
@@ -199,7 +237,7 @@ test('password reset forwards token and password, then expires the current accou
   const store = setup({ resetPassword: async (...args) => { calls.push(args); return { message: 'ok' } } })
   await store.refresh()
   await store.resetPassword('reset-token', 'new-password')
-  assert.deepEqual(calls, [['reset-token', 'new-password']])
+  assert.deepEqual(calls.map(args => args.slice(0, 2)), [['reset-token', 'new-password']])
   assert.equal(store.getSnapshot().status, 'anonymous')
   assert.equal(store.getSnapshot().user, null)
   assert.equal(store.getSnapshot().roster, null)
@@ -230,4 +268,107 @@ test('password reset invalidates a refresh started before session revocation', a
   await refresh
   assert.equal(store.getSnapshot().status, 'anonymous')
   assert.equal(store.getSnapshot().user, null)
+})
+
+test('roster pins the discovered account and account_changed reboots without publishing mixed state', async () => {
+  const seen = []
+  let current = user
+  const store = setup({
+    currentUser: async () => ({ user: current }),
+    listCharacters: async accountId => {
+      seen.push(accountId)
+      if (seen.length === 1) { current = { ...user, id: 2 }; throw { response: { status: 409, data: { code: 'account_changed' } } } }
+      return { characters: [], active_character_id: null }
+    },
+  })
+  const snapshots = []
+  store.subscribe(() => snapshots.push(store.getSnapshot()))
+  await store.refresh()
+  assert.deepEqual(seen, [1, 2])
+  assert.equal(store.getSnapshot().user.id, 2)
+  assert(snapshots.some(s => s.user === null && s.roster === null))
+})
+
+test('external auth invalidates mutation, aborts it and old finally cannot release a newer pending action', async () => {
+  const old = deferred(), fresh = deferred()
+  let current = user
+  const calls = []
+  const store = setup({
+    currentUser: async () => ({ user: current }),
+    createCharacter: (accountId, input, signal) => { calls.push({ accountId, signal }); return calls.length === 1 ? old.promise : fresh.promise },
+  })
+  await store.refresh()
+  const first = store.create({ name: 'Old', faction_id: 1, class_id: 2 })
+  await Promise.resolve()
+  current = { ...user, id: 2 }
+  await store.externalAuthChanged()
+  assert.equal(calls[0].signal.aborted, true)
+  const second = store.create({ name: 'New', faction_id: 1, class_id: 2 })
+  old.resolve({ character: { ...character, id: 88 } })
+  await assert.rejects(first)
+  assert.equal(store.getSnapshot().pending, true)
+  assert.equal(store.getSnapshot().user.id, 2)
+  fresh.resolve({ character: { ...character, id: 99 } })
+  await second
+  assert.deepEqual(calls.map(c => c.accountId), [1, 2])
+  assert(!store.getSnapshot().roster.characters.some(c => c.id === 88))
+})
+
+test('guarded mutation captures displayed account and mismatch refreshes without replay', async () => {
+  let current = user
+  const calls = []
+  const store = setup({ currentUser: async () => ({ user: current }), setActiveCharacter: async (...args) => {
+    calls.push(args); current = { ...user, id: 2 }
+    throw { response: { status: 409, data: { code: 'account_changed' } } }
+  } })
+  await store.refresh()
+  await assert.rejects(store.select(7))
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][0], 1)
+  assert.equal(store.getSnapshot().user.id, 2)
+  assert.equal(store.getSnapshot().pending, false)
+})
+
+test('successful auth broadcasts once and external refresh does not rebroadcast', async () => {
+  let changes = 0
+  const store = setup()
+  const release = store.subscribeAuthChanges(() => changes++)
+  await store.signIn('a', 'b')
+  await store.externalAuthChanged()
+  await store.signOut()
+  await store.resetPassword('token', 'password')
+  assert.equal(changes, 3)
+  release()
+  await store.signIn('a', 'b')
+  assert.equal(changes, 3)
+})
+
+
+test('all guarded operations carry the displayed account, unknown state bootstraps and anonymous logout stays local', async () => {
+  const calls = []
+  const store = setup({
+    characterCatalog: async accountId => { calls.push(['catalog', accountId]); return { factions: [], classes: [] } },
+    setActiveCharacter: async (accountId, id) => { calls.push(['select', accountId, id]); return { character: null } },
+    createCharacter: async (accountId, input) => { calls.push(['create', accountId, input.name]); return { character } },
+    logout: async accountId => { calls.push(['logout', accountId]) },
+  })
+  await store.catalog()
+  await store.select(null)
+  await store.create({ name: 'Name', faction_id: 1, class_id: 2 })
+  await store.signOut()
+  await store.signOut()
+  assert.deepEqual(calls, [['catalog', 1], ['select', 1, null], ['create', 1, 'Name'], ['logout', 1]])
+})
+
+test('failed authentication operations never broadcast', async () => {
+  const failure = async () => { throw { response: { status: 500 } } }
+  const store = setup({ login: failure, logout: failure, resetPassword: failure })
+  let broadcasts = 0
+  store.subscribeAuthChanges(() => broadcasts++)
+  await store.refresh()
+  await assert.rejects(store.signIn('a', 'b'))
+  await assert.rejects(store.signOut())
+  await assert.rejects(store.resetPassword('t', 'p'))
+  assert.equal(broadcasts, 0)
+  assert.equal(store.getSnapshot().pending, false)
 })

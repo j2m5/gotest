@@ -32,7 +32,8 @@ func (r *CharacterRepository) Catalog(ctx context.Context) (*character.Catalog, 
 	}
 	defer rollbackCharacterTx(tx)
 	catalog := &character.Catalog{Factions: []character.Faction{}, Classes: []character.Class{}}
-	rows, err := tx.Query(ctx, `SELECT id,code,name,description,icon FROM factions ORDER BY id`)
+	// The catalog exposes display labels; stable codes identify the entries.
+	rows, err := tx.Query(ctx, `SELECT id,code,COALESCE(NULLIF(BTRIM(alias),''),name),description,icon FROM factions ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (r *CharacterRepository) Catalog(ctx context.Context) (*character.Catalog, 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	rows, err = tx.Query(ctx, `SELECT id,faction_id,code,name,description,icon FROM classes ORDER BY faction_id,id`)
+	rows, err = tx.Query(ctx, `SELECT id,faction_id,code,COALESCE(NULLIF(BTRIM(alias),''),name),description,icon FROM classes ORDER BY faction_id,id`)
 	if err != nil {
 		return nil, err
 	}

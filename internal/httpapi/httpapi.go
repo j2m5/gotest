@@ -23,6 +23,7 @@ const (
 	CodeRateLimited          = "rate_limited"
 	CodeInternalError        = "internal_error"
 	CodeUnauthenticated      = "unauthenticated"
+	CodeAccountChanged       = "account_changed"
 	CodeValidationFailed     = "validation_failed"
 )
 

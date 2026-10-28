@@ -26,12 +26,12 @@ func TestQueuedDeliveryHasStableMessageIDDateAndToken(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	entries, err := os.ReadDir(o.Directory)
+	entries, err := filepath.Glob(filepath.Join(o.Directory, "*.eml"))
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("files: %d %v", len(entries), err)
 	}
 	for _, entry := range entries {
-		f, err := os.Open(filepath.Join(o.Directory, entry.Name()))
+		f, err := os.Open(entry)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +76,7 @@ func TestQueuedDeliveryKindsAndValidation(t *testing.T) {
 		}
 	}
 	entries, _ := os.ReadDir(o.Directory)
-	if len(entries) != 2 {
+	if len(entries) != 4 {
 		t.Fatal("invalid message written")
 	}
 }

@@ -27,6 +27,10 @@ func (m *Middleware) Auth(next http.HandlerFunc) http.HandlerFunc {
 			httpapi.WriteError(w, 500, httpapi.CodeInternalError, "Внутренняя ошибка сервера", nil)
 			return
 		}
+		expected, valid := expectedAccount(w, r)
+		if !valid || !accountMatches(w, expected, user.ID) {
+			return
+		}
 		ctx := context.WithValue(r.Context(), userContextKey{}, user)
 		ctx = context.WithValue(ctx, sessionHashContextKey{}, auth.TokenDigest(cookie.Value))
 		next(w, r.WithContext(ctx))

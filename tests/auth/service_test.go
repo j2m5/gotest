@@ -120,13 +120,14 @@ func (m *memoryRepository) DeleteSession(ctx context.Context, token string) erro
 	delete(m.sessions, token)
 	return nil
 }
-func (m *memoryRepository) ConsumeVerification(ctx context.Context, token string, now time.Time) error {
+func (m *memoryRepository) ConsumeVerification(ctx context.Context, token string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if m.err != nil {
 		return m.err
 	}
+	now := time.Now()
 	v, ok := m.verifications[token]
 	if !ok || !v.expires.After(now) {
 		return auth.ErrInvalidToken

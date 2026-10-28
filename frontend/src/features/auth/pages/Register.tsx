@@ -43,6 +43,7 @@ export default function Register() {
 
   return (
     <Layout>
+      <img className="scene-image" src="/images/scenes/register.jpg" width="550" height="120" alt="" />
       <h1>Регистрация</h1>
 
       <p>Создайте аккаунт и подтвердите электронную почту по ссылке из письма.</p>

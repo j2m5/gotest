@@ -1,13 +1,14 @@
 module gotest
 
-go 1.26
+go 1.26.10
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/joho/godotenv v1.5.1
-	golang.org/x/crypto v0.52.0
-	golang.org/x/text v0.37.0
+	golang.org/x/crypto v0.56.0
+	golang.org/x/text v0.41.0
 )
 
 require (
@@ -20,5 +21,5 @@ require (
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 )

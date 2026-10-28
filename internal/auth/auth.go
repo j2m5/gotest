@@ -15,7 +15,7 @@ type Repository interface {
 	// DeleteSession revokes the token and clears the account's shared character
 	// selection atomically if the session still exists and has not expired.
 	DeleteSession(context.Context, string) error
-	ConsumeVerification(context.Context, string, time.Time) error
+	ConsumeVerification(context.Context, string) error
 	ReplaceVerification(context.Context, Verification) error
 	EnqueuePasswordReset(context.Context, string, time.Time) error
 	CreatePasswordReset(context.Context, PasswordReset) (bool, error)

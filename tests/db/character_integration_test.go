@@ -37,7 +37,7 @@ func characterTestStorageBefore(t *testing.T, before string) (*testStorage, cont
 	for _, path := range files {
 		name := filepath.Base(path)
 		switch name {
-		case "000001_create_users.up.sql", "20260514075823_create_sessions.up.sql", "20260516144648_create_email_verifications.up.sql", "20261025000100_auth_hardening.up.sql":
+		case "000001_create_users.up.sql", "20260514075823_create_sessions.up.sql", "20260516144648_create_email_verifications.up.sql", "20261025000100_auth_hardening.up.sql", "20261028000100_social_moderation.up.sql":
 			continue // Applied by the auth fixture.
 		}
 		if before != "" && name >= before+".up.sql" {

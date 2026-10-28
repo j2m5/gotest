@@ -72,6 +72,7 @@ func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context)
 	if migrate {
 		executeMigration(t, ctx, s, "20261025000100_auth_hardening.up.sql")
 	}
+	executeMigration(t, ctx, s, "20261028000100_social_moderation.up.sql")
 	return s, ctx
 }
 
@@ -142,7 +143,7 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustExec(t, ctx, s, `UPDATE email_verifications SET expired_at=$1 WHERE token='expired'`, now)
-	if err := s.ConsumeVerification(ctx, "expired", now); !errors.Is(err, auth.ErrInvalidToken) {
+	if err := s.ConsumeVerification(ctx, "expired"); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("exact expiry: %v", err)
 	}
 	u, err := s.FindCredentialsByEmail(ctx, "user@example.com")
@@ -155,7 +156,7 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	if err := s.ReplaceVerification(ctx, u.User.ID, "new", now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ConsumeVerification(ctx, "expired", now); !errors.Is(err, auth.ErrInvalidToken) {
+	if err := s.ConsumeVerification(ctx, "expired"); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("replaced token: %v", err)
 	}
 	// Historical data can contain several links for one account; consuming any
@@ -163,14 +164,14 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	if _, err := s.pool.Exec(ctx, `INSERT INTO email_verifications(user_id,token,expired_at) VALUES($1,'sibling',$2)`, u.User.ID, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ConsumeVerification(ctx, "new", now); err != nil {
+	if err := s.ConsumeVerification(ctx, "new"); err != nil {
 		t.Fatal(err)
 	}
 	var remaining int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM email_verifications WHERE user_id=$1`, u.User.ID).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("verification links remaining=%d error=%v", remaining, err)
 	}
-	if err := s.ConsumeVerification(ctx, "new", now); !errors.Is(err, auth.ErrInvalidToken) {
+	if err := s.ConsumeVerification(ctx, "new"); !errors.Is(err, auth.ErrInvalidToken) {
 		t.Fatalf("token reused: %v", err)
 	}
 	if err := s.ReplaceVerification(ctx, u.User.ID, "again", now.Add(time.Hour)); !errors.Is(err, auth.ErrAlreadyVerified) {
@@ -184,7 +185,7 @@ func TestAuthVerificationExpiryAndReplacement(t *testing.T) {
 	if err := s.pool.QueryRow(ctx, `SELECT updated_at FROM users WHERE id=$1`, u.User.ID).Scan(&updatedAt); err != nil {
 		t.Fatal(err)
 	}
-	if u.User.EmailVerifiedAt == nil || !u.User.EmailVerifiedAt.Equal(now) || updatedAt.Before(now) || updatedAt.After(time.Now()) {
+	if u.User.EmailVerifiedAt == nil || u.User.EmailVerifiedAt.Before(now) || u.User.EmailVerifiedAt.After(updatedAt) || updatedAt.Before(now) || updatedAt.After(time.Now()) {
 		t.Fatalf("verification timestamps: %+v", u)
 	}
 }
@@ -200,7 +201,7 @@ func TestAuthConcurrentVerification(t *testing.T) {
 	start := make(chan struct{})
 	for range 2 {
 		wg.Add(1)
-		go func() { defer wg.Done(); <-start; results <- s.ConsumeVerification(ctx, "single", now) }()
+		go func() { defer wg.Done(); <-start; results <- s.ConsumeVerification(ctx, "single") }()
 	}
 	close(start)
 	wg.Wait()
@@ -231,7 +232,7 @@ func TestAuthVerificationRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ConsumeVerification(ctx, "retained", now); err == nil {
+	if err := s.ConsumeVerification(ctx, "retained"); err == nil {
 		t.Fatal("expected deletion failure")
 	}
 	u, err := s.FindCredentialsByEmail(ctx, "rollback@example.com")
@@ -244,7 +245,7 @@ func TestAuthVerificationRollback(t *testing.T) {
 	if _, err := s.pool.Exec(ctx, "DROP TRIGGER reject_verification_delete ON email_verifications"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ConsumeVerification(ctx, "retained", now); err != nil {
+	if err := s.ConsumeVerification(ctx, "retained"); err != nil {
 		t.Fatalf("failed consumption lost token: %v", err)
 	}
 }
@@ -265,7 +266,7 @@ func TestAuthReplacementRollback(t *testing.T) {
 	if err := s.ReplaceVerification(ctx, u.User.ID, "second-token", now.Add(time.Hour)); !errors.Is(err, auth.ErrConflict) {
 		t.Fatalf("replacement collision: %v", err)
 	}
-	if err := s.ConsumeVerification(ctx, "first-token", now); err != nil {
+	if err := s.ConsumeVerification(ctx, "first-token"); err != nil {
 		t.Fatalf("failed replacement lost old token: %v", err)
 	}
 }
@@ -284,7 +285,7 @@ func TestAuthConcurrentResendAndVerification(t *testing.T) {
 		}
 		verify, resend := make(chan error, 1), make(chan error, 1)
 		start := make(chan struct{})
-		go func() { <-start; verify <- s.ConsumeVerification(ctx, old, now) }()
+		go func() { <-start; verify <- s.ConsumeVerification(ctx, old) }()
 		go func() { <-start; resend <- s.ReplaceVerification(ctx, u.User.ID, next, now.Add(time.Hour)) }()
 		close(start)
 		v, r := <-verify, <-resend
@@ -296,11 +297,11 @@ func TestAuthConcurrentResendAndVerification(t *testing.T) {
 			if !errors.Is(v, auth.ErrInvalidToken) || r != nil {
 				t.Fatalf("resend won; verify=%v resend=%v", v, r)
 			}
-			if err := s.ConsumeVerification(ctx, next, now); err != nil {
+			if err := s.ConsumeVerification(ctx, next); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := s.ConsumeVerification(ctx, old, now); !errors.Is(err, auth.ErrInvalidToken) {
+		if err := s.ConsumeVerification(ctx, old); !errors.Is(err, auth.ErrInvalidToken) {
 			t.Fatalf("old token reused: %v", err)
 		}
 	}

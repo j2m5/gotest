@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	openapirouters "github.com/getkin/kin-openapi/routers"
@@ -23,6 +24,7 @@ import (
 	"gotest/internal/character"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
+	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/validation"
 )
@@ -117,6 +119,9 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 		identity.CharacterID = new(10)
 	}
 	a := &authStub{user: identity, err: tc.authErr}
+	lifecycle, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	hub := realtime.New(lifecycle, a, "http://localhost:5173")
 	c := &contractCharacters{characterStub: characterStub{err: tc.characterErr}, empty: tc.empty, populated: tc.filled}
 	limit := 1000
 	if tc.limited {
@@ -125,6 +130,7 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 	h, err := routes.New(handlers.NewHandler(a, true, a), handlers.NewCharacterHandler(c), middleware.NewMiddleware(a), routes.Options{
 		StaticDir: t.TempDir(), AuthLimit: limit, TrustedOrigin: "http://localhost:5173",
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Social: handlers.NewSocialHandler(&socialStub{filled: tc.filled}, hub.Notify), ChatEvents: hub.ServeHTTP, Lifecycle: lifecycle,
 		Ready: func(context.Context) error {
 			if tc.notReady {
 				return errors.New("database offline")
@@ -154,7 +160,10 @@ func contractRequest(t *testing.T, server *httptest.Server, tc contractCase) *ht
 		r.AddCookie(characterCookie())
 	}
 	for name, values := range tc.headers {
-		r.Header[name] = values
+		r.Header.Del(name)
+		for _, value := range values {
+			r.Header.Add(name, value)
+		}
 	}
 	return r
 }
@@ -244,6 +253,17 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "create character", method: "POST", path: "/api/characters", body: `{"name":"Malgus","faction_id":2,"class_id":8}`, status: 201},
 		{name: "select character", method: "PUT", path: "/api/characters/active", body: `{"character_id":10}`, status: 200},
 		{name: "clear character", method: "PUT", path: "/api/characters/active", body: `{"character_id":null}`, status: 200},
+		{name: "chat empty", method: "GET", path: "/api/chat/messages", status: 200},
+		{name: "moderators empty", method: "GET", path: "/api/chat/moderators", status: 200},
+		{name: "moderators selected and unselected characters", method: "GET", path: "/api/chat/moderators", filled: true, status: 200},
+		{name: "chat messages and ban", method: "GET", path: "/api/chat/messages?before_id=50", filled: true, status: 200},
+		{name: "chat send", method: "POST", path: "/api/chat/messages", body: `{"body":"Hello","character_id":3}`, status: 201},
+		{name: "chat delete", method: "POST", path: "/api/chat/delete", body: `{"message_id":1,"reason":"Spam"}`, status: 200},
+		{name: "bans", method: "GET", path: "/api/moderation/bans?user_id=2", filled: true, status: 200},
+		{name: "ban", method: "POST", path: "/api/moderation/bans", body: `{"user_id":2,"scope":"account","duration_hours":null,"reason":"Spam"}`, status: 201},
+		{name: "revoke ban", method: "POST", path: "/api/moderation/revoke", body: `{"ban_id":1,"reason":"Appeal"}`, status: 200},
+		{name: "moderation journal", method: "GET", path: "/api/moderation/actions", filled: true, status: 200},
+		{name: "chat events", method: "GET", path: "/api/chat/events?account_id=1", status: 101},
 		{name: "health", method: "GET", path: "/healthz", status: 200},
 		{name: "health HEAD", method: "HEAD", path: "/healthz", status: 200},
 		{name: "ready", method: "GET", path: "/readyz", status: 200},
@@ -258,7 +278,25 @@ func TestOpenAPIOperations(t *testing.T) {
 			if err := openapi3filter.ValidateRequest(context.Background(), input); err != nil {
 				t.Fatalf("request: %v", err)
 			}
-			response, body := contractExchange(t, server, r, tc.status)
+			var response *http.Response
+			var body []byte
+			if tc.status == 101 {
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+				defer cancel()
+				r.Header.Set("Origin", server.URL)
+				c, upgrade, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(r.URL.String(), "http"), &websocket.DialOptions{HTTPHeader: r.Header})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer c.CloseNow()
+				_, data, err := c.Read(ctx)
+				if err != nil || string(data) != `{"type":"changed"}` {
+					t.Fatalf("socket event: %s %v", data, err)
+				}
+				response = upgrade
+			} else {
+				response, body = contractExchange(t, server, r, tc.status)
+			}
 			if err := validateContractResponse(input, response.StatusCode, response.Header, body); err != nil {
 				t.Fatalf("response: %v", err)
 			}
@@ -316,6 +354,13 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 		{name: "unverified", method: "POST", path: "/api/auth/login", body: credentials, authErr: auth.ErrUnverified, status: 403},
 		{name: "login internal", method: "POST", path: "/api/auth/login", body: credentials, authErr: failure, status: 500},
 		{name: "logout internal", method: "POST", path: "/api/auth/logout", authErr: failure, status: 500},
+		{name: "logout account changed", method: "POST", path: "/api/auth/logout", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "logout invalid account", method: "POST", path: "/api/auth/logout", headers: http.Header{"X-Account-ID": {"bad"}}, invalidRequest: true, status: 400},
+		{name: "me account changed", method: "GET", path: "/api/auth/me", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "roster account changed", method: "GET", path: "/api/characters", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "catalog account changed", method: "GET", path: "/api/characters/catalog", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "create account changed", method: "POST", path: "/api/characters", body: create, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "selection account changed", method: "PUT", path: "/api/characters/active", body: `{"character_id":null}`, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "me no cookie", method: "GET", path: "/api/auth/me", noCookie: true, invalidRequest: true, status: 401},
 		{name: "me internal", method: "GET", path: "/api/auth/me", authErr: failure, status: 500},
 		{name: "bad verification token", method: "POST", path: "/api/auth/verify", body: `{"token":"` + token + `"}`, authErr: auth.ErrInvalidToken, status: 400},

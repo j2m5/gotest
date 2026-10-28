@@ -1,18 +1,18 @@
-import { apiRequest } from '../../shared/api/client'
+import { apiRequest } from '../../shared/api/client.ts'
 import type { CreateCharacterInput } from '../../entities/character/types'
 
-export function listCharacters() {
-  return apiRequest('get', '/api/characters')
+export function listCharacters(accountId: number, signal?: AbortSignal) {
+  return apiRequest('get', '/api/characters', { headers: { 'X-Account-ID': accountId }, signal })
 }
 
-export function characterCatalog() {
-  return apiRequest('get', '/api/characters/catalog')
+export function characterCatalog(accountId: number, signal?: AbortSignal) {
+  return apiRequest('get', '/api/characters/catalog', { headers: { 'X-Account-ID': accountId }, signal })
 }
 
-export function createCharacter(input: CreateCharacterInput) {
-  return apiRequest('post', '/api/characters', { body: input })
+export function createCharacter(accountId: number, input: CreateCharacterInput, signal?: AbortSignal) {
+  return apiRequest('post', '/api/characters', { headers: { 'X-Account-ID': accountId }, body: input, signal })
 }
 
-export function setActiveCharacter(character_id: number | null) {
-  return apiRequest('put', '/api/characters/active', { body: { character_id } })
+export function setActiveCharacter(accountId: number, character_id: number | null, signal?: AbortSignal) {
+  return apiRequest('put', '/api/characters/active', { headers: { 'X-Account-ID': accountId }, body: { character_id }, signal })
 }

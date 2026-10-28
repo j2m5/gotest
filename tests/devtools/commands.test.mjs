@@ -60,6 +60,34 @@ test('integration task and direct CI test task both require database configurati
   failure(f.run('test', { CI: 'true' }), /TEST_DATABASE_URL/)
 })
 
+test('Go security and race commands enforce prerequisites and propagate tool failures', t => {
+  const f = fixture(t)
+  failure(f.run('test:race'), /TEST_DATABASE_URL/)
+  f.write('go-probe.go', `package main
+import("encoding/json";"fmt";"os";"strconv")
+func main(){ data,_:=json.Marshal(map[string]any{"args":os.Args[1:],"cgo":os.Getenv("CGO_ENABLED"),"databaseRequired":os.Getenv("REQUIRE_DATABASE_TESTS")});fmt.Printf("PROBE:%s\\n",data);code,_:=strconv.Atoi(os.Getenv("PROBE_EXIT"));os.Exit(code) }
+`)
+  const binary = path.join(f.root, process.platform === 'win32' ? 'go.exe' : 'go')
+  const build = spawnSync('go', ['build', '-o', binary, path.join(f.root, 'go-probe.go')], { env: environment(), encoding: 'utf8', windowsHide: true })
+  assert.equal(build.status, 0, build.stderr)
+  const env = { PATH: f.root + path.delimiter + environment().PATH }
+  const audit = f.run('audit:go', env)
+  assert.equal(audit.status, 0, audit.stderr)
+  const auditProbe = JSON.parse(audit.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
+  assert.deepEqual(auditProbe.args, ['run', 'golang.org/x/vuln/cmd/govulncheck@v1.9.0', '-test', './cmd/...', './internal/...', './tests/...'])
+  failure(f.run('audit:go', { ...env, PROBE_EXIT: '3' }), /exit 3/)
+  // Race checks deliberately exclude the browser smoke: full check runs it separately.
+  const raceEnv = { ...env, CI: 'true', TEST_DATABASE_URL: 'postgres://test', CHARACTER_BROWSER_BINARY: 'not-a-browser', REQUIRE_BROWSER_TESTS: '1' }
+  const race = f.run('test:race', raceEnv)
+  assert.equal(race.status, 0, race.stderr)
+  const raceProbe = JSON.parse(race.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
+  assert.deepEqual(raceProbe.args, ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social)BrowserFlow$', './tests/...'])
+  assert.equal(raceProbe.cgo, '1')
+  assert.equal(raceProbe.databaseRequired, '1')
+  failure(f.run('test:race', { ...raceEnv, PROBE_EXIT: '5' }), /exit 5/)
+  failure(f.run('audit:go', env, '-latest'), /does not accept extra arguments/)
+})
+
 test('unsafe migration arguments are rejected without launching migrate', t => {
   const f = fixture(t)
   failure(f.run('migrate', {}, 'down', '-all'), /up.*version/)
@@ -104,7 +132,7 @@ test('API and full checks stop at stale types without rewriting or starting down
   }
 })
 
-test('dev API forwards app flags and preserves the repository working directory', t => {
+test('API and maintenance commands forward flags and preserve the repository working directory', t => {
   const f = fixture(t)
   f.write('go-probe.go', `package main
 import("encoding/json";"fmt";"os")
@@ -114,11 +142,18 @@ func main(){ wd,_:=os.Getwd(); result,_:=json.Marshal(map[string]any{"args":os.A
   const build = spawnSync('go', ['build', '-o', binary, path.join(f.root, 'go-probe.go')], { env: environment(), encoding: 'utf8', windowsHide: true })
   assert.equal(build.status, 0, build.stderr)
   const configFile = path.join(f.root, 'configuration with spaces.env')
-  const result = f.run('dev:api', { PATH: f.root + path.delimiter + environment().PATH }, '-env-file', configFile)
-  assert.equal(result.status, 0, result.stderr)
-  const probe = JSON.parse(result.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
-  assert.deepEqual(probe.args, ['run', './cmd/app', '-env-file', configFile])
-  assert.equal(probe.cwd, f.root)
+  for (const [task, forwarded, expected] of [
+    ['dev:api', ['-env-file', configFile], ['run', './cmd/app', '-env-file', configFile]],
+    ['mail:status', ['-timeout', '5s'], ['run', './cmd/mailqueue', '-timeout', '5s']],
+    ['db:backup', ['-dir', configFile], ['run', './cmd/dbbackup', 'backup', '-dir', configFile]],
+    ['db:restore', ['-dir', configFile], ['run', './cmd/dbbackup', 'restore', '-dir', configFile]],
+  ]) {
+    const result = f.run(task, { PATH: f.root + path.delimiter + environment().PATH }, ...forwarded)
+    assert.equal(result.status, 0, result.stderr)
+    const probe = JSON.parse(result.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
+    assert.deepEqual(probe.args, expected)
+    assert.equal(probe.cwd, f.root)
+  }
 })
 
 test('setup stops after a failed first tool instead of invoking the next command', t => {

@@ -10,12 +10,16 @@ import (
 	"gotest/internal/notification"
 )
 
-func (s *AuthRepository) ConsumeVerification(ctx context.Context, tokenHash string, now time.Time) error {
+func (s *AuthRepository) ConsumeVerification(ctx context.Context, tokenHash string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
 	// Read only the owner here. Both verification and resend lock users first;
 	// after acquiring that lock read the token again to detect replacement.
 	var userID int
@@ -43,6 +47,12 @@ func (s *AuthRepository) ConsumeVerification(ctx context.Context, tokenHash stri
 		return auth.ErrInvalidToken
 	}
 	if err != nil {
+		return err
+	}
+	// Read the effective time only after the token row lock has been acquired.
+	// A clock read in the locking query can run before a lock wait completes.
+	var now time.Time
+	if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
 		return err
 	}
 	if !expiresAt.After(now) {

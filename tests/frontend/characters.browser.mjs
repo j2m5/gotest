@@ -63,12 +63,12 @@ async function clickText(session, text) {
     button.click();
   })()`)
 }
-async function login(session, rememberMe = false, password = 'browser-password') {
+async function login(session, rememberMe = false, password = 'browser-password', email = 'browser@example.test') {
   await command('Page.navigate', { url: baseURL + '/login' }, session)
   await waitFor(session, `!!document.querySelector('#email')`, 'login form')
   assert.equal(await evaluate(session, "document.querySelector('#remember-me')?.checked"), false, 'Remember me defaults to off')
   if (rememberMe) await click(session, '#remember-me')
-  await fill(session, '#email', 'browser@example.test')
+  await fill(session, '#email', email)
   await fill(session, '#password', password)
   await click(session, 'button[type=submit]')
   await waitFor(session, `location.pathname === '/characters' || location.pathname === '/game'`, 'signed-in route')
@@ -78,6 +78,22 @@ async function screenshot(session, name) {
   const { data } = await command('Page.captureScreenshot', { format: 'png' }, session)
   await mkdir(process.env.CHARACTER_SCREENSHOT_DIR, { recursive: true })
   await writeFile(path.join(process.env.CHARACTER_SCREENSHOT_DIR, name + '.png'), Buffer.from(data, 'base64'))
+}
+
+async function checkLayout(session, name, widths = [320, 375, 480, 1024]) {
+  await waitFor(session, `[...document.images].length > 0 && [...document.images].every(img => img.complete && img.naturalWidth > 0)`, name + ' images loaded')
+  for (const width of widths) {
+    await command('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, session)
+    const layout = await evaluate(session, `new Promise(resolve => requestAnimationFrame(() => {
+      const root = document.querySelector('#root').getBoundingClientRect();
+      resolve({viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, rootWidth: root.width, left: root.left});
+    }))`)
+    assert(layout.scroll <= layout.viewport, `${name} must not scroll horizontally at ${width}px: ${JSON.stringify(layout)}`)
+    assert.equal(layout.rootWidth, Math.min(layout.viewport, 480), `${name} keeps the original maximum width`)
+    assert(Math.abs(layout.left - (layout.viewport - layout.rootWidth) / 2) < 1, `${name} stays centered`)
+    await screenshot(session, `${name}-${width}`)
+  }
+  await command('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 1, mobile: false }, session)
 }
 
 async function startBrowser() {
@@ -137,16 +153,18 @@ async function sessionCookie(session) {
   return matching[0]
 }
 
-async function waitForMail(previousNames, subject) {
+async function waitForMail(previousNames, subject, recipient = 'browser@example.test') {
   const deadline = Date.now() + 10000
   while (Date.now() < deadline) {
     for (const name of await readdir(mailDirectory)) {
-      if (!name.endsWith('.eml') || previousNames.has(name)) continue
+      if (!name.endsWith('.txt') || previousNames.has(name)) continue
       const message = await readFile(path.join(mailDirectory, name), 'utf8')
       const [headers, ...body] = message.split(/\r?\n\r?\n/)
       if (!headers.split(/\r?\n/).includes(`Subject: ${subject}`)) continue
-      assert(headers.split(/\r?\n/).includes('To: browser@example.test'), 'Mail recipient must match the requesting account')
-      return body.join('\r\n\r\n').replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      if (!headers.split(/\r?\n/).includes(`To: ${recipient}`)) continue
+      // This is the same readable file a developer opens in a text editor.
+      // No MIME decoding or repairing of wrapped links is allowed here.
+      if (body.length) return body.join('\r\n\r\n')
     }
     await delay(50)
   }
@@ -163,8 +181,19 @@ try {
   await startBrowser()
   const first = await tab()
 
+  await command('Page.navigate', { url: baseURL + '/missing-browser-route' }, first)
+  await waitFor(first, `document.querySelector('h1')?.textContent === '404' && !!document.querySelector('main a[href="/"]')`, 'not found with home link')
+  await click(first, 'main a[href="/"]')
+  await waitFor(first, "location.pathname === '/'", 'home from not found')
+  await checkLayout(first, 'guest')
+
+  await command('Page.navigate', { url: baseURL + '/profile' }, first)
+  await waitFor(first, `location.pathname === '/login' && !!document.querySelector('#email')`, 'profile requires a session')
+  await checkLayout(first, 'login')
+
   await command('Page.navigate', { url: baseURL + '/register' }, first)
   await waitFor(first, `!!document.querySelector('#login')`, 'registration form')
+  await checkLayout(first, 'register', [320, 480])
   await fill(first, '#email', 'fields@example.test')
   await fill(first, '#login', 'x'.repeat(33))
   await fill(first, '#password', 'short')
@@ -178,6 +207,25 @@ try {
   assert.equal(await evaluate(first, `document.querySelector('#login-error') === null && !!document.querySelector('#password-error')`), true)
   await fill(first, '#password', 'browser-password')
   assert.equal(await evaluate(first, `document.querySelector('#password-error') === null`), true)
+
+  const beforeRegistration = new Set(await readdir(mailDirectory))
+  await click(first, 'button[type=submit]')
+  await waitFor(first, `!!document.querySelector('[role=status]') && !document.querySelector('form')`, 'registered account awaits email confirmation')
+  const verificationMessage = await waitForMail(beforeRegistration, 'Verify your email address', 'fields@example.test')
+  const verificationLink = verificationMessage.match(/https?:\/\/[^\s]+/)?.[0]
+  assert(verificationLink, 'Readable verification email must contain a copyable link')
+  const verificationURL = new URL(verificationLink)
+  assert.equal(verificationURL.origin, baseURL)
+  assert.equal(verificationURL.pathname, '/verify')
+  assert(/^[0-9a-f]{64}$/.test(verificationURL.searchParams.get('token') ?? ''), 'Copying the text-preview link must preserve the complete token')
+  await command('Page.navigate', { url: verificationLink }, first)
+  await waitFor(first, `document.querySelector('h1')?.textContent === 'Подтверждение почты' && !!document.querySelector('main button')`, 'confirmation page from copied link')
+  await clickText(first, 'Подтвердить почту')
+  await waitFor(first, `location.search === '' && document.querySelector('[role=status]')?.textContent.includes('Почта подтверждена')`, 'successful explicit email confirmation')
+  await login(first, false, 'browser-password', 'fields@example.test')
+  await waitFor(first, `location.pathname === '/characters' && document.body.innerText.includes('valid-login')`, 'newly verified account can sign in')
+  await clickText(first, 'Выйти')
+  await waitFor(first, `location.pathname === '/login'`, 'verified registration fixture signed out')
 
   await command('Page.navigate', { url: baseURL + '/login' }, first)
   await waitFor(first, `!!document.querySelector('#email')`, 'login form')
@@ -201,9 +249,27 @@ try {
   assert.equal((await sessionCookie(first)).httpOnly, true)
   assert.equal(await evaluate(first, "document.cookie.includes('session_token')"), false)
   await waitFor(first, `document.body.innerText.includes('У вас пока нет персонажей')`, 'empty roster')
+  await command('Page.navigate', { url: baseURL + '/profile' }, first)
+  await waitFor(first, `location.pathname === '/characters' && document.body.innerText.includes('У вас пока нет персонажей')`, 'profile requires an active character')
   await clickText(first, 'Создать персонажа')
   await waitFor(first, `document.querySelector('#faction')?.options.length === 3`, 'catalog')
   const factions = await evaluate(first, `[...document.querySelector('#faction').options].slice(1).map(o => o.value)`)
+  const creationCatalog = await evaluate(first, `fetch('/api/characters/catalog').then(r => r.json())`)
+  let illustratedClasses = 0
+  for (const faction of factions) {
+    await fill(first, '#faction', faction)
+    const factionImage = '/' + creationCatalog.factions.find(item => item.id === Number(faction)).icon
+    await waitFor(first, `document.querySelector('.faction-preview img')?.getAttribute('src') === ${JSON.stringify(factionImage)} && document.querySelector('.faction-preview img')?.naturalWidth === 90`, 'faction illustration')
+    const classes = await evaluate(first, `[...document.querySelector('#character-class').options].slice(1).map(o => o.value)`)
+    assert.equal(classes.length, 4, 'Each faction offers four base classes')
+    for (const characterClass of classes) {
+      await fill(first, '#character-class', characterClass)
+      const classImage = '/' + creationCatalog.classes.find(item => item.id === Number(characterClass)).icon
+      await waitFor(first, `document.querySelector('.class-preview img')?.getAttribute('src') === ${JSON.stringify(classImage)} && document.querySelector('.class-preview img')?.naturalWidth === 195 && document.querySelector('.class-preview img')?.complete`, 'class illustration')
+      illustratedClasses++
+    }
+  }
+  assert.equal(illustratedClasses, 8, 'Both factions and all base classes have illustrations')
   await fill(first, '#character-name', 'Эйла')
   await fill(first, '#faction', factions[0])
   assert.equal(await evaluate(first, `document.querySelector('#character-class').options.length`), 5)
@@ -219,8 +285,15 @@ try {
   await fill(first, '#character-name', 'Эйла')
   assert.equal(await evaluate(first, `document.querySelector('#name-error') === null`), true)
   await screenshot(first, 'create-character')
+  await checkLayout(first, 'create-character')
+  await evaluate(first, `document.querySelector('#faction').focus()`)
+  await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, first)
+  await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, first)
+  assert.equal(await evaluate(first, `document.activeElement.id`), 'character-class', 'Native class selection remains keyboard accessible')
+  assert.equal(await evaluate(first, `getComputedStyle(document.activeElement).outlineStyle`), 'solid', 'Keyboard focus remains visible')
   await clickText(first, 'Создать')
   await waitFor(first, `location.pathname === '/characters' && document.querySelector('h2')?.textContent === 'Эйла'`, 'created character in list')
+  await checkLayout(first, 'roster', [320, 480])
   assert.equal(await evaluate(first, `fetch('/api/characters').then(r => r.json()).then(r => r.active_character_id)`), null)
   await clickText(first, 'Создать персонажа')
   await waitFor(first, `!!document.querySelector('#faction')`, 'second create form')
@@ -234,13 +307,89 @@ try {
   await clickText(first, 'Играть')
   await waitFor(first, `location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Эйла'`, 'selected character')
   await command('Page.reload', {}, first)
-  await waitFor(first, `document.body.innerText.includes('Персонаж готов к игре.')`, 'selection after reload')
+  await waitFor(first, `document.querySelector('h1')?.textContent === 'Эйла' && !!document.querySelector('[role="meter"]')`, 'selection after reload')
   await screenshot(first, 'selected-character')
+  await waitFor(first, `!!document.querySelector('main .scene-image')`, 'faction landscape')
+  await checkLayout(first, 'game')
+
+  await clickText(first, 'Мой персонаж')
+  await waitFor(first, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === 'Эйла'`, 'own character profile')
+  const selected = await evaluate(first, `fetch('/api/characters').then(r => r.json()).then(r => r.characters.find(c => c.id === r.active_character_id))`)
+  const catalog = await evaluate(first, `fetch('/api/characters/catalog').then(r => r.json())`)
+  const selectedClass = catalog.classes.find(item => item.id === selected.class_id)
+  const selectedFaction = catalog.factions.find(item => item.id === selected.faction_id)
+  await waitFor(first, `document.querySelector('.character-identity')?.textContent.includes(${JSON.stringify(selectedClass.name)})`, 'profile catalog identity')
+  const profileText = await evaluate(first, `document.querySelector('main').innerText`)
+  assert(profileText.includes(selectedFaction.name), 'Profile must resolve the character faction from the catalog')
+  assert(profileText.includes(`Опыт: ${selected.experience}`), 'Profile must show actual accumulated experience')
+  for (const [label, value, maximum] of [['Здоровье', selected.hp_current, selected.hp], ['Энергия', selected.mp_current, selected.mp]]) {
+    const meter = await evaluate(first, `(() => { const el = document.querySelector('[role="meter"][aria-label="${label}"]'); return {value: Number(el?.getAttribute('aria-valuenow')), max: Number(el?.getAttribute('aria-valuemax'))} })()`)
+    assert.deepEqual(meter, { value, max: maximum }, 'Resource panels must use current character data')
+  }
+  await command('Page.reload', {}, first)
+  await waitFor(first, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === 'Эйла'`, 'profile after reload')
+  assert.equal(await evaluate(first, `fetch('/api/characters').then(r => r.json()).then(r => r.active_character_id)`), selected.id, 'Opening the profile must preserve selection')
+  await screenshot(first, 'character-profile')
+  await checkLayout(first, 'profile')
+
+  // A transient catalog failure must not hide resources or strand the player.
+  await command('Network.setExtraHTTPHeaders', { headers: { 'X-Browser-Test-Catalog-Failure': '1' } }, first)
+  await command('Page.reload', {}, first)
+  await waitFor(first, `!!document.querySelector('[role="alert"]') && document.querySelector('h1')?.textContent === 'Эйла'`, 'profile survives catalog failure')
+  assert.equal(await evaluate(first, `document.querySelectorAll('[role="meter"]').length`), 2)
+  assert.equal(await evaluate(first, `[...document.querySelectorAll('button')].some(button => button.textContent === 'К выбору персонажа' && !button.disabled)`), true)
+  await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
+  await clickText(first, 'Повторить')
+  await waitFor(first, `document.querySelector('.character-identity')?.textContent.includes(${JSON.stringify(selectedClass.name)}) && !document.querySelector('[role="alert"]')`, 'catalog retry restores profile identity')
+  await clickText(first, 'На главную')
+  await waitFor(first, `location.pathname === '/game'`, 'game from profile')
+
+  // Tabs in the default context share cookies and auth notifications.
+  const peer = await tab()
+  await command('Page.navigate', { url: baseURL + '/characters' }, peer)
+  await waitFor(peer, "document.body.innerText.includes('browser') && !!document.querySelector('h2')", 'same-cookie peer roster')
+  // A background refresh can discover a different account without a broadcast.
+  // Local page state must be discarded before that account can submit a form.
+  await command('Page.navigate', { url: baseURL + '/characters/new' }, first)
+  await waitFor(first, "!!document.querySelector('#character-name')", 'original account draft')
+  await fill(first, '#character-name', 'Old Draft')
+  await fill(first, '#faction', factions[1])
+  await fill(first, '#character-class', await evaluate(first, "document.querySelector('#character-class').options[1].value"))
+  assert.equal(await evaluate(peer, `fetch('/api/auth/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email:'other-browser@example.test', password:'browser-password'})
+  }).then(r => r.status)`), 200)
+  await command('Page.bringToFront', {}, first)
+  await evaluate(first, "window.dispatchEvent(new Event('focus'))")
+  await waitFor(first, "document.querySelector('#character-name')?.value === '' && !!document.querySelector('#faction')", 'new account discards previous draft')
+  assert.equal(await evaluate(first, "document.querySelector('#character-name').value"), '', 'New account must not inherit the previous account draft')
+  assert.equal(await evaluate(first, "document.querySelector('#faction').value"), '')
+  assert.equal(await evaluate(first, "document.querySelector('#character-class').value"), '')
+  assert.equal(await evaluate(first, "fetch('/api/characters').then(r => r.json()).then(r => r.characters.length)"), 0)
+  await login(peer)
+  await command('Page.navigate', { url: baseURL + '/game' }, first)
+  await waitFor(first, "location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Эйла'", 'original account restored after draft check')
+  await login(peer, false, 'browser-password', 'other-browser@example.test')
+  await waitFor(first, "document.body.innerText.includes('other-browser') && document.querySelector('h2') === null", 'cross-tab login invalidates old account')
+  // Change the shared cookie without emitting an auth event. The stale UI must
+  // send its displayed B ID; logout must reject it and preserve the A cookie.
+  assert.equal(await evaluate(peer, `fetch('/api/auth/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email:'browser@example.test', password:'browser-password'})
+  }).then(r => r.status)`), 200)
+  await clickText(first, 'Выйти')
+  await waitFor(first, "document.body.innerText.includes('browser') && !document.body.innerText.includes('other-browser') && !!document.querySelector('h2')", 'stale logout rejected and account refreshed')
+  assert.equal(await evaluate(first, "fetch('/api/auth/me').then(r => r.json()).then(r => r.user.email)"), 'browser@example.test')
+  await command('Page.close', {}, peer)
+  await command('Page.navigate', { url: baseURL + '/game' }, first)
+  await waitFor(first, "location.pathname === '/game' && !!document.querySelector('h1')", 'original selection preserved after rejected logout')
 
   const { browserContextId } = await command('Target.createBrowserContext')
   const second = await tab(browserContextId)
   await login(second)
   assert.equal(await evaluate(second, 'location.pathname'), '/game')
+  await clickText(first, 'Мой персонаж')
+  await waitFor(first, `location.pathname === '/profile'`, 'profile before clearing selection')
   await clickText(first, 'К выбору персонажа')
   await waitFor(first, `location.pathname === '/characters'`, 'explicit clear')
   await evaluate(second, `window.dispatchEvent(new Event('focus'))`)
@@ -343,8 +492,39 @@ try {
   await login(ordinary, false, newPassword)
   assert.equal(await evaluate(ordinary, 'location.pathname'), '/characters', 'Reset clears character selection')
   assert.equal(await evaluate(ordinary, `fetch('/api/characters').then(r => r.json()).then(r => r.active_character_id)`), null)
+
+  const longName = 'А'.repeat(32)
+  await clickText(ordinary, 'Создать персонажа')
+  await waitFor(ordinary, `!!document.querySelector('#faction')`, 'long-name character form')
+  await fill(ordinary, '#character-name', longName)
+  await fill(ordinary, '#faction', factions[0])
+  await fill(ordinary, '#character-class', await evaluate(ordinary, `document.querySelector('#character-class').options[1].value`))
+  await clickText(ordinary, 'Создать')
+  await waitFor(ordinary, `location.pathname === '/characters' && [...document.querySelectorAll('h2')].some(el => el.textContent === ${JSON.stringify(longName)})`, 'long-name roster entry')
+  await checkLayout(ordinary, 'long-name-roster', [320])
+  await evaluate(ordinary, `[...document.querySelectorAll('.character-card')].find(card => card.querySelector('h2').textContent === ${JSON.stringify(longName)}).querySelector('button').click()`)
+  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('h1')?.textContent === ${JSON.stringify(longName)}`, 'newly selected character replaces old identity')
+  await checkLayout(ordinary, 'long-name-game', [320])
+  await clickText(ordinary, 'Мой персонаж')
+  await waitFor(ordinary, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === ${JSON.stringify(longName)}`, 'long-name profile')
+  await checkLayout(ordinary, 'long-name-profile', [320, 480])
+  await clickText(ordinary, 'Выйти')
+  await waitFor(ordinary, `location.pathname === '/login' && !!document.querySelector('#email')`, 'logout from profile')
+  assert.equal(await sessionCookie(ordinary), undefined)
+
+  await login(ordinary, false, 'browser-password', 'profile-fixture@example.test')
+  await clickText(ordinary, 'Играть')
+  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Проверка'`, 'resource boundary fixture')
+  await clickText(ordinary, 'Мой персонаж')
+  await waitFor(ordinary, `location.pathname === '/profile' && !!document.querySelector('.character-portrait')`, 'resource boundary profile')
+  await waitFor(ordinary, `document.querySelector('.character-portrait')?.getAttribute('src') === '/images/icons/neutral.png' && document.querySelector('.character-portrait')?.naturalWidth > 0`, 'missing stored avatar falls back')
+  assert.equal(await evaluate(ordinary, `document.querySelector('[role="meter"][aria-label="Здоровье"]').getAttribute('aria-valuetext')`), '37 из 200')
+  assert.equal(await evaluate(ordinary, `document.querySelector('[role="meter"][aria-label="Энергия"]').getAttribute('aria-valuetext')`), '0 из 0', 'A character without energy must not gain a fictitious maximum')
+  assert.equal(await evaluate(ordinary, `document.querySelector('.resource-energy .resource-caption').textContent`), 'Энергия: 0 / 00%')
+  assert.equal(await evaluate(ordinary, `document.querySelector('.resource-energy .resource-fill').style.width`), '0%')
+  await checkLayout(ordinary, 'profile-zero-energy', [320])
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions')
-  console.log('Browser flow PASS: field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout, remember-me cookie/restart/replacement, queued local-mail password recovery, validation/replay, cookie/state/session revocation and new-password login')
+  console.log('Browser flow PASS: registration and explicit confirmation through a copyable local text email; legacy shell at 320/375/480/1024, all 8 class images, keyboard focus, profile guards/data/reload/catalog retry, long-name selection and portrait fallback; 404/home, two-tab auth sync and stale logout guard, field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout, remember-me cookie/restart/replacement, queued local-mail password recovery, validation/replay, cookie/state/session revocation and new-password login')
 } catch (error) {
   if (browserLog) console.error(browserLog)
   if (networkFailures.length) console.error('Network failures:', networkFailures)

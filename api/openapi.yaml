@@ -3,7 +3,7 @@ info:
   title: Gotest API
   version: 1.0.0
   description: |
-    Public HTTP contract for accounts and characters. JSON request bodies must be
+    Public HTTP contract for accounts, characters, chat and moderation. JSON request bodies must be
     objects, contain no unknown fields and fit within 16 KiB. Field validation and
     normalization are performed by the application; invalid input can produce 422.
     Password lengths are measured in UTF-8 bytes, not Unicode characters.
@@ -17,7 +17,8 @@ info:
     Mutations require same-origin browser requests (or the configured trusted
     PUBLIC_URL origin). Cross-site requests are rejected with 403 origin_forbidden.
     The six public authentication actions share a per-client-IP rate limiter.
-    JSON responses never expose passwords, token hashes, session tokens or account roles.
+    JSON responses never expose passwords, token hashes or session tokens.
+    Account roles are public codes; authorization always checks current server-side rights.
     Authentication email is accepted into a durable database queue. Workers retry
     failed delivery asynchronously; a queued message can still fail or be delivered
     more than once, so queue acceptance does not guarantee inbox delivery.
@@ -90,6 +91,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/auth/logout:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
     post:
       operationId: logout
       tags: [Auth]
@@ -102,10 +105,14 @@ paths:
         - sessionCookie: []
       responses:
         '200': { $ref: '#/components/responses/SessionCleared' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/auth/me:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
     get:
       operationId: currentUser
       tags: [Auth]
@@ -121,8 +128,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/auth/verify:
     post:
@@ -232,6 +241,8 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/characters:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
     get:
       operationId: listCharacters
       tags: [Characters]
@@ -247,8 +258,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CharacterRoster' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       operationId: createCharacter
@@ -281,6 +294,8 @@ paths:
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/characters/catalog:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
     get:
       operationId: characterCatalog
       tags: [Characters]
@@ -296,10 +311,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CharacterCatalog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/InternalError' }
   /api/characters/active:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
     put:
       operationId: setActiveCharacter
       tags: [Characters]
@@ -329,6 +348,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '413': { $ref: '#/components/responses/RequestTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -367,7 +387,435 @@ paths:
         '200': { $ref: '#/components/responses/Head' }
         '500': { $ref: '#/components/responses/Head' }
         '503': { $ref: '#/components/responses/Head' }
+  /api/chat/messages:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: chatMessages
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/BeforeID'
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: sendChatMessage
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendChatRequest'
+      responses:
+        '201':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/chat/delete:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    post:
+      operationId: deleteChatMessage
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteChatRequest'
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/moderation/bans:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: listBans
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/BeforeID'
+        - $ref: '#/components/parameters/SocialUserID'
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      operationId: createBan
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanRequest'
+      responses:
+        '201':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/moderation/revoke:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    post:
+      operationId: revokeBan
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeBanRequest'
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/moderation/actions:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: moderationActions
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/BeforeID'
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/chat/events:
+    get:
+      operationId: chatEvents
+      description: >-
+        WebSocket upgrade requiring an allowed Origin, account_id precondition and session cookie. Text frames
+        contain {"type":"changed"}; fetch current HTTP snapshots on connect and each event. Notification-only
+        single-process hub; clients reconnect after disruption.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+      responses:
+        '101':
+          description: WebSocket connection accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '426':
+          description: WebSocket Upgrade headers required
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/chat/moderators:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: chatModerators
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModeratorList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      description: >-
+        Public staff directory for authenticated players: one entry per verified, non-account-banned moderator
+        or administrator. No email addresses or private moderation records.
 components:
+  parameters:
+    BeforeID:
+      name: before_id
+      in: query
+      required: false
+      description: Exclusive cursor; newest first, at most 50 items.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    SocialUserID:
+      name: user_id
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    ExpectedAccount:
+      name: X-Account-ID
+      in: header
+      required: false
+      description: |
+        Optional precondition matching the account last displayed by the client.
+        Authentication still uses the session cookie. A different authenticated
+        account returns 409/account_changed before performing the operation or
+        clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+        logout behavior. The first-party UI supplies this header on account-scoped
+        requests and reads /me without it to discover the current account.
+      schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
   securitySchemes:
     sessionCookie:
       type: apiKey
@@ -446,11 +894,12 @@ components:
     User:
       type: object
       additionalProperties: false
-      required: [id, email, login, character_id]
+      required: [id, email, login, role, character_id]
       properties:
         id: { type: integer, format: int32 }
         email: { type: string }
         login: { type: string }
+        role: { $ref: '#/components/schemas/AccountRole' }
         character_id: { type: integer, format: int32, nullable: true }
     AuthResponse:
       type: object
@@ -496,6 +945,7 @@ components:
             - invalid_credentials
             - email_unverified
             - account_conflict
+            - account_changed
             - email_already_verified
             - verification_token_invalid
             - password_reset_unavailable
@@ -504,6 +954,13 @@ components:
             - character_name_taken
             - character_class_mismatch
             - not_ready
+            - account_banned
+            - forbidden
+            - social_not_found
+            - chat_banned
+            - character_required
+            - character_changed
+            - ban_active
         fields:
           type: object
           additionalProperties:
@@ -612,6 +1069,334 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [ok] }
+    AccountRole:
+      type: string
+      enum:
+        - user
+        - moderator
+        - administrator
+    ChatMessage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - character_id
+        - author_name
+        - author_role
+        - body
+        - created_at
+        - deleted_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        character_id:
+          type: integer
+          format: int32
+          minimum: 1
+        author_name:
+          type: string
+        author_role:
+          $ref: '#/components/schemas/AccountRole'
+        body:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+    UserBan:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - scope
+        - reason
+        - created_by_user_id
+        - created_at
+        - expires_at
+        - revoked_at
+        - revoked_by_user_id
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        scope:
+          type: string
+          enum:
+            - chat
+            - forum
+            - account
+        reason:
+          type: string
+        created_by_user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_by_user_id:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+    ModerationAction:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - actor_user_id
+        - user_id
+        - scope
+        - action
+        - reason
+        - ban_id
+        - message_id
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        actor_user_id:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+        user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        scope:
+          type: string
+          enum:
+            - chat
+            - forum
+            - account
+        action:
+          type: string
+          enum:
+            - ban
+            - revoke
+            - delete_message
+            - role_change
+        reason:
+          type: string
+        ban_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        message_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    ChatPage:
+      type: object
+      additionalProperties: false
+      required:
+        - messages
+        - next_before_id
+        - chat_ban
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        next_before_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        chat_ban:
+          anyOf:
+            - $ref: '#/components/schemas/UserBan'
+            - type: object
+              nullable: true
+              enum:
+                - null
+    BanPage:
+      type: object
+      additionalProperties: false
+      required:
+        - bans
+        - next_before_id
+      properties:
+        bans:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserBan'
+        next_before_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+    ActionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - actions
+        - next_before_id
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModerationAction'
+        next_before_id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+    SendChatRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - body
+        - character_id
+      properties:
+        body:
+          type: string
+          description: >-
+            Plain text; 1 to 1000 Unicode characters after trim. At most one message every two seconds per
+            account.
+        character_id:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Expected active character; a change returns 409 without sending.
+    DeleteChatRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - message_id
+        - reason
+      properties:
+        message_id:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          description: Trimmed reason; 3 to 500 Unicode characters.
+    BanRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - scope
+        - duration_hours
+        - reason
+      properties:
+        user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        scope:
+          type: string
+          enum:
+            - chat
+            - forum
+            - account
+        duration_hours:
+          type: integer
+          minimum: 1
+          maximum: 168
+          nullable: true
+          description: Explicit null means permanent; permitted only for account bans by administrators.
+        reason:
+          type: string
+          description: Trimmed reason; 3 to 500 Unicode characters.
+    RevokeBanRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ban_id
+        - reason
+      properties:
+        ban_id:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          description: Trimmed reason; 3 to 500 Unicode characters.
+    ChatMessageResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+      properties:
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+    BanResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - ban
+      properties:
+        ban:
+          $ref: '#/components/schemas/UserBan'
+    Moderator:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - login
+        - role
+        - character_name
+      properties:
+        user_id:
+          type: integer
+          format: int32
+          minimum: 1
+        login:
+          type: string
+        role:
+          type: string
+          enum:
+            - moderator
+            - administrator
+        character_name:
+          type: string
+          nullable: true
+    ModeratorList:
+      type: object
+      additionalProperties: false
+      required:
+        - moderators
+      properties:
+        moderators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Moderator'
   responses:
     Message:
       description: Operation completed
@@ -687,7 +1472,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Conflict:
-      description: account_conflict, email_already_verified or character_name_taken
+      description: account_conflict, account_changed, email_already_verified or character_name_taken
       headers:
         Cache-Control: { $ref: '#/components/headers/NoStore' }
         X-Request-ID: { $ref: '#/components/headers/RequestID' }

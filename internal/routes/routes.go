@@ -21,6 +21,8 @@ type Options struct {
 	Logger                   *slog.Logger
 	Ready                    func(context.Context) error
 	Lifecycle                context.Context
+	Social                   *handlers.SocialHandler
+	ChatEvents               http.HandlerFunc
 }
 
 func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middleware.Middleware, options Options) (http.Handler, error) {
@@ -43,7 +45,7 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	bind("/api/auth/reset-password", "POST", h.ResetPassword, true)
 	bind("/api/auth/verify", "POST", h.VerifyEmail, true)
 	bind("/api/auth/resend-verification", "POST", h.ResendVerification, true)
-	bind("/api/auth/logout", "POST", h.Logout, false)
+	bind("/api/auth/logout", "POST", m.AccountLogout(h.Logout), false)
 	bind("/api/auth/me", "GET", m.Auth(h.Me), false)
 	api.Handle("/api/characters", methodHandler(map[string]http.HandlerFunc{
 		"GET":  m.Auth(characters.List),
@@ -51,6 +53,30 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	}))
 	bind("/api/characters/catalog", "GET", m.Auth(characters.Catalog), false)
 	bind("/api/characters/active", "PUT", m.Auth(characters.SetActive), false)
+	// Keep route/method semantics stable in test compositions without a social
+	// service. The application always provides both handlers.
+	unavailable := func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, 503, "not_ready", "Социальный модуль недоступен", nil)
+	}
+	chat, send, remove, bans, ban, revoke, actions := http.HandlerFunc(unavailable), http.HandlerFunc(unavailable), http.HandlerFunc(unavailable), http.HandlerFunc(unavailable), http.HandlerFunc(unavailable), http.HandlerFunc(unavailable), http.HandlerFunc(unavailable)
+	if options.Social != nil {
+		chat, send, remove, bans, ban, revoke, actions = options.Social.Chat, options.Social.Send, options.Social.Delete, options.Social.Bans, options.Social.Ban, options.Social.Revoke, options.Social.Actions
+	}
+	api.Handle("/api/chat/messages", methodHandler(map[string]http.HandlerFunc{"GET": m.Auth(chat), "POST": m.Auth(send)}))
+	bind("/api/chat/delete", "POST", m.Auth(remove), false)
+	directory := http.HandlerFunc(unavailable)
+	if options.Social != nil {
+		directory = options.Social.Moderators
+	}
+	bind("/api/chat/moderators", "GET", m.Auth(directory), false)
+	api.Handle("/api/moderation/bans", methodHandler(map[string]http.HandlerFunc{"GET": m.Auth(bans), "POST": m.Auth(ban)}))
+	bind("/api/moderation/revoke", "POST", m.Auth(revoke), false)
+	bind("/api/moderation/actions", "GET", m.Auth(actions), false)
+	events := options.ChatEvents
+	if events == nil {
+		events = unavailable
+	}
+	bind("/api/chat/events", "GET", m.Auth(events), false)
 	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, 404, httpapi.CodeRouteNotFound, "API-маршрут не найден", nil)
 	})
@@ -60,6 +86,14 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	mux.Handle("/readyz", methodHandler(map[string]http.HandlerFunc{"GET": ready, "HEAD": ready}))
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
+		if r.URL.Path == "/api/chat/events" {
+			// Bound cookie lookup/handshake; the upgraded connection uses the
+			// application lifecycle and its own write/ping deadlines.
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			defer cancel()
+			api.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
 		api.ServeHTTP(w, r.WithContext(ctx))

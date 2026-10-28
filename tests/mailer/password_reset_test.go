@@ -58,11 +58,11 @@ func TestPasswordResetMailContainsEncodedSingleUseLinkAndIgnoreText(t *testing.T
 	if err := m.SendPasswordReset(context.Background(), "user@example.com", "a+b&c"); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(o.Directory)
+	entries, err := filepath.Glob(filepath.Join(o.Directory, "*.eml"))
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("entries=%v err=%v", entries, err)
 	}
-	h, body := readOnlyMessage(t, filepath.Join(o.Directory, entries[0].Name()))
+	h, body := readOnlyMessage(t, entries[0])
 	if h.Get("Subject") != "Reset your password" {
 		t.Fatalf("subject %q", h.Get("Subject"))
 	}
@@ -80,11 +80,11 @@ func TestPasswordChangedMailHasNoCredentialsAndClosesSessions(t *testing.T) {
 	if err := m.SendPasswordChanged(context.Background(), "user@example.com"); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(o.Directory)
+	entries, err := filepath.Glob(filepath.Join(o.Directory, "*.eml"))
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("entries=%v err=%v", entries, err)
 	}
-	h, body := readOnlyMessage(t, filepath.Join(o.Directory, entries[0].Name()))
+	h, body := readOnlyMessage(t, entries[0])
 	if h.Get("Subject") != "Your password was changed" {
 		t.Fatalf("subject %q", h.Get("Subject"))
 	}

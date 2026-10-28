@@ -49,7 +49,17 @@ export interface paths {
     "/api/auth/logout": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -70,7 +80,17 @@ export interface paths {
     "/api/auth/me": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -180,7 +200,17 @@ export interface paths {
     "/api/characters": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -201,7 +231,17 @@ export interface paths {
     "/api/characters/catalog": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -218,7 +258,17 @@ export interface paths {
     "/api/characters/active": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -273,6 +323,180 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chat/messages": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["chatMessages"];
+        put?: never;
+        post: operations["sendChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/delete": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteChatMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moderation/bans": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBans"];
+        put?: never;
+        post: operations["createBan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moderation/revoke": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeBan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/moderation/actions": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["moderationActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description WebSocket upgrade requiring an allowed Origin, account_id precondition and session cookie. Text frames contain {"type":"changed"}; fetch current HTTP snapshots on connect and each event. Notification-only single-process hub; clients reconnect after disruption. */
+        get: operations["chatEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chat/moderators": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public staff directory for authenticated players: one entry per verified, non-account-banned moderator or administrator. No email addresses or private moderation records. */
+        get: operations["chatModerators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -310,6 +534,7 @@ export interface components {
             id: number;
             email: string;
             login: string;
+            role: components["schemas"]["AccountRole"];
             /** Format: int32 */
             character_id: number | null;
         };
@@ -327,7 +552,7 @@ export interface components {
         ErrorResponse: {
             error: string;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready";
+            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "ban_active";
             fields?: {
                 [key: string]: string[];
             };
@@ -402,6 +627,125 @@ export interface components {
         HealthResponse: {
             /** @enum {string} */
             status: "ok";
+        };
+        /** @enum {string} */
+        AccountRole: "user" | "moderator" | "administrator";
+        ChatMessage: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            user_id: number;
+            /** Format: int32 */
+            character_id: number;
+            author_name: string;
+            author_role: components["schemas"]["AccountRole"];
+            body: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        UserBan: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            user_id: number;
+            /** @enum {string} */
+            scope: "chat" | "forum" | "account";
+            reason: string;
+            /** Format: int32 */
+            created_by_user_id: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: int32 */
+            revoked_by_user_id: number | null;
+        };
+        ModerationAction: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            actor_user_id: number | null;
+            /** Format: int32 */
+            user_id: number;
+            /** @enum {string} */
+            scope: "chat" | "forum" | "account";
+            /** @enum {string} */
+            action: "ban" | "revoke" | "delete_message" | "role_change";
+            reason: string;
+            /** Format: int64 */
+            ban_id: number | null;
+            /** Format: int64 */
+            message_id: number | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ChatPage: {
+            messages: components["schemas"]["ChatMessage"][];
+            /** Format: int64 */
+            next_before_id: number | null;
+            chat_ban: components["schemas"]["UserBan"] | (never | null);
+        };
+        BanPage: {
+            bans: components["schemas"]["UserBan"][];
+            /** Format: int64 */
+            next_before_id: number | null;
+        };
+        ActionPage: {
+            actions: components["schemas"]["ModerationAction"][];
+            /** Format: int64 */
+            next_before_id: number | null;
+        };
+        SendChatRequest: {
+            /** @description Plain text; 1 to 1000 Unicode characters after trim. At most one message every two seconds per account. */
+            body: string;
+            /**
+             * Format: int32
+             * @description Expected active character; a change returns 409 without sending.
+             */
+            character_id: number;
+        };
+        DeleteChatRequest: {
+            /** Format: int64 */
+            message_id: number;
+            /** @description Trimmed reason; 3 to 500 Unicode characters. */
+            reason: string;
+        };
+        BanRequest: {
+            /** Format: int32 */
+            user_id: number;
+            /** @enum {string} */
+            scope: "chat" | "forum" | "account";
+            /** @description Explicit null means permanent; permitted only for account bans by administrators. */
+            duration_hours: number | null;
+            /** @description Trimmed reason; 3 to 500 Unicode characters. */
+            reason: string;
+        };
+        RevokeBanRequest: {
+            /** Format: int64 */
+            ban_id: number;
+            /** @description Trimmed reason; 3 to 500 Unicode characters. */
+            reason: string;
+        };
+        ChatMessageResponse: {
+            message: components["schemas"]["ChatMessage"];
+        };
+        BanResponse: {
+            ban: components["schemas"]["UserBan"];
+        };
+        Moderator: {
+            /** Format: int32 */
+            user_id: number;
+            login: string;
+            /** @enum {string} */
+            role: "moderator" | "administrator";
+            character_name: string | null;
+        };
+        ModeratorList: {
+            moderators: components["schemas"]["Moderator"][];
         };
     };
     responses: {
@@ -504,7 +848,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description account_conflict, email_already_verified or character_name_taken */
+        /** @description account_conflict, account_changed, email_already_verified or character_name_taken */
         Conflict: {
             headers: {
                 "Cache-Control": components["headers"]["NoStore"];
@@ -583,7 +927,20 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Exclusive cursor; newest first, at most 50 items. */
+        BeforeID: number;
+        SocialUserID: number;
+        /**
+         * @description Optional precondition matching the account last displayed by the client.
+         *     Authentication still uses the session cookie. A different authenticated
+         *     account returns 409/account_changed before performing the operation or
+         *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+         *     logout behavior. The first-party UI supplies this header on account-scoped
+         *     requests and reads /me without it to discover the current account.
+         */
+        ExpectedAccount: number;
+    };
     requestBodies: never;
     headers: {
         NoStore: "no-store";
@@ -673,22 +1030,44 @@ export interface operations {
     logout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
             200: components["responses"]["SessionCleared"];
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
     currentUser: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -705,8 +1084,10 @@ export interface operations {
                     "application/json": components["schemas"]["AuthResponse"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -816,7 +1197,17 @@ export interface operations {
     listCharacters: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -833,15 +1224,27 @@ export interface operations {
                     "application/json": components["schemas"]["CharacterRoster"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
     createCharacter: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -876,7 +1279,17 @@ export interface operations {
     characterCatalog: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -893,15 +1306,27 @@ export interface operations {
                     "application/json": components["schemas"]["CharacterCatalog"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
     setActiveCharacter: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -927,6 +1352,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationFailed"];
@@ -987,6 +1413,413 @@ export interface operations {
             200: components["responses"]["Head"];
             500: components["responses"]["Head"];
             503: components["responses"]["Head"];
+        };
+    };
+    chatMessages: {
+        parameters: {
+            query?: {
+                /** @description Exclusive cursor; newest first, at most 50 items. */
+                before_id?: components["parameters"]["BeforeID"];
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    sendChatMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listBans: {
+        parameters: {
+            query?: {
+                /** @description Exclusive cursor; newest first, at most 50 items. */
+                before_id?: components["parameters"]["BeforeID"];
+                user_id?: components["parameters"]["SocialUserID"];
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BanPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createBan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BanResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    revokeBan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeBanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    moderationActions: {
+        parameters: {
+            query?: {
+                /** @description Exclusive cursor; newest first, at most 50 items. */
+                before_id?: components["parameters"]["BeforeID"];
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    chatEvents: {
+        parameters: {
+            query: {
+                account_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebSocket connection accepted */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            /** @description WebSocket Upgrade headers required */
+            426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    chatModerators: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModeratorList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

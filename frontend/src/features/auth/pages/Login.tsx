@@ -1,9 +1,10 @@
+import { Alert, Button, Checkbox, Input } from '../../../shared/ui/kit'
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { resendVerification } from '../api'
 import { apiError } from '../../../shared/api/errors'
 import { useAccount } from '../../../entities/account/context'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { needsEmailVerification } from '../errors'
 import Layout from '../../../shared/ui/Layout'
 
@@ -16,6 +17,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [unverified, setUnverified] = useState(false)
+  const [params] = useSearchParams()
+  const [resendOpen, setResendOpen] = useState<boolean | null>(null)
+  const showResend = resendOpen ?? (unverified || params.get('resend') === '1')
   const navigate = useNavigate()
 
   const handleLogin = async(e: SubmitEvent) => {
@@ -25,6 +29,7 @@ export default function Login() {
     setError('')
     setMessage('')
     setUnverified(false)
+    setResendOpen(null)
     try {
       await store.signIn(email, password, rememberMe)
       setPassword('')
@@ -49,7 +54,7 @@ export default function Login() {
     setMessage('')
     try {
       await resendVerification(email, password)
-      setMessage('Письмо подтверждения поставлено в очередь. Когда оно придёт, перейдите по ссылке в письме.')
+      setMessage('Проверьте почту: отправляем письмо с новой ссылкой подтверждения.')
       setPassword('')
     } catch (error) {
       setError(apiError(error).message)
@@ -62,14 +67,14 @@ export default function Login() {
     <Layout>
       <img className="scene-image" src="/images/scenes/auth.jpg" width="550" height="120" alt="" />
       <h1>Вход</h1>
-      {error && <p className="flash-error" role="alert">{error}</p>}
-      {message && <p className="flash-success" role="status">{message}</p>}
+      {error && <Alert variant="error" role="alert">{error}</Alert>}
+      {message && <Alert variant="success" role="status">{message}</Alert>}
       <form onSubmit={handleLogin} aria-busy={pending}>
         <div className="form-item text-center">
           <label className="block" htmlFor="email">
             Электронная почта
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             name="email"
@@ -85,7 +90,7 @@ export default function Login() {
             <label className="block" htmlFor="password">
               Пароль
             </label>
-            <input
+            <Input
               id="password"
               type="password"
               name="password"
@@ -99,10 +104,9 @@ export default function Login() {
           </div>
           <div className="form-item text-center">
             <label htmlFor="remember-me">
-              <input
+              <Checkbox
                 id="remember-me"
                 name="remember_me"
-                type="checkbox"
                 checked={rememberMe}
                 disabled={pending}
                 onChange={(e) => setRememberMe(e.target.checked)}
@@ -116,19 +120,24 @@ export default function Login() {
           <div className="form-item text-center">
             <Link to="/register">Регистрация</Link>
           </div>
-          <button
+          <Button pending={pending}
             type="submit"
-            className="btn-primary"
             disabled={pending}
           >
             {pending ? 'Подождите…' : 'Войти'}
-          </button>
+          </Button>
           <div className="form-item text-center">
             {unverified && <p>Подтвердите почту, чтобы войти.</p>}
-            <button type="button" className="btn-primary" disabled={pending} onClick={handleResend}>
-              Отправить письмо подтверждения повторно
-            </button>
-            <p className="sm-text">Для отправки нужны электронная почта и пароль.</p>
+            <Button variant="ghost" pending={pending} type="button" className="sm-text" disabled={pending}
+              aria-expanded={showResend} aria-controls="resend-help" onClick={() => setResendOpen(!showResend)}>
+              Письмо не пришло?
+            </Button>
+            {showResend && <div id="resend-help">
+              <p className="sm-text">Проверьте папку «Спам». Для нового письма введите почту и пароль в форме выше.</p>
+              <Button variant="ghost" pending={pending} id="resend-verification" type="button" disabled={pending} onClick={handleResend}>
+                Отправить письмо повторно
+              </Button>
+            </div>}
           </div>
       </form>
     </Layout>

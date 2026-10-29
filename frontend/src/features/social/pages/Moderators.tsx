@@ -1,3 +1,4 @@
+import { Alert, Button } from '../../../shared/ui/kit'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from '../../../entities/account/context'
@@ -29,18 +30,18 @@ function Directory() {
   }, [accountId, current, report, revision])
   return <>
     <h1>Список модераторов</h1>
-    {error && <p role="alert" className="flash-error">{error}</p>}
+    {error && <Alert variant="error" role="alert">{error}</Alert>}
     {!list && !error && <p role="status">Загрузка списка…</p>}
     {list?.moderators.length === 0 && <p className="muted">Пока нет модераторов.</p>}
     <ul className="social-records moderator-directory">
       {list?.moderators.map(member => <li key={member.user_id}>
-        <div className="chat-message-header"><AccountNickname role={member.role}>{member.login}</AccountNickname><span className="social-role">{roleLabels[member.role]}</span></div>
-        <p className="muted">{member.character_name ? <>Персонаж: <AccountNickname role={member.role}>{member.character_name}</AccountNickname></> : 'Персонаж не выбран'}</p>
+        <div className="chat-message-header"><AccountNickname role={member.role} characterId={member.character_id}>{member.login}</AccountNickname><span className="social-role">{roleLabels[member.role]}</span></div>
+        <p className="muted">{member.character_name ? <>Персонаж: <AccountNickname role={member.role} characterId={member.character_id}>{member.character_name}</AccountNickname></> : 'Персонаж не выбран'}</p>
       </li>)}
     </ul>
     <div className="social-toolbar">
       <Link to="/chat">Вернуться в чат</Link>
-      <button type="button" className="link-button" disabled={!list && !error} onClick={() => { setList(null); setError(''); setRevision(value => value + 1) }}>Обновить список</button>
+      <Button variant="ghost" type="button" disabled={!list && !error} onClick={() => { setList(null); setError(''); setRevision(value => value + 1) }}>Обновить список</Button>
     </div>
   </>
 }

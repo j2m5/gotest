@@ -1,7 +1,8 @@
-﻿import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAccount } from '../../entities/account/context'
 import AccountGate from '../../entities/account/AccountGate'
 import Layout from '../../shared/ui/Layout'
+import { ButtonLink } from '../../shared/ui/kit'
 
 export default function Home() {
   const { status, user } = useAccount()
@@ -13,8 +14,8 @@ export default function Home() {
       <p>Пока Республика заживляет раны, полученные во время Великой войны, Империя укрепляет свою мощь.</p>
       <p>Тебе предстоит выбрать сторону.</p>
       <nav className="welcome-actions" aria-label="Вход в игру">
-        <Link to="/register">Зарегистрироваться</Link>
-        <Link to="/login">Войти</Link>
+        <ButtonLink to="/register">Зарегистрироваться</ButtonLink>
+        <ButtonLink to="/login" variant="secondary">Войти</ButtonLink>
       </nav>
     </section>
   </Layout>

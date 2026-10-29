@@ -4,6 +4,196 @@
  */
 
 export interface paths {
+    "/api/forum/categories": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** List forum categories */
+        get: operations["forumCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/topics": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** List topics in a category */
+        get: operations["forumTopics"];
+        put?: never;
+        /** Create a topic */
+        post: operations["forumCreateTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/topic": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a topic and a page of replies */
+        get: operations["forumTopic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/replies": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply to a topic */
+        post: operations["forumReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/edit-topic": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Edit a topic */
+        post: operations["forumEditTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/edit-reply": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Edit a reply */
+        post: operations["forumEditReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forum/moderate": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moderate a topic or reply */
+        post: operations["forumModerate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/register": {
         parameters: {
             query?: never;
@@ -255,6 +445,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/characters/profile": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View a character's public profile
+         * @description Available to verified signed-in players, including those with no active
+         *     character. The ID identifies the character, not its owner's current selection.
+         *     Only public identity fields and the owner's current account role are returned.
+         *     Viewing a profile does not change either account's character selection.
+         */
+        get: operations["characterProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/characters/active": {
         parameters: {
             query?: never;
@@ -280,6 +503,96 @@ export interface paths {
          *     A character not owned by this account is reported as not found.
          */
         put: operations["setActiveCharacter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presence": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Read recent activity status without extending it */
+        get: operations["characterPresence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presence/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a real player action for the currently selected character
+         * @description Call only for player activity, never for passive polling. Presence expires
+         *     after 120 seconds; repeated writes within 15 seconds are coalesced.
+         *     The required character_id must match the current shared selection.
+         *     Null records no selected character. Time always comes from the server.
+         */
+        post: operations["recordCharacterActivity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presence/online": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recently active selected characters
+         * @description Read-only directory, ascending character ID, 50 entries per page
+         */
+        get: operations["onlineCharacters"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -487,7 +800,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Public staff directory for authenticated players: one entry per verified, non-account-banned moderator or administrator. No email addresses or private moderation records. */
+        /** @description Public moderator directory for authenticated players: one entry per verified, non-account-banned moderator. Administrators are excluded. No email addresses or private moderation records. */
         get: operations["chatModerators"];
         put?: never;
         post?: never;
@@ -552,7 +865,7 @@ export interface components {
         ErrorResponse: {
             error: string;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "ban_active";
+            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "ban_active" | "forum_not_found" | "forum_banned" | "forum_closed" | "forum_conflict";
             fields?: {
                 [key: string]: string[];
             };
@@ -574,6 +887,22 @@ export interface components {
             mp: number;
             hp_current: number;
             mp_current: number;
+            regeneration: components["schemas"]["ResourceRegeneration"];
+        };
+        /** @description Persisted resource baselines and database observation time. Current amounts are projected from these anchors; reads never reset fractional recovery. Durations describe full 0-to-maximum recovery. For display only; the server calculates authoritative values independently of the browser clock. */
+        ResourceRegeneration: {
+            hp_baseline: number;
+            mp_baseline: number;
+            /** Format: date-time */
+            hp_updated_at: string;
+            /** Format: date-time */
+            mp_updated_at: string;
+            /** Format: date-time */
+            observed_at: string;
+            /** @example 300000 */
+            hp_full_restore_ms: number;
+            /** @example 60000 */
+            mp_full_restore_ms: number;
         };
         CatalogEntry: {
             /** Format: int32 */
@@ -596,6 +925,33 @@ export interface components {
         CharacterCatalog: {
             factions: components["schemas"]["CatalogEntry"][];
             classes: components["schemas"]["CharacterClass"][];
+        };
+        PresenceSnapshot: {
+            total: number;
+            characters: {
+                /** Format: int32 */
+                character_id: number;
+                is_online: boolean;
+            }[];
+        };
+        OnlineCharacters: {
+            total: number;
+            characters: components["schemas"]["PublicCharacterProfile"][];
+            /** Format: int32 */
+            next_after_id: number | null;
+        };
+        PublicCharacterProfile: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** Format: int32 */
+            faction_id: number;
+            /** Format: int32 */
+            class_id: number;
+            /** Format: int32 */
+            level: number;
+            avatar: string | null;
+            account_role: components["schemas"]["AccountRole"];
         };
         CharacterRoster: {
             characters: components["schemas"]["Character"][];
@@ -630,6 +986,147 @@ export interface components {
         };
         /** @enum {string} */
         AccountRole: "user" | "moderator" | "administrator";
+        ForumCategory: {
+            /** Format: int32 */
+            id: number;
+            code: string;
+            title: string;
+            description: string;
+            create_role: components["schemas"]["AccountRole"];
+        };
+        ForumCategoryList: {
+            categories: components["schemas"]["ForumCategory"][];
+        };
+        ForumTopicSummary: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            category_id: number;
+            /** Format: int32 */
+            user_id: number;
+            /** Format: int32 */
+            character_id: number;
+            author_name: string;
+            author_role: components["schemas"]["AccountRole"];
+            title: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            pinned_at: string | null;
+            /** Format: date-time */
+            hidden_at: string | null;
+            reply_count: number;
+        };
+        /** @description Includes the opening body; hidden text is redacted for ordinary readers and visible to staff. */
+        ForumTopic: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            category_id: number;
+            /** Format: int32 */
+            user_id: number;
+            /** Format: int32 */
+            character_id: number;
+            author_name: string;
+            author_role: components["schemas"]["AccountRole"];
+            title: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** Format: date-time */
+            pinned_at: string | null;
+            /** Format: date-time */
+            hidden_at: string | null;
+            reply_count: number;
+            body: string | null;
+            /** Format: date-time */
+            edited_at: string | null;
+            version: number;
+        };
+        /** @description Hidden text is redacted for ordinary readers and visible to staff. */
+        ForumPost: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            topic_id: number;
+            /** Format: int32 */
+            user_id: number;
+            /** Format: int32 */
+            character_id: number;
+            author_name: string;
+            author_role: components["schemas"]["AccountRole"];
+            body: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            edited_at: string | null;
+            /** Format: date-time */
+            hidden_at: string | null;
+            version: number;
+        };
+        ForumTopicList: {
+            category: components["schemas"]["ForumCategory"];
+            topics: components["schemas"]["ForumTopicSummary"][];
+            next_cursor: string | null;
+            forum_ban: components["schemas"]["UserBan"] | (never | null);
+        };
+        ForumTopicPage: {
+            topic: components["schemas"]["ForumTopic"];
+            posts: components["schemas"]["ForumPost"][];
+            /** Format: int64 */
+            next_after_id: number | null;
+            forum_ban: components["schemas"]["UserBan"] | (never | null);
+        };
+        ForumCreateRequest: {
+            /** Format: int32 */
+            category_id: number;
+            /** Format: int32 */
+            character_id: number;
+            title: string;
+            body: string;
+        };
+        ForumReplyRequest: {
+            /** Format: int64 */
+            topic_id: number;
+            /** Format: int32 */
+            character_id: number;
+            body: string;
+        };
+        ForumEditTopicRequest: {
+            /** Format: int64 */
+            topic_id: number;
+            /** Format: int32 */
+            character_id: number;
+            title: string;
+            body: string;
+            version: number;
+        };
+        ForumEditPostRequest: {
+            /** Format: int64 */
+            post_id: number;
+            /** Format: int32 */
+            character_id: number;
+            body: string;
+            version: number;
+        };
+        ForumModerateRequest: {
+            /** @enum {string} */
+            target: "topic" | "post";
+            /** Format: int64 */
+            target_id: number;
+            /** @enum {string} */
+            action: "hide" | "restore" | "close" | "open" | "pin" | "unpin";
+            reason: string;
+        };
         ChatMessage: {
             /** Format: int64 */
             id: number;
@@ -674,12 +1171,16 @@ export interface components {
             /** @enum {string} */
             scope: "chat" | "forum" | "account";
             /** @enum {string} */
-            action: "ban" | "revoke" | "delete_message" | "role_change";
+            action: "ban" | "revoke" | "delete_message" | "role_change" | "hide_topic" | "restore_topic" | "close_topic" | "open_topic" | "pin_topic" | "unpin_topic" | "hide_post" | "restore_post";
             reason: string;
             /** Format: int64 */
             ban_id: number | null;
             /** Format: int64 */
             message_id: number | null;
+            /** Format: int64 */
+            forum_topic_id?: number;
+            /** Format: int64 */
+            forum_post_id?: number;
             /** Format: date-time */
             created_at: string;
         };
@@ -741,7 +1242,9 @@ export interface components {
             user_id: number;
             login: string;
             /** @enum {string} */
-            role: "moderator" | "administrator";
+            role: "moderator";
+            /** Format: int32 */
+            character_id: number | null;
             character_name: string | null;
         };
         ModeratorList: {
@@ -749,6 +1252,39 @@ export interface components {
         };
     };
     responses: {
+        /** @description forum_not_found */
+        ForumNotFound: {
+            headers: {
+                "Cache-Control": components["headers"]["NoStore"];
+                "X-Request-ID": components["headers"]["RequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description forum_banned */
+        ForumBanned: {
+            headers: {
+                "Cache-Control": components["headers"]["NoStore"];
+                "X-Request-ID": components["headers"]["RequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description forum_closed or forum_conflict */
+        ForumConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["NoStore"];
+                "X-Request-ID": components["headers"]["RequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Operation completed */
         Message: {
             headers: {
@@ -859,7 +1395,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description request_too_large; JSON body exceeds 16 KiB */
+        /** @description request_too_large; JSON body exceeds the route limit (16 KiB normally, 64 KiB for forum writes) */
         RequestTooLarge: {
             headers: {
                 "Cache-Control": components["headers"]["NoStore"];
@@ -957,6 +1493,355 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    forumCategories: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forum categories */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForumCategoryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            405: components["responses"]["MethodNotAllowed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumTopics: {
+        parameters: {
+            query: {
+                category_id: number;
+                cursor?: string;
+                include_hidden?: boolean;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topic summaries and the current forum ban */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForumTopicList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumCreateTopic: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForumCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic created */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        topic: components["schemas"]["ForumTopic"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForumBanned"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["ForumConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumTopic: {
+        parameters: {
+            query: {
+                topic_id: number;
+                after_id?: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Topic and replies */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForumTopicPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumReply: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForumReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Reply created */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: components["schemas"]["ForumPost"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForumBanned"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["ForumConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumEditTopic: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForumEditTopicRequest"];
+            };
+        };
+        responses: {
+            /** @description Topic updated */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        topic: components["schemas"]["ForumTopic"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForumBanned"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["ForumConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumEditReply: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForumEditPostRequest"];
+            };
+        };
+        responses: {
+            /** @description Reply updated */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: components["schemas"]["ForumPost"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["ForumBanned"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["ForumConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    forumModerate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForumModerateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["Message"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["ForumNotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["ForumConflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -1313,6 +2198,48 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    characterProfile: {
+        parameters: {
+            query: {
+                character_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public character identity */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        character: components["schemas"]["PublicCharacterProfile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     setActiveCharacter: {
         parameters: {
             query?: never;
@@ -1357,6 +2284,129 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    characterPresence: {
+        parameters: {
+            query?: {
+                /** @description Optional comma-separated positive int32 IDs, at most 100; duplicates collapse */
+                character_ids?: string;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unique online character count and requested statuses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresenceSnapshot"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    recordCharacterActivity: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveCharacterRequest"];
+            };
+        };
+        responses: {
+            /** @description Activity acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        ok: true;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    onlineCharacters: {
+        parameters: {
+            query?: {
+                after_id?: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public identities of online characters */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnlineCharacters"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     health: {

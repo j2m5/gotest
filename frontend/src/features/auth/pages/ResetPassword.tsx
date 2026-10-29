@@ -1,3 +1,4 @@
+import { Alert, Button, Input } from '../../../shared/ui/kit'
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -52,25 +53,25 @@ export default function ResetPassword() {
 
   return <Layout>
     <h1>Новый пароль</h1>
-    {!token && !complete && <p className="flash-error" role="alert">В ссылке нет токена. Запросите новую ссылку для сброса пароля.</p>}
-    {error && <p className="flash-error" role="alert">{error}</p>}
-    {complete && <p className="flash-success" role="status">Пароль изменён. Теперь можно войти.</p>}
+    {!token && !complete && <Alert variant="error" role="alert">В ссылке нет токена. Запросите новую ссылку для сброса пароля.</Alert>}
+    {error && <Alert variant="error" role="alert">{error}</Alert>}
+    {complete && <Alert variant="success" role="status">Пароль изменён. Теперь можно войти.</Alert>}
     {!complete && token && <form onSubmit={submit} aria-busy={pending}>
       <div className="form-item text-center">
         <label className="block" htmlFor="password">Новый пароль</label>
-        <input id="password" name="password" type="password" autoComplete="new-password" required disabled={pending}
+        <Input id="password" name="password" type="password" autoComplete="new-password" required disabled={pending}
           aria-invalid={Boolean(fields.password?.length)} aria-describedby={fields.password?.length ? 'password-error' : undefined}
           value={password} onChange={event => { setPassword(event.target.value); setError(''); setFields(current => ({ ...current, password: [] })) }} />
         <FieldFeedback fields={fields} name="password" id="password-error" />
       </div>
       <div className="form-item text-center">
         <label className="block" htmlFor="confirmation">Повторите новый пароль</label>
-        <input id="confirmation" name="confirmation" type="password" autoComplete="new-password" required disabled={pending}
+        <Input id="confirmation" name="confirmation" type="password" autoComplete="new-password" required disabled={pending}
           aria-invalid={Boolean(fields.confirmation?.length)} aria-describedby={fields.confirmation?.length ? 'confirmation-error' : undefined}
           value={confirmation} onChange={event => { setConfirmation(event.target.value); setFields(current => ({ ...current, confirmation: [] })) }} />
         <FieldFeedback fields={fields} name="confirmation" id="confirmation-error" />
       </div>
-      <button type="submit" className="btn-primary" disabled={pending}>{pending ? 'Сохранение…' : 'Сохранить пароль'}</button>
+      <Button pending={pending} type="submit" disabled={pending}>{pending ? 'Сохранение…' : 'Сохранить пароль'}</Button>
     </form>}
     {(complete || !token) && <p className="text-center"><Link to="/login">Перейти ко входу</Link></p>}
     {(canRequestLink || !token) && <p className="text-center"><Link to="/forgot-password">Запросить новую ссылку</Link></p>}

@@ -30,7 +30,7 @@ func TestChatHistoryReflectsCurrentAccountRole(t *testing.T) {
 func TestModeratorDirectoryIsAccountBasedAndPublicToPlayers(t *testing.T) {
 	s, ctx, r, user, _ := socialActors(t)
 	// Account 1 owns two characters, but appears only once after promotion.
-	mustExec(t, ctx, s, `INSERT INTO users(email,login,password,email_verified_at) VALUES('third@example.test','third','unused',clock_timestamp()); UPDATE users SET role_id=3 WHERE id=1`)
+	mustExec(t, ctx, s, `INSERT INTO users(email,login,password,email_verified_at) VALUES('third@example.test','third','unused',clock_timestamp()); UPDATE users SET role_id=2 WHERE id=1`)
 	list, err := r.Moderators(ctx, user)
 	if err != nil {
 		t.Fatal(err)
@@ -38,12 +38,17 @@ func TestModeratorDirectoryIsAccountBasedAndPublicToPlayers(t *testing.T) {
 	if len(list.Moderators) != 2 {
 		t.Fatalf("staff=%+v", list.Moderators)
 	}
-	admin, mod := list.Moderators[0], list.Moderators[1]
-	if admin.UserID != 1 || admin.Role != "administrator" || admin.Login != "first" || admin.CharacterName == nil || *admin.CharacterName != "First character" {
-		t.Fatalf("admin=%+v", admin)
+	selected, mod := list.Moderators[0], list.Moderators[1]
+	if selected.UserID != 1 || selected.Role != "moderator" || selected.Login != "first" || selected.CharacterID == nil || *selected.CharacterID != 1 || selected.CharacterName == nil || *selected.CharacterName != "First character" {
+		t.Fatalf("selected moderator=%+v", selected)
 	}
-	if mod.UserID != 2 || mod.Role != "moderator" || mod.CharacterName != nil {
+	if mod.UserID != 2 || mod.Role != "moderator" || mod.CharacterName != nil || mod.CharacterID != nil {
 		t.Fatalf("mod=%+v", mod)
+	}
+	mustExec(t, ctx, s, `UPDATE users SET role_id=3 WHERE id=1`)
+	list, err = r.Moderators(ctx, user)
+	if err != nil || len(list.Moderators) != 1 || list.Moderators[0].UserID != 2 {
+		t.Fatalf("administrators must be absent: %+v %v", list, err)
 	}
 	mustExec(t, ctx, s, `UPDATE users SET role_id=1 WHERE id=1`)
 	list, err = r.Moderators(ctx, user)

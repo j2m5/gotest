@@ -1,3 +1,4 @@
+import { Alert, Button, Input } from '../../../shared/ui/kit'
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { register } from '../api'
@@ -47,13 +48,14 @@ export default function Register() {
       <h1>Регистрация</h1>
 
       <p>Создайте аккаунт и подтвердите электронную почту по ссылке из письма.</p>
-      {error && <p className="flash-error" role="alert">{error}</p>}
-      {registered && <div className="flash-success" role="status">
+      {error && <Alert variant="error" role="alert">{error}</Alert>}
+      {registered && <Alert variant="success" role="status">
         {verificationQueued
-          ? 'Аккаунт создан. Письмо подтверждения поставлено в очередь на отправку. Это не гарантирует доставку: если письмо не придёт, войдите и запросите повторную отправку.'
-          : 'Аккаунт создан, но письмо подтверждения не удалось поставить в очередь. Попробуйте запросить повторную отправку на странице входа.'}
-      </div>}
-      <p className="text-center"><Link to="/login">{registered ? 'Войти / запросить повторную отправку письма' : 'Войти'}</Link></p>
+          ? 'Аккаунт создан. Проверьте почту и перейдите по ссылке в письме, чтобы подтвердить адрес.'
+          : 'Аккаунт создан, но отправить письмо не удалось. Запросите его повторно.'}
+      </Alert>}
+      <p className="text-center"><Link to="/login">Войти</Link></p>
+      {registered && <p className="text-center sm-text"><Link to="/login?resend=1">Письмо не пришло?</Link></p>}
 
       {!registered && <form onSubmit={handleRegister} aria-busy={pending}>
         <div className="text-center form-item">
@@ -62,7 +64,7 @@ export default function Register() {
             htmlFor="email">
             Электронная почта
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             name="email"
@@ -83,7 +85,7 @@ export default function Register() {
             htmlFor="login">
             Имя пользователя
           </label>
-          <input
+          <Input
             id="login"
             type="text"
             name="login"
@@ -104,7 +106,7 @@ export default function Register() {
             htmlFor="password">
             Пароль
           </label>
-          <input
+          <Input
             id="password"
             type="password"
             name="password"
@@ -119,13 +121,12 @@ export default function Register() {
           />
           <FieldFeedback fields={fields} name="password" id="password-error" />
         </div>
-        <button
+        <Button pending={pending}
           type="submit"
-          className="btn-primary"
           disabled={pending}
         >
           {pending ? 'Регистрация…' : 'Регистрация'}
-        </button>
+        </Button>
       </form>}
     </Layout>
   )

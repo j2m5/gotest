@@ -50,15 +50,17 @@ type Ban struct {
 	RevokedByUserID *int       `json:"revoked_by_user_id"`
 }
 type Action struct {
-	ID          int64     `json:"id"`
-	ActorUserID *int      `json:"actor_user_id"`
-	UserID      int       `json:"user_id"`
-	Scope       string    `json:"scope"`
-	Action      string    `json:"action"`
-	Reason      string    `json:"reason"`
-	BanID       *int64    `json:"ban_id"`
-	MessageID   *int64    `json:"message_id"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	ActorUserID  *int      `json:"actor_user_id"`
+	UserID       int       `json:"user_id"`
+	Scope        string    `json:"scope"`
+	Action       string    `json:"action"`
+	Reason       string    `json:"reason"`
+	BanID        *int64    `json:"ban_id"`
+	MessageID    *int64    `json:"message_id"`
+	ForumTopicID *int64    `json:"forum_topic_id,omitempty"`
+	ForumPostID  *int64    `json:"forum_post_id,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 type ChatPage struct {
 	Messages     []Message `json:"messages"`
@@ -78,6 +80,7 @@ type Moderator struct {
 	UserID        int     `json:"user_id"`
 	Login         string  `json:"login"`
 	Role          string  `json:"role"`
+	CharacterID   *int    `json:"character_id"`
 	CharacterName *string `json:"character_name"`
 }
 

@@ -7,8 +7,10 @@ import (
 
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/forum"
 	"gotest/internal/httpapi"
 	"gotest/internal/observability"
+	"gotest/internal/presence"
 	"gotest/internal/social"
 	"gotest/internal/validation"
 )
@@ -19,6 +21,10 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var invalid *validation.Error
 	var banned *auth.AccountBannedError
 	switch {
+	case errors.Is(err, presence.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры персонажа", nil)
+	case errors.Is(err, presence.ErrCharacterChanged):
+		httpapi.WriteError(w, 409, "character_changed", "Активный персонаж изменился. Обновите данные", nil)
 	case errors.As(err, &invalid):
 		httpapi.WriteError(w, 422, httpapi.CodeValidationFailed, "Проверьте заполненные поля", invalid.Fields)
 	case errors.Is(err, auth.ErrUnauthenticated), errors.Is(err, character.ErrUnauthenticated):
@@ -31,6 +37,17 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 			until = "до " + banned.ExpiresAt.UTC().Format("02.01.2006 15:04 MST")
 		}
 		httpapi.WriteError(w, 403, "account_banned", "Аккаунт заблокирован "+until+". Причина: "+banned.Reason, nil)
+	case errors.Is(err, forum.ErrNotFound):
+		httpapi.WriteError(w, 404, "forum_not_found", "Тема или сообщение не найдены", nil)
+	case errors.Is(err, forum.ErrBanned):
+		httpapi.WriteError(w, 403, "forum_banned", "Публикации на форуме временно заблокированы", nil)
+	case errors.Is(err, forum.ErrClosed):
+		httpapi.WriteError(w, 409, "forum_closed", "Тема закрыта для новых публикаций и изменений", nil)
+	case errors.Is(err, forum.ErrConflict):
+		httpapi.WriteError(w, 409, "forum_conflict", "Запись уже изменилась. Обновите её перед повторным редактированием", nil)
+	case errors.Is(err, forum.ErrTooFast):
+		w.Header().Set("Retry-After", "5")
+		httpapi.WriteError(w, 429, "rate_limited", "Подождите пять секунд перед следующей публикацией", nil)
 	case errors.Is(err, social.ErrForbidden):
 		httpapi.WriteError(w, 403, "forbidden", "Недостаточно прав для этого действия", nil)
 	case errors.Is(err, social.ErrNotFound):

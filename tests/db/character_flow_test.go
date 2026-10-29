@@ -18,6 +18,7 @@ import (
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
 	"gotest/internal/notification"
+	"gotest/internal/presence"
 	"gotest/internal/routes"
 )
 
@@ -67,7 +68,7 @@ func characterFlowRouter(t *testing.T, s *testStorage, mail notification.Sender,
 	go func() { defer close(done); worker.Run(workerCtx) }()
 	t.Cleanup(func() { cancel(); <-done })
 	characters := character.NewService(db.NewCharacterRepository(s.pool))
-	h, err := routes.New(handlers.NewHandler(authService, false, authService), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist")})
+	h, err := routes.New(handlers.NewHandler(authService, false, authService), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{StaticDir: filepath.Join("..", "..", "frontend", "dist"), Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(s.pool)))})
 	if err != nil {
 		t.Fatal(err)
 	}

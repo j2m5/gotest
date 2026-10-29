@@ -9,11 +9,13 @@ import (
 	"gotest/internal/character"
 	"gotest/internal/config"
 	"gotest/internal/db"
+	"gotest/internal/forum"
 	"gotest/internal/handlers"
 	"gotest/internal/mailer"
 	"gotest/internal/middleware"
 	"gotest/internal/notification"
 	"gotest/internal/observability"
+	"gotest/internal/presence"
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/social"
@@ -102,11 +104,14 @@ func run(logger *slog.Logger) error {
 	}, logger)
 	characterService := character.NewService(db.NewCharacterRepository(pool))
 	socialService := social.NewService(db.NewSocialRepository(pool))
+	forumService := forum.NewService(db.NewForumRepository(pool))
 	hub := realtime.New(ctx, service, cfg.PublicURL)
 	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), service), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: cfg.StaticDir, RequireStatic: cfg.AppEnv == "production", TrustedOrigin: cfg.PublicURL, TrustedProxies: cfg.TrustedProxies, Logger: logger,
 		Ready: pool.Ping, Lifecycle: ctx,
 		Social: handlers.NewSocialHandler(socialService, hub.Notify), ChatEvents: hub.ServeHTTP,
+		Forum:    handlers.NewForumHandler(forumService),
+		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(pool))),
 	})
 	if err != nil {
 		return applicationFailure(logger, "routes", err, slog.String("reason", "cannot configure HTTP routes; check PUBLIC_URL and STATIC_DIR"))

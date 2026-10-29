@@ -14,6 +14,7 @@ import (
 	"gotest/internal/db"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
+	"gotest/internal/presence"
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/social"
@@ -37,6 +38,7 @@ func TestSocialBrowserFlow(t *testing.T) {
 	hub := realtime.New(lifecycle, a, "")
 	h, err := routes.New(handlers.NewHandler(a, false, a), handlers.NewCharacterHandler(character.NewService(db.NewCharacterRepository(s.pool))), middleware.NewMiddleware(a), routes.Options{
 		StaticDir: filepath.Join("..", "..", "frontend", "dist"), Lifecycle: lifecycle, Social: handlers.NewSocialHandler(social.NewService(db.NewSocialRepository(s.pool)), hub.Notify), ChatEvents: hub.ServeHTTP,
+		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(s.pool))),
 	})
 	if err != nil {
 		t.Fatal(err)

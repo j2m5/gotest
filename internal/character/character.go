@@ -30,18 +30,31 @@ type CreateInput struct {
 // Character is the account-facing character view; storage and owner details
 // deliberately remain in the persistence layer.
 type Character struct {
-	ID         int     `json:"id"`
-	Name       string  `json:"name"`
-	FactionID  int     `json:"faction_id"`
-	ClassID    int     `json:"class_id"`
-	Role       string  `json:"role"`
-	Level      int16   `json:"level"`
-	Experience int     `json:"experience"`
-	Avatar     *string `json:"avatar"`
-	HP         int     `json:"hp"`
-	MP         int     `json:"mp"`
-	HPCurrent  int     `json:"hp_current"`
-	MPCurrent  int     `json:"mp_current"`
+	ID           int          `json:"id"`
+	Name         string       `json:"name"`
+	FactionID    int          `json:"faction_id"`
+	ClassID      int          `json:"class_id"`
+	Role         string       `json:"role"`
+	Level        int16        `json:"level"`
+	Experience   int          `json:"experience"`
+	Avatar       *string      `json:"avatar"`
+	HP           int          `json:"hp"`
+	MP           int          `json:"mp"`
+	HPCurrent    int          `json:"hp_current"`
+	MPCurrent    int          `json:"mp_current"`
+	Regeneration Regeneration `json:"regeneration"`
+}
+
+// PublicProfile is the character identity visible to other signed-in players.
+// AccountRole is the owner's current moderation role, not the character's combat role.
+type PublicProfile struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	FactionID   int     `json:"faction_id"`
+	ClassID     int     `json:"class_id"`
+	Level       int16   `json:"level"`
+	Avatar      *string `json:"avatar"`
+	AccountRole string  `json:"account_role"`
 }
 
 type Faction struct {
@@ -74,6 +87,7 @@ type Roster struct {
 type Repository interface {
 	Catalog(context.Context) (*Catalog, error)
 	List(context.Context, Actor) (*Roster, error)
+	Profile(context.Context, Actor, int) (*PublicProfile, error)
 	Create(context.Context, Actor, CreateInput) (*Character, error)
 	// A nil ID clears the shared selection and returns a nil character.
 	SetActive(context.Context, Actor, *int) (*Character, error)

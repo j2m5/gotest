@@ -118,14 +118,14 @@ func (r *SocialRepository) Actions(ctx context.Context, a social.Actor, before i
 		return nil, social.ErrForbidden
 	}
 	p := &social.ActionPage{Actions: []social.Action{}}
-	rows, err := tx.Query(ctx, `SELECT id,actor_user_id,user_id,scope,action,reason,ban_id,message_id,created_at FROM moderation_actions WHERE ($1::bigint=0 OR id<$1) ORDER BY id DESC LIMIT 51`, before)
+	rows, err := tx.Query(ctx, `SELECT id,actor_user_id,user_id,scope,action,reason,ban_id,message_id,forum_topic_id,forum_post_id,created_at FROM moderation_actions WHERE ($1::bigint=0 OR id<$1) ORDER BY id DESC LIMIT 51`, before)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var item social.Action
-		if err = rows.Scan(&item.ID, &item.ActorUserID, &item.UserID, &item.Scope, &item.Action, &item.Reason, &item.BanID, &item.MessageID, &item.CreatedAt); err != nil {
+		if err = rows.Scan(&item.ID, &item.ActorUserID, &item.UserID, &item.Scope, &item.Action, &item.Reason, &item.BanID, &item.MessageID, &item.ForumTopicID, &item.ForumPostID, &item.CreatedAt); err != nil {
 			return nil, err
 		}
 		p.Actions = append(p.Actions, item)

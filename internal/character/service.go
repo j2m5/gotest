@@ -28,6 +28,16 @@ func (s *Service) List(ctx context.Context, actor Actor) (*Roster, error) {
 	return s.repository.List(ctx, actor)
 }
 
+func (s *Service) Profile(ctx context.Context, actor Actor, id int) (*PublicProfile, error) {
+	if err := checkActor(ctx, actor); err != nil {
+		return nil, err
+	}
+	if id <= 0 || int64(id) > 1<<31-1 {
+		return nil, ErrNotFound
+	}
+	return s.repository.Profile(ctx, actor, id)
+}
+
 func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (*Character, error) {
 	if err := checkActor(ctx, actor); err != nil {
 		return nil, err

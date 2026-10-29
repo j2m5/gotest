@@ -73,12 +73,18 @@ func sortedFieldKeys(fields validation.Fields) []string {
 }
 
 func DecodeJSON[T any](w http.ResponseWriter, r *http.Request) (*T, bool) {
+	return DecodeJSONLimit[T](w, r, 16<<10)
+}
+
+// DecodeJSONLimit keeps strict decoding while allowing a route to choose its
+// byte budget. The limit is application-owned, never taken from client input.
+func DecodeJSONLimit[T any](w http.ResponseWriter, r *http.Request, limit int64) (*T, bool) {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		WriteError(w, http.StatusUnsupportedMediaType, CodeUnsupportedMediaType, "Ожидается Content-Type: application/json", nil)
 		return nil, false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	decoder := json.NewDecoder(r.Body)
 	var raw json.RawMessage
 	if err = decoder.Decode(&raw); err != nil {

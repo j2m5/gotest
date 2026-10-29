@@ -1,3 +1,4 @@
+import { Alert, Button, Input } from '../../../shared/ui/kit'
 import type { SubmitEvent } from 'react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -37,17 +38,17 @@ export default function ForgotPassword() {
   return <Layout>
     <h1>Сброс пароля</h1>
     <p>Укажите почту, связанную с аккаунтом.</p>
-    {error && <p className="flash-error" role="alert">{error}</p>}
-    {sent && <p className="flash-success" role="status">{genericMessage}</p>}
+    {error && <Alert variant="error" role="alert">{error}</Alert>}
+    {sent && <Alert variant="success" role="status">{genericMessage}</Alert>}
     {!sent && <form onSubmit={submit} aria-busy={pending}>
       <div className="form-item text-center">
         <label className="block" htmlFor="email">Электронная почта</label>
-        <input id="email" name="email" type="email" autoComplete="email" required disabled={pending}
+        <Input id="email" name="email" type="email" autoComplete="email" required disabled={pending}
           aria-invalid={Boolean(fields.email?.length)} aria-describedby={fields.email?.length ? 'email-error' : undefined}
           value={email} onChange={event => { setEmail(event.target.value); setError(''); setFields(current => ({ ...current, email: [] })) }} />
         <FieldFeedback fields={fields} name="email" id="email-error" />
       </div>
-      <button type="submit" className="btn-primary" disabled={pending}>{pending ? 'Отправка…' : 'Отправить ссылку'}</button>
+      <Button pending={pending} type="submit" disabled={pending}>{pending ? 'Отправка…' : 'Отправить ссылку'}</Button>
     </form>}
     <p className="text-center"><Link to="/login">Вернуться ко входу</Link></p>
   </Layout>

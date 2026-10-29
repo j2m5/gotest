@@ -71,6 +71,10 @@ func TestCharacterBrowserFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth/verify" && r.Header.Get("X-Browser-Test-Verification-Failure") == "1" {
+			http.Error(w, "verification temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		if r.URL.Path == "/api/characters/catalog" && r.Header.Get("X-Browser-Test-Catalog-Failure") == "1" {
 			http.Error(w, "catalog temporarily unavailable", http.StatusServiceUnavailable)
 			return

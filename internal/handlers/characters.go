@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"gotest/internal/character"
 	"gotest/internal/httpapi"
@@ -14,6 +15,7 @@ import (
 type CharacterService interface {
 	Catalog(context.Context) (*character.Catalog, error)
 	List(context.Context, character.Actor) (*character.Roster, error)
+	Profile(context.Context, character.Actor, int) (*character.PublicProfile, error)
 	Create(context.Context, character.Actor, character.CreateInput) (*character.Character, error)
 	SetActive(context.Context, character.Actor, *int) (*character.Character, error)
 }
@@ -40,6 +42,20 @@ func (h *CharacterHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpapi.WriteJSON(w, http.StatusOK, roster)
+}
+
+func (h *CharacterHandler) Profile(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.URL.Query().Get("character_id"), 10, 32)
+	if err != nil || id <= 0 {
+		httpapi.WriteError(w, http.StatusBadRequest, httpapi.CodeInvalidRequest, "Укажите корректный ID персонажа", nil)
+		return
+	}
+	profile, err := h.service.Profile(r.Context(), characterActor(r.Context()), int(id))
+	if err != nil {
+		respondError(w, r, err)
+		return
+	}
+	httpapi.WriteJSON(w, http.StatusOK, map[string]any{"character": profile})
 }
 
 func (h *CharacterHandler) Create(w http.ResponseWriter, r *http.Request) {

@@ -31,7 +31,7 @@ func (s *socialStub) Moderators(_ context.Context, a social.Actor) (*social.Mode
 	s.actor = a
 	list := &social.ModeratorList{Moderators: []social.Moderator{}}
 	if s.filled {
-		list.Moderators = []social.Moderator{{UserID: 2, Login: "admin", Role: "administrator"}, {UserID: 3, Login: "mod", Role: "moderator", CharacterName: new("Watcher")}}
+		list.Moderators = []social.Moderator{{UserID: 2, Login: "mod_without_character", Role: "moderator"}, {UserID: 3, Login: "mod", Role: "moderator", CharacterID: new(7), CharacterName: new("Watcher")}}
 	}
 	return list, s.err
 }
@@ -84,6 +84,7 @@ func (s *socialStub) Actions(_ context.Context, a social.Actor, _ int64) (*socia
 	p := &social.ActionPage{Actions: []social.Action{}}
 	if s.filled {
 		p.Actions = append(p.Actions, social.Action{ID: 1, ActorUserID: new(1), UserID: 2, Scope: "chat", Action: "delete_message", Reason: "Spam", MessageID: new(int64(1)), CreatedAt: time.Now()})
+		p.Actions = append(p.Actions, social.Action{ID: 2, ActorUserID: new(1), UserID: 2, Scope: "forum", Action: "hide_post", Reason: "Spam", ForumTopicID: new(int64(1)), ForumPostID: new(int64(2)), CreatedAt: time.Now()})
 	}
 	return p, s.err
 }

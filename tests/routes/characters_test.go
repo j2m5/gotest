@@ -36,6 +36,11 @@ func (s *characterStub) List(_ context.Context, actor character.Actor) (*charact
 	s.actor = actor
 	return &character.Roster{Characters: []character.Character{}}, s.err
 }
+func (s *characterStub) Profile(_ context.Context, actor character.Actor, id int) (*character.PublicProfile, error) {
+	s.calls++
+	s.actor = actor
+	return &character.PublicProfile{ID: id, Name: "Malgus", FactionID: 2, ClassID: 8, Level: 1, AccountRole: "moderator"}, s.err
+}
 func (s *characterStub) Create(_ context.Context, actor character.Actor, input character.CreateInput) (*character.Character, error) {
 	s.calls++
 	s.actor, s.input = actor, input
@@ -67,6 +72,7 @@ func TestCharacterEndpointsRequireSession(t *testing.T) {
 	h := characterRouter(t, s)
 	for _, tc := range []struct{ method, path, body string }{
 		{"GET", "/api/characters/catalog", ""}, {"GET", "/api/characters", ""},
+		{"GET", "/api/characters/profile?character_id=10", ""},
 		{"POST", "/api/characters", `{"name":"Malgus","faction_id":2,"class_id":8}`},
 		{"PUT", "/api/characters/active", `{"character_id":10}`},
 	} {
@@ -152,7 +158,7 @@ func TestCharacterErrorsHaveStableStatuses(t *testing.T) {
 func TestCharacterMethodsAndCrossOriginProtection(t *testing.T) {
 	s := &characterStub{}
 	h := characterRouter(t, s)
-	for _, tc := range []struct{ path, allow string }{{"/api/characters", "GET, POST"}, {"/api/characters/catalog", "GET"}, {"/api/characters/active", "PUT"}} {
+	for _, tc := range []struct{ path, allow string }{{"/api/characters", "GET, POST"}, {"/api/characters/catalog", "GET"}, {"/api/characters/profile?character_id=10", "GET"}, {"/api/characters/active", "PUT"}} {
 		w := request(h, "DELETE", tc.path, "", characterCookie())
 		if w.Code != 405 || w.Header().Get("Allow") != tc.allow || !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
 			t.Fatalf("method: %d %s allow=%s", w.Code, w.Body, w.Header().Get("Allow"))

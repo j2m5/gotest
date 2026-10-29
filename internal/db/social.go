@@ -56,15 +56,24 @@ func (r *SocialRepository) begin(ctx context.Context, a social.Actor, target int
 		}
 		users[id] = u
 	}
-	var ok bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1 AND s.user_id=$2 AND s.expires_at>clock_timestamp() AND u.email_verified_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id AND b.scope='account' AND b.revoked_at IS NULL AND (b.expires_at IS NULL OR b.expires_at>clock_timestamp())))`, a.SessionHash, a.UserID).Scan(&ok)
-	if err != nil {
+	if err = checkSocialSession(ctx, tx, a); err != nil {
 		return fail(err)
 	}
-	if !ok {
-		return fail(auth.ErrUnauthenticated)
-	}
 	return tx, users, nil
+}
+
+// Content-row waits may outlive a session. Keep the account and forum checks
+// on the same policy, both before and after waiting for content locks.
+func checkSocialSession(ctx context.Context, tx pgx.Tx, a social.Actor) error {
+	var ok bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=$1 AND s.user_id=$2 AND s.expires_at>clock_timestamp() AND u.email_verified_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id AND b.scope='account' AND b.revoked_at IS NULL AND (b.expires_at IS NULL OR b.expires_at>clock_timestamp())))`, a.SessionHash, a.UserID).Scan(&ok)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return auth.ErrUnauthenticated
+	}
+	return nil
 }
 func permitted(actor, target int16, scope string, self bool) bool {
 	if self {

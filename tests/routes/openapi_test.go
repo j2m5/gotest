@@ -22,8 +22,10 @@ import (
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/forum"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
+	"gotest/internal/presence"
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/validation"
@@ -67,6 +69,11 @@ type contractCharacters struct {
 func (s *contractCharacters) sample() *character.Character {
 	c := &character.Character{ID: 10, Name: "Malgus", FactionID: 2, ClassID: 8,
 		Role: "damage", Level: 1, Experience: 0, HP: 100, HPCurrent: 100, MP: 50, MPCurrent: 50}
+	c.Regeneration = character.Regeneration{
+		HPBaseline: c.HPCurrent, MPBaseline: c.MPCurrent,
+		HPUpdatedAt: time.Now(), MPUpdatedAt: time.Now(), ObservedAt: time.Now(),
+		HPFullRestoreMS: character.HealthRecoveryPeriod.Milliseconds(), MPFullRestoreMS: character.EnergyRecoveryPeriod.Milliseconds(),
+	}
 	if s.populated {
 		c.Avatar = new("/avatars/sith.png")
 	}
@@ -80,6 +87,12 @@ func (s *contractCharacters) List(context.Context, character.Actor) (*character.
 		roster.ActiveCharacterID = new(10)
 	}
 	return roster, s.err
+}
+
+func (s *contractCharacters) Profile(context.Context, character.Actor, int) (*character.PublicProfile, error) {
+	c := s.sample()
+	return &character.PublicProfile{ID: c.ID, Name: c.Name, FactionID: c.FactionID, ClassID: c.ClassID,
+		Level: c.Level, Avatar: c.Avatar, AccountRole: "moderator"}, s.err
 }
 
 func (s *contractCharacters) Catalog(ctx context.Context) (*character.Catalog, error) {
@@ -131,6 +144,8 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 		StaticDir: t.TempDir(), AuthLimit: limit, TrustedOrigin: "http://localhost:5173",
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Social: handlers.NewSocialHandler(&socialStub{filled: tc.filled}, hub.Notify), ChatEvents: hub.ServeHTTP, Lifecycle: lifecycle,
+		Forum:    handlers.NewForumHandler(forum.NewService(&forumStub{filled: tc.filled})),
+		Presence: handlers.NewPresenceHandler(presence.NewService(&presenceStub{filled: tc.filled, err: tc.characterErr})),
 		Ready: func(context.Context) error {
 			if tc.notReady {
 				return errors.New("database offline")
@@ -246,10 +261,18 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "forgot password", method: "POST", path: "/api/auth/forgot-password", body: `{"email":"p@example.test"}`, status: 200},
 		{name: "reset password", method: "POST", path: "/api/auth/reset-password", body: `{"token":"` + token + `","password":"password"}`, status: 200},
 		{name: "empty roster", method: "GET", path: "/api/characters", empty: true, status: 200},
+		{name: "presence count only", method: "GET", path: "/api/presence", status: 200},
+		{name: "presence statuses", method: "GET", path: "/api/presence?character_ids=10,11,10", filled: true, status: 200},
+		{name: "online directory empty", method: "GET", path: "/api/presence/online", status: 200},
+		{name: "online directory paginated", method: "GET", path: "/api/presence/online?after_id=1", filled: true, status: 200},
+		{name: "presence activity", method: "POST", path: "/api/presence/heartbeat", body: `{"character_id":10}`, status: 200},
+		{name: "presence no selection", method: "POST", path: "/api/presence/heartbeat", body: `{"character_id":null}`, status: 200},
 		{name: "roster null avatar", method: "GET", path: "/api/characters", status: 200},
 		{name: "roster with avatar", method: "GET", path: "/api/characters", filled: true, status: 200},
 		{name: "catalog null fields", method: "GET", path: "/api/characters/catalog", status: 200},
 		{name: "catalog filled fields", method: "GET", path: "/api/characters/catalog", filled: true, status: 200},
+		{name: "public character profile null avatar", method: "GET", path: "/api/characters/profile?character_id=10", status: 200},
+		{name: "public character profile with avatar", method: "GET", path: "/api/characters/profile?character_id=10", filled: true, status: 200},
 		{name: "create character", method: "POST", path: "/api/characters", body: `{"name":"Malgus","faction_id":2,"class_id":8}`, status: 201},
 		{name: "select character", method: "PUT", path: "/api/characters/active", body: `{"character_id":10}`, status: 200},
 		{name: "clear character", method: "PUT", path: "/api/characters/active", body: `{"character_id":null}`, status: 200},
@@ -264,6 +287,16 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "revoke ban", method: "POST", path: "/api/moderation/revoke", body: `{"ban_id":1,"reason":"Appeal"}`, status: 200},
 		{name: "moderation journal", method: "GET", path: "/api/moderation/actions", filled: true, status: 200},
 		{name: "chat events", method: "GET", path: "/api/chat/events?account_id=1", status: 101},
+		{name: "forum categories", method: "GET", path: "/api/forum/categories", status: 200},
+		{name: "forum empty category", method: "GET", path: "/api/forum/topics?category_id=2", status: 200},
+		{name: "forum topics and ban", method: "GET", path: "/api/forum/topics?category_id=2&cursor=p:5&include_hidden=true", filled: true, status: 200},
+		{name: "forum opening post", method: "GET", path: "/api/forum/topic?topic_id=1", status: 200},
+		{name: "forum replies hidden and visible", method: "GET", path: "/api/forum/topic?topic_id=1&after_id=1", filled: true, status: 200},
+		{name: "forum create topic", method: "POST", path: "/api/forum/topics", body: `{"category_id":2,"character_id":3,"title":"Topic","body":"Opening"}`, status: 201},
+		{name: "forum reply", method: "POST", path: "/api/forum/replies", body: `{"topic_id":1,"character_id":3,"body":"Reply"}`, status: 201},
+		{name: "forum edit topic", method: "POST", path: "/api/forum/edit-topic", body: `{"topic_id":1,"character_id":3,"title":"Edited","body":"Updated","version":1}`, status: 200},
+		{name: "forum edit reply", method: "POST", path: "/api/forum/edit-reply", body: `{"post_id":2,"character_id":3,"body":"Updated","version":1}`, status: 200},
+		{name: "forum moderate", method: "POST", path: "/api/forum/moderate", body: `{"target":"topic","target_id":1,"action":"close","reason":"Resolved"}`, status: 200},
 		{name: "health", method: "GET", path: "/healthz", status: 200},
 		{name: "health HEAD", method: "HEAD", path: "/healthz", status: 200},
 		{name: "ready", method: "GET", path: "/readyz", status: 200},
@@ -348,6 +381,12 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 	failure := errors.New("internal detail")
 	cases := []contractCase{
 		{name: "register conflict", method: "POST", path: "/api/auth/register", body: registration, authErr: auth.ErrConflict, status: 409},
+		{name: "presence unauthenticated", method: "GET", path: "/api/presence", noCookie: true, invalidRequest: true, status: 401},
+		{name: "presence wrong account", method: "GET", path: "/api/presence", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "presence malformed IDs", method: "GET", path: "/api/presence?character_ids=0", status: 400},
+		{name: "presence missing selection key", method: "POST", path: "/api/presence/heartbeat", body: `{}`, invalidRequest: true, status: 400},
+		{name: "presence stale selection", method: "POST", path: "/api/presence/heartbeat", body: `{"character_id":10}`, characterErr: presence.ErrCharacterChanged, status: 409},
+		{name: "presence storage failure", method: "GET", path: "/api/presence/online", characterErr: failure, status: 500},
 		{name: "register invalid", method: "POST", path: "/api/auth/register", body: registration, authErr: invalid, status: 422},
 		{name: "register internal", method: "POST", path: "/api/auth/register", body: registration, authErr: failure, status: 500},
 		{name: "wrong credentials", method: "POST", path: "/api/auth/login", body: credentials, authErr: auth.ErrInvalidCredentials, status: 401},
@@ -359,6 +398,13 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 		{name: "me account changed", method: "GET", path: "/api/auth/me", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "roster account changed", method: "GET", path: "/api/characters", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "catalog account changed", method: "GET", path: "/api/characters/catalog", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "profile account changed", method: "GET", path: "/api/characters/profile?character_id=10", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "profile no cookie", method: "GET", path: "/api/characters/profile?character_id=10", noCookie: true, invalidRequest: true, status: 401},
+		{name: "profile missing", method: "GET", path: "/api/characters/profile?character_id=10", characterErr: character.ErrNotFound, status: 404},
+		{name: "profile missing ID", method: "GET", path: "/api/characters/profile", invalidRequest: true, status: 400},
+		{name: "profile malformed ID", method: "GET", path: "/api/characters/profile?character_id=abc", invalidRequest: true, status: 400},
+		{name: "profile ID overflow", method: "GET", path: "/api/characters/profile?character_id=2147483648", invalidRequest: true, status: 400},
+		{name: "profile internal", method: "GET", path: "/api/characters/profile?character_id=10", characterErr: failure, status: 500},
 		{name: "create account changed", method: "POST", path: "/api/characters", body: create, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "selection account changed", method: "PUT", path: "/api/characters/active", body: `{"character_id":null}`, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "me no cookie", method: "GET", path: "/api/auth/me", noCookie: true, invalidRequest: true, status: 401},

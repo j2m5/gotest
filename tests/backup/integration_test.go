@@ -104,9 +104,22 @@ func (f *fixture) database(t *testing.T) (string, string) {
 			t.Error("refusing unsafe test database cleanup")
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		// DROP DATABASE can wait for a cluster checkpoint before removing files.
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cancel()
-		_, err := f.admin.Exec(ctx, "DROP DATABASE "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
+		// A canceled DDL connection is closed asynchronously by pgx. Cleanup
+		// must not make the shared CREATE DATABASE connection unusable.
+		cleanup, err := pgx.Connect(ctx, f.adminURL.String())
+		if err != nil {
+			t.Errorf("isolated database cleanup connection failed (%T)", err)
+			return
+		}
+		defer cleanup.Close(context.Background())
+		started := time.Now()
+		_, err = cleanup.Exec(ctx, "DROP DATABASE "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
+		if elapsed := time.Since(started); elapsed > time.Second {
+			t.Logf("isolated database cleanup: database=%s duration=%s", name, elapsed)
+		}
 		if err != nil {
 			t.Errorf("isolated database cleanup failed (%T)", err)
 		}

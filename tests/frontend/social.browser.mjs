@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { assertUIControls } from './ui-kit.browser-assertions.mjs'
 
 const [baseURL, browserPath, profilePath] = process.argv.slice(2)
 const browser = spawn(browserPath, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profilePath}`, '--disable-background-networking', '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-gpu', 'about:blank'], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] })
@@ -43,10 +44,12 @@ async function tab(email) {
   await command('Page.enable', {}, sessionId); await command('Runtime.enable', {}, sessionId)
   await command('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId)
   await open(sessionId, '/login'); await wait(sessionId, "!!document.querySelector('#email')", 'login')
+  const fieldBackground = await assertUIControls(evaluate, sessionId, 'social login')
   await fill(sessionId, '#email', email); await fill(sessionId, '#password', 'browser-password')
   await evaluate(sessionId, "document.querySelector('button[type=submit]').click()")
   await wait(sessionId, "location.pathname==='/characters'||location.pathname==='/game'", 'login complete')
   await open(sessionId, '/chat'); await wait(sessionId, "!!document.querySelector('#chat-body')&&!document.body.innerText.includes('Загрузка сообщений')", 'chat ready')
+  await assertUIControls(evaluate, sessionId, 'chat', fieldBackground)
   return sessionId
 }
 async function screenshot(session, name) {
@@ -85,12 +88,37 @@ try {
   await wait(user, "document.querySelectorAll('.chat-message .account-nickname--administrator').length===1&&document.querySelectorAll('.chat-message .account-nickname--moderator').length===1", 'colored staff nicknames')
   const colors = await evaluate(user, `['user','moderator','administrator'].map(role=>getComputedStyle(document.querySelector('.chat-message .account-nickname--'+role)).color)`)
   assert.equal(new Set(colors).size, 3, 'three roles must have distinct visible nickname colors')
+  const authorLink = await evaluate(user, "document.querySelector('.chat-message .account-nickname--moderator')?.closest('a')?.getAttribute('href')")
+  assert.equal(authorLink, '/characters/3', 'chat nickname links to the persisted author character')
+  await evaluate(user, "document.querySelector('.chat-message .account-nickname--moderator').closest('a').click()")
+  await wait(user, "location.pathname==='/characters/3'&&document.querySelector('h1')?.textContent==='Other account character'", 'public moderator character profile')
+  assert(await evaluate(user, "document.querySelector('main').innerText.includes('Модератор')"), 'profile shows current account role')
+  assert.equal(await evaluate(user, "!!document.querySelector('[role=meter],.resource-bars,.experience-row,.character-stats')||document.body.innerText.includes('second@example.test')||document.body.innerText.includes('First character')"), false, 'public view excludes account identity, other characters, experience and resources')
+  assert.equal((await request(user, '/api/characters')).body.active_character_id, 1, 'viewing another character never changes selection')
+  for (const width of [320, 480]) {
+    await command('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, user)
+    assert(await evaluate(user, 'document.documentElement.scrollWidth<=document.documentElement.clientWidth'), 'public profile layout overflow')
+    await screenshot(user, `public-profile-${width}`)
+  }
+  await click(user, 'Вернуться в чат')
+  await wait(user, "!!document.querySelector('#chat-body')", 'profile returns to chat')
   await click(user, 'Список модераторов')
-  await wait(user, "document.querySelectorAll('.moderator-directory > li').length===2", 'public staff directory')
+  await wait(user, "document.querySelectorAll('.moderator-directory > li').length===1", 'moderator-only directory')
   const directory = (await request(user, '/api/chat/moderators')).body.moderators
-  assert.deepEqual(directory.map(member => member.role), ['administrator', 'moderator'])
-  assert(directory.every(member => Object.keys(member).sort().join(',') === 'character_name,login,role,user_id'), 'directory exposes only public fields')
+  assert.deepEqual(directory.map(member => member.role), ['moderator'])
+  assert(directory.every(member => Object.keys(member).sort().join(',') === 'character_id,character_name,login,role,user_id'), 'directory exposes only public fields')
+  assert.equal(await evaluate(user, "document.querySelector('.moderator-directory p .account-nickname')?.closest('a')?.getAttribute('href')"), '/characters/3', 'moderator character nickname links to its public profile')
+  assert.equal(await evaluate(user, "document.querySelector('.moderator-directory .chat-message-header .account-nickname')?.closest('a')?.getAttribute('href')"), '/characters/3', 'moderator account nickname opens its selected public character')
+  await evaluate(user, "document.querySelector('.moderator-directory .chat-message-header .account-nickname').closest('a').click()")
+  await wait(user, "location.pathname==='/characters/3'&&document.querySelector('h1')?.textContent==='Other account character'", 'profile opened from moderator directory')
+  await click(user, 'Вернуться к списку модераторов')
+  await wait(user, "document.querySelectorAll('.moderator-directory > li').length===1", 'profile returns to moderator directory')
   await screenshot(user, 'moderators')
+  assert.equal((await request(mod, '/api/characters/active', 'PUT', { character_id: null }, 2)).status, 200)
+  await click(user, 'Обновить список')
+  await wait(user, "document.querySelector('.moderator-directory')?.textContent.includes('Персонаж не выбран')", 'moderator without active character')
+  assert.equal(await evaluate(user, "document.querySelectorAll('.moderator-directory a').length"), 0, 'moderator without selected character stays plain text')
+  assert.equal((await request(mod, '/api/characters/active', 'PUT', { character_id: 3 }, 2)).status, 200)
   await click(user, 'Вернуться в чат')
   await wait(user, "!!document.querySelector('#chat-body')&&!document.body.innerText.includes('Загрузка сообщений')", 'return from directory')
   for (const width of [320, 480, 1024]) {
@@ -103,6 +131,7 @@ try {
   await wait(user, "document.querySelector('.chat-messages')?.textContent.includes('Сообщение удалено модератором')", 'deleted event')
   await click(mod, 'Ограничить First character')
   await wait(mod, "!!document.querySelector('#ban-reason')", 'moderation form')
+  await assertUIControls(evaluate, mod, 'moderation')
   assert.equal(await evaluate(mod, "[...document.querySelector('#ban-scope').options].some(o=>o.value==='account')"), false)
   await fill(mod, '#ban-reason', 'Тестовая блокировка чата'); await click(mod, 'Выдать ограничение')
   await wait(user, "document.querySelector('#chat-body').disabled&&document.body.innerText.includes('Тестовая блокировка чата')", 'chat ban reaches active page')
@@ -134,6 +163,7 @@ try {
   const messages = (await request(admin, '/api/chat/messages')).body.messages
   assert.equal(messages.find(m => m.body === 'Сообщение второго персонажа').author_name, 'Second character')
   assert.equal(messages.find(m => m.body === 'Форумный бан не мешает чату').author_name, 'First character')
+  assert.equal(await evaluate(admin, "[...document.querySelectorAll('.chat-message')].find(e=>e.querySelector('.chat-body')?.textContent==='Форумный бан не мешает чату').querySelector('.account-nickname').closest('a').getAttribute('href')"), '/characters/1', 'old message link remains on original character after switch')
   await open(admin, '/moderation?user_id=1'); await wait(admin, "!!document.querySelector('#ban-scope')", 'admin moderation')
   await fill(admin, '#ban-scope', 'account'); await fill(admin, '#ban-duration', 'permanent'); await fill(admin, '#ban-reason', 'Проверка блокировки аккаунта'); await click(admin, 'Выдать ограничение')
   await wait(admin, "document.querySelector('#ban-reason').value===''", 'account ban committed')

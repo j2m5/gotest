@@ -1,3 +1,4 @@
+import { Alert, Button } from '../../../shared/ui/kit'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
@@ -29,14 +30,13 @@ export default function GameLayout({ character, catalog, children }: { character
     </div>
     <nav className="game-navigation" aria-label="Навигация персонажа">
       <NavLink to="/chat">Чат</NavLink>
+      <NavLink to="/forum">Форум</NavLink>
       {user && user.role !== 'user' && <NavLink to="/moderation">Модерация</NavLink>}
-      <NavLink to="/game">На главную</NavLink>
-      <NavLink to="/profile">Мой персонаж</NavLink>
-      <button type="button" className="link-button" disabled={pending} onClick={() => void clear()}>К выбору персонажа</button>
-      <button type="button" className="link-button" disabled={pending} onClick={() => void signOut()}>{pending ? 'Подождите…' : 'Выйти'}</button>
+      <Button variant="ghost" pending={pending} type="button" disabled={pending} onClick={() => void clear()}>К выбору персонажа</Button>
+      <Button variant="ghost" pending={pending} type="button" disabled={pending} onClick={() => void signOut()}>{pending ? 'Подождите…' : 'Выйти'}</Button>
     </nav>
   </>}>
-    {error && <p role="alert" className="flash-error">{error}</p>}
+    {error && <Alert variant="error" role="alert">{error}</Alert>}
     {children}
   </Layout>
 }

@@ -30,7 +30,7 @@ func TestSocialSchemaRolesAndBanBounds(t *testing.T) {
 
 func TestSocialMigrationsDownAndUp(t *testing.T) {
 	s, ctx := characterTestStorage(t, true)
-	for _, name := range []string{"20261028000200_chat.down.sql", "20261028000100_social_moderation.down.sql", "20261028000100_social_moderation.up.sql", "20261028000200_chat.up.sql"} {
+	for _, name := range []string{"20261029000100_forum.down.sql", "20261028000200_chat.down.sql", "20261028000100_social_moderation.down.sql", "20261028000100_social_moderation.up.sql", "20261028000200_chat.up.sql", "20261029000100_forum.up.sql"} {
 		executeMigration(t, ctx, s, name)
 	}
 }

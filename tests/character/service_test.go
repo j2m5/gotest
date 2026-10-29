@@ -27,6 +27,11 @@ func (r *repository) List(_ context.Context, actor character.Actor) (*character.
 	r.actor = actor
 	return &character.Roster{}, r.err
 }
+func (r *repository) Profile(_ context.Context, actor character.Actor, id int) (*character.PublicProfile, error) {
+	r.calls++
+	r.actor = actor
+	return &character.PublicProfile{ID: id}, r.err
+}
 func (r *repository) Create(_ context.Context, actor character.Actor, input character.CreateInput) (*character.Character, error) {
 	r.calls++
 	r.actor, r.input = actor, input

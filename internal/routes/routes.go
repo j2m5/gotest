@@ -22,6 +22,8 @@ type Options struct {
 	Ready                    func(context.Context) error
 	Lifecycle                context.Context
 	Social                   *handlers.SocialHandler
+	Forum                    *handlers.ForumHandler
+	Presence                 *handlers.PresenceHandler
 	ChatEvents               http.HandlerFunc
 }
 
@@ -52,6 +54,7 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		"POST": m.Auth(characters.Create),
 	}))
 	bind("/api/characters/catalog", "GET", m.Auth(characters.Catalog), false)
+	bind("/api/characters/profile", "GET", m.Auth(characters.Profile), false)
 	bind("/api/characters/active", "PUT", m.Auth(characters.SetActive), false)
 	// Keep route/method semantics stable in test compositions without a social
 	// service. The application always provides both handlers.
@@ -77,6 +80,8 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		events = unavailable
 	}
 	bind("/api/chat/events", "GET", m.Auth(events), false)
+	registerForumRoutes(api, options.Forum, m)
+	registerPresenceRoutes(api, options.Presence, m)
 	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, 404, httpapi.CodeRouteNotFound, "API-маршрут не найден", nil)
 	})

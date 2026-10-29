@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { readFile, readdir, writeFile, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { assertUIControls } from './ui-kit.browser-assertions.mjs'
 
 const [baseURL, browserPath, profilePath, mailDirectory] = process.argv.slice(2)
 assert(baseURL && browserPath && profilePath && mailDirectory, 'Expected test server, browser, temporary profile and local mailbox')
@@ -14,6 +15,7 @@ let nextID = 0
 const pending = new Map()
 const exceptions = []
 const networkFailures = []
+const verificationRequests = []
 
 function command(method, params = {}, sessionId) {
   return new Promise((resolve, reject) => {
@@ -86,11 +88,15 @@ async function checkLayout(session, name, widths = [320, 375, 480, 1024]) {
     await command('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, session)
     const layout = await evaluate(session, `new Promise(resolve => requestAnimationFrame(() => {
       const root = document.querySelector('#root').getBoundingClientRect();
-      resolve({viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, rootWidth: root.width, left: root.left});
+      const footer = document.querySelector('.site-footer');
+      const naturalTail = parseFloat(getComputedStyle(footer.lastElementChild).marginBottom) + parseFloat(getComputedStyle(document.querySelector('#root')).borderBottomWidth);
+      resolve({viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth, rootWidth: root.width, left: root.left,
+        trailingSpace: root.bottom - footer.getBoundingClientRect().bottom, naturalTail});
     }))`)
     assert(layout.scroll <= layout.viewport, `${name} must not scroll horizontally at ${width}px: ${JSON.stringify(layout)}`)
     assert.equal(layout.rootWidth, Math.min(layout.viewport, 480), `${name} keeps the original maximum width`)
     assert(Math.abs(layout.left - (layout.viewport - layout.rootWidth) / 2) < 1, `${name} stays centered`)
+    assert(layout.trailingSpace <= layout.naturalTail + .1, `${name} ends after its footer without stretching to the viewport: ${JSON.stringify(layout)}`)
     await screenshot(session, `${name}-${width}`)
   }
   await command('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 1, mobile: false }, session)
@@ -122,6 +128,9 @@ async function startBrowser() {
     const message = JSON.parse(data)
     if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text)
     if (message.method === 'Network.loadingFailed') networkFailures.push({ error: message.params.errorText, cors: message.params.corsErrorStatus })
+    if (message.method === 'Network.requestWillBeSent' && new URL(message.params.request.url).pathname === '/api/auth/verify') {
+      verificationRequests.push({ session: message.sessionId, method: message.params.request.method })
+    }
     const task = pending.get(message.id)
     if (!task) return
     pending.delete(message.id); clearTimeout(task.timer)
@@ -189,11 +198,31 @@ try {
 
   await command('Page.navigate', { url: baseURL + '/profile' }, first)
   await waitFor(first, `location.pathname === '/login' && !!document.querySelector('#email')`, 'profile requires a session')
+  await command('Page.navigate', { url: baseURL + '/characters/1' }, first)
+  await waitFor(first, `location.pathname === '/login' && !!document.querySelector('#email')`, 'public character profile requires a session')
   await checkLayout(first, 'login')
+  const fieldBackground = await assertUIControls(evaluate, first, 'login')
+  for (const width of [320, 480]) {
+    await command('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, first)
+    const checkboxLayout = () => evaluate(first, `new Promise(resolve => requestAnimationFrame(() => {
+      const checkbox = document.querySelector('#remember-me');
+      const row = checkbox.closest('.form-item');
+      resolve({checkboxTop: checkbox.getBoundingClientRect().top, rowHeight: row.getBoundingClientRect().height,
+        followingTop: row.nextElementSibling.getBoundingClientRect().top, footerTop: document.querySelector('.site-footer').getBoundingClientRect().top});
+    }))`)
+    const before = await checkboxLayout()
+    await click(first, '#remember-me')
+    assert.equal(await evaluate(first, `document.querySelector('#remember-me').checked`), true)
+    assert.deepEqual(await checkboxLayout(), before, `Checking the checkbox must not shift the row or following content at ${width}px`)
+    await click(first, '#remember-me')
+    assert.equal(await evaluate(first, `document.querySelector('#remember-me').checked`), false)
+    assert.deepEqual(await checkboxLayout(), before, `Unchecking the checkbox must preserve the layout at ${width}px`)
+  }
 
   await command('Page.navigate', { url: baseURL + '/register' }, first)
   await waitFor(first, `!!document.querySelector('#login')`, 'registration form')
   await checkLayout(first, 'register', [320, 480])
+  await assertUIControls(evaluate, first, 'registration', fieldBackground)
   await fill(first, '#email', 'fields@example.test')
   await fill(first, '#login', 'x'.repeat(33))
   await fill(first, '#password', 'short')
@@ -218,10 +247,25 @@ try {
   assert.equal(verificationURL.origin, baseURL)
   assert.equal(verificationURL.pathname, '/verify')
   assert(/^[0-9a-f]{64}$/.test(verificationURL.searchParams.get('token') ?? ''), 'Copying the text-preview link must preserve the complete token')
+  await command('Network.enable', {}, first)
   await command('Page.navigate', { url: verificationLink }, first)
-  await waitFor(first, `document.querySelector('h1')?.textContent === 'Подтверждение почты' && !!document.querySelector('main button')`, 'confirmation page from copied link')
-  await clickText(first, 'Подтвердить почту')
-  await waitFor(first, `location.search === '' && document.querySelector('[role=status]')?.textContent.includes('Почта подтверждена')`, 'successful explicit email confirmation')
+  await waitFor(first, `location.search === '' && document.querySelector('[role=status]')?.textContent.includes('Почта подтверждена')`, 'email confirms automatically when its link opens')
+  assert.deepEqual(verificationRequests, [{ session: first, method: 'POST' }], 'Opening the link sends exactly one confirmation request')
+  assert.equal(await evaluate(first, 'document.querySelector("main button")'), null, 'Successful verification needs no confirmation button')
+  await checkLayout(first, 'email-verified', [320, 480])
+  await command('Page.reload', {}, first)
+  await waitFor(first, `document.querySelector('[role=status]')?.textContent.includes('Почта подтверждена')`, 'refresh preserves the completed result without a token')
+  assert.equal(verificationRequests.length, 1, 'Refresh does not consume the token again')
+  await command('Page.navigate', { url: verificationLink }, first)
+  await waitFor(first, `document.querySelector('[role=alert]')?.textContent.includes('уже использована')`, 'reopened single-use link explains that it may already be used')
+  assert.equal(await evaluate(first, `!!document.querySelector('main a[href="/login"]') && !!document.querySelector('main a[href="/login?resend=1"]')`), true, 'Used or expired links offer login and a new email')
+  await click(first, 'main a[href="/login?resend=1"]')
+  await waitFor(first, '!!document.querySelector("#resend-verification")', 'invalid link opens resend help')
+  await clickText(first, 'Письмо не пришло?')
+  assert.equal(await evaluate(first, 'document.querySelector("#resend-verification")'), null, 'Automatically opened help can still be collapsed')
+  await command('Page.navigate', { url: baseURL + '/verify' }, first)
+  await waitFor(first, `document.querySelector('[role=alert]')?.textContent.includes('нет кода')`, 'missing token has a useful error')
+  assert.equal(verificationRequests.length, 2, 'A missing token never sends a confirmation request')
   await login(first, false, 'browser-password', 'fields@example.test')
   await waitFor(first, `location.pathname === '/characters' && document.body.innerText.includes('valid-login')`, 'newly verified account can sign in')
   await clickText(first, 'Выйти')
@@ -229,6 +273,10 @@ try {
 
   await command('Page.navigate', { url: baseURL + '/login' }, first)
   await waitFor(first, `!!document.querySelector('#email')`, 'login form')
+  assert.equal(await evaluate(first, 'document.querySelector("#resend-verification")'), null, 'Ordinary login keeps resend controls collapsed')
+  await clickText(first, 'Письмо не пришло?')
+  await waitFor(first, '!!document.querySelector("#resend-verification")', 'resend help can be opened without a failed login')
+  await clickText(first, 'Письмо не пришло?')
   await fill(first, '#email', 'unverified@example.test')
   await fill(first, '#password', 'browser-password')
   await click(first, 'button[type=submit]')
@@ -243,6 +291,22 @@ try {
   assert.equal(await evaluate(first, `document.body.innerText.includes('Подтвердите почту, чтобы войти.')`), false)
   await screenshot(first, 'origin-forbidden')
   await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
+
+  await clickText(first, 'Письмо не пришло?')
+  const beforeResend = new Set(await readdir(mailDirectory))
+  await click(first, '#resend-verification')
+  await waitFor(first, '!!document.querySelector("[role=status]")', 'resend email accepted')
+  const resentMessage = await waitForMail(beforeResend, 'Verify your email address', 'unverified@example.test')
+  const resentLink = resentMessage.match(/https?:\/\/[^\s]+/)?.[0]
+  assert(resentLink, 'Resending produces a usable verification email')
+  await command('Network.setExtraHTTPHeaders', { headers: { 'X-Browser-Test-Verification-Failure': '1' } }, first)
+  await command('Page.navigate', { url: resentLink }, first)
+  await waitFor(first, '!!document.querySelector("[role=alert]") && !!document.querySelector("main button")', 'temporary verification error offers retry')
+  assert.equal(verificationRequests.length, 3, 'An unsuccessful automatic request is not retried in a loop')
+  await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
+  await clickText(first, 'Повторить попытку')
+  await waitFor(first, `location.search === '' && document.querySelector('[role=status]')?.textContent.includes('Почта подтверждена')`, 'retry completes verification after the server recovers')
+  assert.equal(verificationRequests.length, 4, 'Explicit retry sends one new request')
 
   await login(first)
   assert.equal((await sessionCookie(first)).session, true, 'Ordinary login uses a browser-session cookie')
@@ -286,11 +350,14 @@ try {
   assert.equal(await evaluate(first, `document.querySelector('#name-error') === null`), true)
   await screenshot(first, 'create-character')
   await checkLayout(first, 'create-character')
+  await assertUIControls(evaluate, first, 'character creation', fieldBackground)
+  const unfocusedBorder = await evaluate(first, `getComputedStyle(document.querySelector('#character-class')).borderColor`)
   await evaluate(first, `document.querySelector('#faction').focus()`)
   await command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, first)
   await command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, first)
   assert.equal(await evaluate(first, `document.activeElement.id`), 'character-class', 'Native class selection remains keyboard accessible')
-  assert.equal(await evaluate(first, `getComputedStyle(document.activeElement).outlineStyle`), 'solid', 'Keyboard focus remains visible')
+  await waitFor(first, `getComputedStyle(document.activeElement).borderColor !== ${JSON.stringify(unfocusedBorder)} && getComputedStyle(document.activeElement).boxShadow !== 'none'`, 'Keyboard focus is visible through a soft border and highlight')
+  assert.equal(await evaluate(first, `getComputedStyle(document.activeElement).outlineStyle`), 'none', 'Field focus does not add the old harsh outer outline')
   await clickText(first, 'Создать')
   await waitFor(first, `location.pathname === '/characters' && document.querySelector('h2')?.textContent === 'Эйла'`, 'created character in list')
   await checkLayout(first, 'roster', [320, 480])
@@ -305,14 +372,14 @@ try {
   assert.equal(await evaluate(first, `document.querySelector('#character-name').getAttribute('aria-invalid')`), 'true')
   await clickText(first, 'К списку персонажей')
   await clickText(first, 'Играть')
-  await waitFor(first, `location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Эйла'`, 'selected character')
+  await waitFor(first, `location.pathname === '/game' && document.querySelector('.character-strip a')?.textContent === '[1] Эйла'`, 'selected character')
   await command('Page.reload', {}, first)
-  await waitFor(first, `document.querySelector('h1')?.textContent === 'Эйла' && !!document.querySelector('[role="meter"]')`, 'selection after reload')
+  await waitFor(first, `document.querySelector('.character-strip a')?.textContent === '[1] Эйла' && !!document.querySelector('[role="meter"]')`, 'selection after reload')
   await screenshot(first, 'selected-character')
   await waitFor(first, `!!document.querySelector('main .scene-image')`, 'faction landscape')
   await checkLayout(first, 'game')
 
-  await clickText(first, 'Мой персонаж')
+  await evaluate(first, `document.querySelector('.character-strip a').click()`)
   await waitFor(first, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === 'Эйла'`, 'own character profile')
   const selected = await evaluate(first, `fetch('/api/characters').then(r => r.json()).then(r => r.characters.find(c => c.id === r.active_character_id))`)
   const catalog = await evaluate(first, `fetch('/api/characters/catalog').then(r => r.json())`)
@@ -332,6 +399,25 @@ try {
   await screenshot(first, 'character-profile')
   await checkLayout(first, 'profile')
 
+  // Presence text belongs only to public profiles; the directory lists selected characters.
+  assert.equal(await evaluate(first, `document.querySelector('.presence-indicator')`), null, 'Private profile and footer do not show presence indicators')
+  await evaluate(first, `document.querySelector('.presence-footer a').click()`)
+  await waitFor(first, `location.pathname === '/online' && document.querySelector('h1')?.textContent === 'Кто онлайн' && document.querySelector('.online-directory')?.textContent.includes('Эйла')`, 'online directory contains selected character')
+  assert.equal(await evaluate(first, `document.querySelectorAll('.online-directory li').length`), 1, 'Unselected characters must not appear online')
+  assert.equal(await evaluate(first, `document.querySelector('.presence-indicator')`), null, 'Directory nicknames do not show presence indicators')
+  await screenshot(first, 'online-directory')
+  await checkLayout(first, 'online-directory', [320, 480])
+  await evaluate(first, `document.querySelector('.online-directory a').click()`)
+  await waitFor(first, `location.pathname === '/characters/${selected.id}' && document.querySelector('.character-identity .presence-indicator--online')?.textContent === 'В игре'`, 'online directory opens public profile with live status text')
+  assert.equal(await evaluate(first, `!!document.querySelector('.game-navigation a[href="/online"]')`), true, 'Public profile preserves return to online list')
+  await screenshot(first, 'public-profile-online')
+  await checkLayout(first, 'public-profile-online', [320, 480])
+  await command('Page.navigate', { url: baseURL + '/characters/1' }, first)
+  await waitFor(first, `document.querySelector('h1')?.textContent === 'First character' && document.querySelector('.character-identity .presence-indicator--offline')?.textContent === 'Не в игре'`, 'unselected other character is offline')
+  await screenshot(first, 'public-profile-offline')
+  await command('Page.navigate', { url: baseURL + '/profile' }, first)
+  await waitFor(first, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === 'Эйла'`, 'own profile after presence directory')
+
   // A transient catalog failure must not hide resources or strand the player.
   await command('Network.setExtraHTTPHeaders', { headers: { 'X-Browser-Test-Catalog-Failure': '1' } }, first)
   await command('Page.reload', {}, first)
@@ -341,7 +427,7 @@ try {
   await command('Network.setExtraHTTPHeaders', { headers: {} }, first)
   await clickText(first, 'Повторить')
   await waitFor(first, `document.querySelector('.character-identity')?.textContent.includes(${JSON.stringify(selectedClass.name)}) && !document.querySelector('[role="alert"]')`, 'catalog retry restores profile identity')
-  await clickText(first, 'На главную')
+  await evaluate(first, `document.querySelector('.site-header a').click()`)
   await waitFor(first, `location.pathname === '/game'`, 'game from profile')
 
   // Tabs in the default context share cookies and auth notifications.
@@ -368,7 +454,7 @@ try {
   assert.equal(await evaluate(first, "fetch('/api/characters').then(r => r.json()).then(r => r.characters.length)"), 0)
   await login(peer)
   await command('Page.navigate', { url: baseURL + '/game' }, first)
-  await waitFor(first, "location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Эйла'", 'original account restored after draft check')
+  await waitFor(first, "location.pathname === '/game' && document.querySelector('.character-strip a')?.textContent === '[1] Эйла'", 'original account restored after draft check')
   await login(peer, false, 'browser-password', 'other-browser@example.test')
   await waitFor(first, "document.body.innerText.includes('other-browser') && document.querySelector('h2') === null", 'cross-tab login invalidates old account')
   // Change the shared cookie without emitting an auth event. The stale UI must
@@ -382,13 +468,13 @@ try {
   assert.equal(await evaluate(first, "fetch('/api/auth/me').then(r => r.json()).then(r => r.user.email)"), 'browser@example.test')
   await command('Page.close', {}, peer)
   await command('Page.navigate', { url: baseURL + '/game' }, first)
-  await waitFor(first, "location.pathname === '/game' && !!document.querySelector('h1')", 'original selection preserved after rejected logout')
+  await waitFor(first, "location.pathname === '/game' && document.querySelector('.character-strip a')?.textContent === '[1] Эйла'", 'original selection preserved after rejected logout')
 
   const { browserContextId } = await command('Target.createBrowserContext')
   const second = await tab(browserContextId)
   await login(second)
   assert.equal(await evaluate(second, 'location.pathname'), '/game')
-  await clickText(first, 'Мой персонаж')
+  await evaluate(first, `document.querySelector('.character-strip a').click()`)
   await waitFor(first, `location.pathname === '/profile'`, 'profile before clearing selection')
   await clickText(first, 'К выбору персонажа')
   await waitFor(first, `location.pathname === '/characters'`, 'explicit clear')
@@ -503,9 +589,9 @@ try {
   await waitFor(ordinary, `location.pathname === '/characters' && [...document.querySelectorAll('h2')].some(el => el.textContent === ${JSON.stringify(longName)})`, 'long-name roster entry')
   await checkLayout(ordinary, 'long-name-roster', [320])
   await evaluate(ordinary, `[...document.querySelectorAll('.character-card')].find(card => card.querySelector('h2').textContent === ${JSON.stringify(longName)}).querySelector('button').click()`)
-  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('h1')?.textContent === ${JSON.stringify(longName)}`, 'newly selected character replaces old identity')
+  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('.character-strip a')?.textContent === ${JSON.stringify('[1] ' + longName)}`, 'newly selected character replaces old identity')
   await checkLayout(ordinary, 'long-name-game', [320])
-  await clickText(ordinary, 'Мой персонаж')
+  await evaluate(ordinary, `document.querySelector('.character-strip a').click()`)
   await waitFor(ordinary, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === ${JSON.stringify(longName)}`, 'long-name profile')
   await checkLayout(ordinary, 'long-name-profile', [320, 480])
   await clickText(ordinary, 'Выйти')
@@ -514,17 +600,20 @@ try {
 
   await login(ordinary, false, 'browser-password', 'profile-fixture@example.test')
   await clickText(ordinary, 'Играть')
-  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('h1')?.textContent === 'Проверка'`, 'resource boundary fixture')
-  await clickText(ordinary, 'Мой персонаж')
+  await waitFor(ordinary, `location.pathname === '/game' && document.querySelector('.character-strip a')?.textContent === '[1] Проверка'`, 'resource boundary fixture')
+  await evaluate(ordinary, `document.querySelector('.character-strip a').click()`)
   await waitFor(ordinary, `location.pathname === '/profile' && !!document.querySelector('.character-portrait')`, 'resource boundary profile')
   await waitFor(ordinary, `document.querySelector('.character-portrait')?.getAttribute('src') === '/images/icons/neutral.png' && document.querySelector('.character-portrait')?.naturalWidth > 0`, 'missing stored avatar falls back')
-  assert.equal(await evaluate(ordinary, `document.querySelector('[role="meter"][aria-label="Здоровье"]').getAttribute('aria-valuetext')`), '37 из 200')
+  const initialHP = await evaluate(ordinary, `Number(document.querySelector('[role="meter"][aria-label="Здоровье"]').getAttribute('aria-valuenow'))`)
+  assert(initialHP >= 37 && initialHP < 200, 'Health includes recovery since the stored fixture baseline')
+  await waitFor(ordinary, `Number(document.querySelector('[role="meter"][aria-label="Здоровье"]').getAttribute('aria-valuenow')) > ${initialHP}`, 'health regenerates without reloading the page')
+  assert.equal(await evaluate(ordinary, `(() => { const current = document.querySelector('[role="meter"][aria-label="Здоровье"]').getAttribute('aria-valuenow'); return document.querySelector('.character-stats').textContent.includes(current + ' / 200'); })()`), true, 'Profile numbers and live bar agree')
   assert.equal(await evaluate(ordinary, `document.querySelector('[role="meter"][aria-label="Энергия"]').getAttribute('aria-valuetext')`), '0 из 0', 'A character without energy must not gain a fictitious maximum')
   assert.equal(await evaluate(ordinary, `document.querySelector('.resource-energy .resource-caption').textContent`), 'Энергия: 0 / 00%')
   assert.equal(await evaluate(ordinary, `document.querySelector('.resource-energy .resource-fill').style.width`), '0%')
   await checkLayout(ordinary, 'profile-zero-energy', [320])
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions')
-  console.log('Browser flow PASS: registration and explicit confirmation through a copyable local text email; legacy shell at 320/375/480/1024, all 8 class images, keyboard focus, profile guards/data/reload/catalog retry, long-name selection and portrait fallback; 404/home, two-tab auth sync and stale logout guard, field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout, remember-me cookie/restart/replacement, queued local-mail password recovery, validation/replay, cookie/state/session revocation and new-password login')
+  console.log('Browser flow PASS: registration and automatic email confirmation, one POST per attempt, refresh/reuse/missing-token handling, secondary resend help and recovery after 503; legacy shell at 320/375/480/1024, all 8 class images, keyboard focus, profile guards/data/reload/catalog retry, long-name selection and portrait fallback; 404/home, two-tab auth sync and stale logout guard, field validation/editing, distinct email/origin 403, login, catalog/filter, create/list, conflict, select/reload, cross-session clear/logout, remember-me cookie/restart/replacement, queued local-mail password recovery, validation/replay, cookie/state/session revocation and new-password login')
 } catch (error) {
   if (browserLog) console.error(browserLog)
   if (networkFailures.length) console.error('Network failures:', networkFailures)

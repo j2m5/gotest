@@ -81,7 +81,7 @@ func main(){ data,_:=json.Marshal(map[string]any{"args":os.Args[1:],"cgo":os.Get
   const race = f.run('test:race', raceEnv)
   assert.equal(race.status, 0, race.stderr)
   const raceProbe = JSON.parse(race.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
-  assert.deepEqual(raceProbe.args, ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social)BrowserFlow$', './tests/...'])
+  assert.deepEqual(raceProbe.args, ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social|Forum)BrowserFlow$', './tests/...'])
   assert.equal(raceProbe.cgo, '1')
   assert.equal(raceProbe.databaseRequired, '1')
   failure(f.run('test:race', { ...raceEnv, PROBE_EXIT: '5' }), /exit 5/)

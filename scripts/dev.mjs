@@ -162,7 +162,7 @@ function main() {
       return run('PostgreSQL integration tests', 'go', ['test', '-count=1', '-v', './tests/db', './tests/seed'])
     case 'test:race':
       process.env.CGO_ENABLED = '1'
-      return run('Go race tests (requires a C compiler)', 'go', ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social)BrowserFlow$', './tests/...'])
+      return run('Go race tests (requires a C compiler)', 'go', ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social|Forum)BrowserFlow$', './tests/...'])
     default: return compose(task)
   }
 }

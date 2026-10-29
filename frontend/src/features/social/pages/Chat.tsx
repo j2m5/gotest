@@ -1,3 +1,4 @@
+import { Alert, Button, Textarea } from '../../../shared/ui/kit'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
@@ -72,15 +73,15 @@ function ChatContent({ characterId, name }: { characterId: number; name: string 
   const ban = page?.chat_ban
   return <>
     <h1>Общий чат</h1>
-    <p className="social-connection" role="status">{status === 'connected' ? 'Связь установлена' : status === 'connecting' ? 'Соединяемся…' : 'Восстанавливаем связь…'} {status !== 'connected' && <button className="link-button" onClick={() => setRetry(value => value + 1)}>Повторить</button>}</p>
-    {error && <p className="flash-error" role="alert">{error} <button className="link-button" onClick={() => setRevision(value => value + 1)}>Обновить</button></p>}
-    {ban && <p className="social-sanction" role="status"><strong>Чат: отправка запрещена.</strong> {ban.reason}<br />До {ban.expires_at ? formatTime(ban.expires_at) : 'снятия ограничения'}. Читать сообщения можно.</p>}
+    <p className="social-connection" role="status">{status === 'connected' ? 'Связь установлена' : status === 'connecting' ? 'Соединяемся…' : 'Восстанавливаем связь…'} {status !== 'connected' && <Button variant="ghost" onClick={() => setRetry(value => value + 1)}>Повторить</Button>}</p>
+    {error && <Alert variant="error" role="alert">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Обновить</Button></Alert>}
+    {ban && <Alert variant="warning" role="status"><strong>Чат: отправка запрещена.</strong> {ban.reason}<br />До {ban.expires_at ? formatTime(ban.expires_at) : 'снятия ограничения'}. Читать сообщения можно.</Alert>}
     <form className="social-form" onSubmit={send}>
       <label htmlFor="chat-body">Сообщение от {name}</label>
-      <textarea id="chat-body" rows={3} value={draft} onChange={event => setDraft(event.target.value)} disabled={busy || accountPending || Boolean(ban)} aria-describedby="chat-length" />
-      <div className="social-toolbar"><span id="chat-length" className="muted">{messageLength(draft)} / 1000</span><button type="submit" disabled={busy || accountPending || Boolean(ban) || cooldown || messageLength(draft) < 1 || messageLength(draft) > 1000}>{busy ? 'Подождите…' : cooldown ? 'Пауза 2 секунды' : 'Отправить'}</button></div>
+      <Textarea id="chat-body" rows={3} value={draft} onChange={event => setDraft(event.target.value)} disabled={busy || accountPending || Boolean(ban)} aria-describedby="chat-length" />
+      <div className="social-toolbar"><span id="chat-length" className="muted">{messageLength(draft)} / 1000</span><Button pending={busy || accountPending} type="submit" disabled={busy || accountPending || Boolean(ban) || cooldown || messageLength(draft) < 1 || messageLength(draft) > 1000}>{busy ? 'Подождите…' : cooldown ? 'Пауза 2 секунды' : 'Отправить'}</Button></div>
     </form>
-    <div className="social-toolbar"><span>Новые сообщения сверху</span><button className="link-button" onClick={() => { move(null); setRevision(value => value + 1) }}>К новым сообщениям</button></div>
+    <div className="social-toolbar"><span>Новые сообщения сверху</span><Button variant="ghost" onClick={() => { move(null); setRevision(value => value + 1) }}>К новым сообщениям</Button></div>
     {!page && <p role="status">Загрузка сообщений…</p>}
     {page?.messages.length === 0 && <p className="muted">Пока нет сообщений.</p>}
     <ol className="chat-messages">
@@ -88,17 +89,17 @@ function ChatContent({ characterId, name }: { characterId: number; name: string 
         <MessageHeader message={message} />
         <p className={message.body === null ? 'chat-body muted' : 'chat-body'}>{message.body ?? 'Сообщение удалено модератором.'}</p>
         {moderator && <div className="social-actions">
-          {message.body !== null && (user!.role === 'administrator' || message.author_role === 'user' || message.user_id === accountId) && <button type="button" className="link-button" disabled={busy || accountPending} onClick={() => { setDeletion(message.id); setReason('') }}>Удалить</button>}
+          {message.body !== null && (user!.role === 'administrator' || message.author_role === 'user' || message.user_id === accountId) && <Button variant="ghost" pending={busy || accountPending} type="button" disabled={busy || accountPending} onClick={() => { setDeletion(message.id); setReason('') }}>Удалить</Button>}
           {canSanction(user!.role, accountId, message.user_id, message.author_role) && <Link to={`/moderation?user_id=${message.user_id}`} state={{ targetName: message.author_name, targetRole: message.author_role }}>Ограничить {message.author_name}</Link>}
         </div>}
-        {deletion === message.id && <form className="social-form" onSubmit={remove}><label htmlFor="delete-reason">Причина удаления</label><textarea id="delete-reason" rows={2} value={reason} onChange={event => setReason(event.target.value)} /><small>От 3 до 500 символов</small><div className="social-actions"><button disabled={busy || accountPending || !validReason(reason)}>Удалить сообщение</button><button type="button" disabled={busy} onClick={() => setDeletion(null)}>Отмена</button></div></form>}
+        {deletion === message.id && <form className="social-form" onSubmit={remove}><label htmlFor="delete-reason">Причина удаления</label><Textarea id="delete-reason" rows={2} value={reason} onChange={event => setReason(event.target.value)} /><small>От 3 до 500 символов</small><div className="social-actions"><Button variant="danger" type="submit" pending={busy || accountPending} disabled={busy || accountPending || !validReason(reason)}>Удалить сообщение</Button><Button variant="secondary" pending={busy} type="button" disabled={busy} onClick={() => setDeletion(null)}>Отмена</Button></div></form>}
       </li>)}
     </ol>
-    {page?.next_before_id != null && <button type="button" onClick={() => move(page.next_before_id)}>Более ранние сообщения</button>}
+    {page?.next_before_id != null && <Button variant="secondary" type="button" onClick={() => move(page.next_before_id)}>Более ранние сообщения</Button>}
     <p className="chat-directory-link"><Link to="/chat/moderators">Список модераторов</Link></p>
   </>
 }
 
 function MessageHeader({ message }: { message: ChatMessage }) {
-  return <div className="chat-message-header"><AccountNickname role={message.author_role}>{message.author_name}</AccountNickname>{message.author_role !== 'user' && <span className="social-role">{roleLabels[message.author_role]}</span>}<time dateTime={message.created_at}>{formatTime(message.created_at)}</time></div>
+  return <div className="chat-message-header"><AccountNickname role={message.author_role} characterId={message.character_id}>{message.author_name}</AccountNickname>{message.author_role !== 'user' && <span className="social-role">{roleLabels[message.author_role]}</span>}<time dateTime={message.created_at}>{formatTime(message.created_at)}</time></div>
 }

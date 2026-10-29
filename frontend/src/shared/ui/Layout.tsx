@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useContext, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { LayoutFooterContext } from './LayoutFooterContext'
 
 interface LayoutProps {
   children: ReactNode
@@ -9,6 +10,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, title, statusPanel, footer }: LayoutProps) {
+  const footerExtra = useContext(LayoutFooterContext)
   return (
     <>
       <a className="skip-link" href="#main-content">К содержимому</a>
@@ -24,6 +26,7 @@ export default function Layout({ children, title, statusPanel, footer }: LayoutP
       </main>
       <footer className="site-footer">
         {footer}
+        {footerExtra}
         <p>Star Wars: The Old Republic</p>
       </footer>
     </>

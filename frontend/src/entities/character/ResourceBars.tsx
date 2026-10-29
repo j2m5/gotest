@@ -1,4 +1,5 @@
 import type { Character } from './types'
+import { useCharacterResources } from './useCharacterResources'
 
 function ResourceBar({ label, value, max, kind }: { label: string; value: number; max: number; kind: 'health' | 'energy' }) {
   const maximum = Math.max(0, max)
@@ -12,8 +13,9 @@ function ResourceBar({ label, value, max, kind }: { label: string; value: number
 }
 
 export default function ResourceBars({ character }: { character: Character }) {
+  const resources = useCharacterResources(character)
   return <div className="resource-panel" aria-label="Ресурсы персонажа">
-    <ResourceBar label="Здоровье" value={character.hp_current} max={character.hp} kind="health" />
-    <ResourceBar label="Энергия" value={character.mp_current} max={character.mp} kind="energy" />
+    <ResourceBar label="Здоровье" value={resources.hp} max={character.hp} kind="health" />
+    <ResourceBar label="Энергия" value={resources.mp} max={character.mp} kind="energy" />
   </div>
 }

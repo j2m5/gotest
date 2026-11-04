@@ -1,6 +1,6 @@
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAccount } from '../../../entities/account/context'
-import { Alert, Button, ButtonLink } from '../../../shared/ui/kit'
+import { Alert, Breadcrumbs, Button, ButtonLink } from '../../../shared/ui/kit'
 import { useCharacterCatalog } from '../../character/model/useCharacterCatalog'
 import CatalogFeedback from '../../character/ui/CatalogFeedback'
 import GameLayout from '../../character/ui/GameLayout'
@@ -46,7 +46,11 @@ function LocationContent({ accountId, characterId, planetId, locationId }: { acc
   const here = selected?.id === data.position.location.id
   return <div className="world-locations" aria-busy={target !== null}>
     <h1>{selected ? selected.name : data.position.planet.name}</h1>
-    <nav className="location-navigation" aria-label="Навигация по миру"><Link to="/galaxy">К галактике</Link>{selected && <Link to={listPath}>Локации планеты</Link>}</nav>
+    <Breadcrumbs aria-label="Навигация по миру" items={[
+      { label: 'К галактике', to: '/galaxy' },
+      { label: 'Локации планеты', to: selected ? listPath : undefined },
+      ...(selected ? [{ label: selected.name }] : []),
+    ]} />
     {route.state?.returnedHome === true && <Alert>Доступ к прежней планете закрыт. Вы вернулись в столицу своей фракции.</Alert>}
     <p className="location-current" data-current-location-id={data.position.location.id}>Вы находитесь: <strong>{data.position.location.name}</strong></p>
     {actionError && <Alert variant="error">{actionError}</Alert>}

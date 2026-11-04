@@ -23,8 +23,7 @@
 .planet-travel { grid-column: 1 / -1; font-size: .8rem; }
 .planet-travel .ui-button { min-height: 32px; font-size: .85rem; }
 @media (max-width: 359px) { .world-filters { grid-template-columns: minmax(0, 1fr); } }
-.location-navigation, .location-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
-.location-navigation { margin-bottom: var(--space-3); font-size: .9rem; }
+.location-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .location-current { padding: var(--space-3); border: var(--divider); border-radius: var(--radius-control); background: var(--color-surface-raised); }
 .location-list { list-style: none; margin: 0; padding: 0; }
 .location-list > li { padding: var(--space-3) 0; border-top: var(--divider); }

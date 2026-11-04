@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../../shared/ui/Layout'
-import { Alert, Button, ButtonLink, Checkbox, Divider, Input, Select, Textarea } from '../../shared/ui/kit'
+import { Alert, Breadcrumbs, Button, ButtonLink, Checkbox, Divider, Input, Select, Textarea } from '../../shared/ui/kit'
 
 export default function UiKit() {
   const [actions, setActions] = useState(0)
@@ -23,6 +23,12 @@ export default function UiKit() {
       <p className="muted" role="status">Нажатий: {actions}</p>
       <p><Link to="/">Обычная ссылка</Link></p>
       <ButtonLink variant="secondary" to="/login">Ссылка-кнопка: вход</ButtonLink>
+    </section>
+    <Divider />
+
+    <section aria-labelledby="kit-breadcrumbs">
+      <h2 id="kit-breadcrumbs">Хлебные крошки</h2>
+      <Breadcrumbs items={[{ label: 'Главная', to: '/' }, { label: 'UI-кит' }]} />
     </section>
     <Divider />
 

@@ -134,6 +134,25 @@ textarea.ui-field { display: block; resize: vertical; overflow-y: auto; min-heig
 .ui-alert > :last-child { margin-bottom: 0; }
 .ui-divider { border: 0; border-top: var(--divider); margin: var(--space-3) 0; }
 
+.ui-breadcrumbs { margin-bottom: var(--space-3); font-size: .9rem; color: var(--color-muted); }
+.ui-breadcrumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.ui-breadcrumbs li {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-width: 0;
+    max-width: 100%;
+}
+.ui-breadcrumbs li > a, .ui-breadcrumbs li > span { min-width: 0; overflow-wrap: anywhere; }
+.ui-breadcrumbs__separator { flex: none; user-select: none; }
+
 @media (prefers-reduced-motion: reduce) {
     .ui-field, .ui-checkbox, .ui-button { transition: none; }
 }

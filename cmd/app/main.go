@@ -14,11 +14,14 @@ import (
 	"gotest/internal/mailer"
 	"gotest/internal/middleware"
 	"gotest/internal/notification"
+	"gotest/internal/npc"
 	"gotest/internal/observability"
 	"gotest/internal/presence"
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/social"
+	"gotest/internal/wallet"
+	"gotest/internal/world"
 	"io"
 	"log/slog"
 	"net"
@@ -112,6 +115,9 @@ func run(logger *slog.Logger) error {
 		Social: handlers.NewSocialHandler(socialService, hub.Notify), ChatEvents: hub.ServeHTTP,
 		Forum:    handlers.NewForumHandler(forumService),
 		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(pool))),
+		World:    handlers.NewWorldHandler(world.NewService(db.NewWorldRepository(pool))),
+		NPC:      handlers.NewNPCHandler(npc.NewService(db.NewNPCRepository(pool))),
+		Wallet:   handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(pool))),
 	})
 	if err != nil {
 		return applicationFailure(logger, "routes", err, slog.String("reason", "cannot configure HTTP routes; check PUBLIC_URL and STATIC_DIR"))

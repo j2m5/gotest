@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -29,6 +30,12 @@ func characterTestStorage(t *testing.T, latest bool) (*testStorage, context.Cont
 
 func characterTestStorageBefore(t *testing.T, before string) (*testStorage, context.Context) {
 	t.Helper()
+	return characterTestStorageThroughSeed(t, before, "")
+}
+
+// throughSeed bounds content only; before independently bounds schema migrations.
+func characterTestStorageThroughSeed(t *testing.T, before, throughSeed string) (*testStorage, context.Context) {
+	t.Helper()
 	s, ctx := authTestStorage(t, true)
 	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
 	if err != nil {
@@ -45,7 +52,35 @@ func characterTestStorageBefore(t *testing.T, before string) (*testStorage, cont
 		}
 		executeMigration(t, ctx, s, name)
 	}
-	if _, err := seed.Run(ctx, s.pool, filepath.Join("..", "..", "seeds")); err != nil {
+	seedDir := filepath.Join("..", "..", "seeds")
+	historicalSchema := before != "" && before <= npcMigration
+	if historicalSchema || throughSeed != "" {
+		// Historical tests need the matching schema/content snapshot. Keep
+		// production seeding strict; limit only this fixture's input files.
+		legacyDir := t.TempDir()
+		files, err := filepath.Glob(filepath.Join(seedDir, "*.sql"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range files {
+			name := filepath.Base(path)
+			if historicalSchema && ((name == "07_planets.sql" && before <= planetMigration) || (name == "08_locations.sql" && before <= locationMigration) || name >= "09_") {
+				continue
+			}
+			if throughSeed != "" && name > throughSeed {
+				continue
+			}
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(legacyDir, filepath.Base(path)), contents, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		seedDir = legacyDir
+	}
+	if _, err := seed.Run(ctx, s.pool, seedDir); err != nil {
 		t.Fatal(err)
 	}
 	mustExec(t, ctx, s, `INSERT INTO users(email,login,password,email_verified_at) VALUES

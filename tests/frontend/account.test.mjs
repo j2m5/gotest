@@ -124,6 +124,30 @@ test('repeated refreshes share in-flight account and roster requests until ready
   assert.equal(store.getSnapshot().status, 'ready')
   assert.equal(store.getSnapshot().user.character_id, 7)
 })
+
+test('fresh refresh after movement supersedes pre-movement roster responses', async () => {
+  for (const unauthorized of [false, true]) {
+    const old = deferred()
+    const started = deferred()
+    let calls = 0
+    const store = setup({ listCharacters: () => {
+      calls++
+      if (calls === 2) { started.resolve(); return old.promise }
+      return Promise.resolve({ characters: [{ ...character, location_id: calls === 1 ? 3 : 9 }], active_character_id: 7 })
+    } })
+    await store.refresh()
+    const background = store.refresh()
+    await started.promise
+    const afterMove = store.refresh({ fresh: true })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(calls, 3, 'A committed movement requires a new read, not the outstanding old read')
+    if (unauthorized) old.reject({ response: { status: 401 } })
+    else old.resolve({ characters: [{ ...character, location_id: 3 }], active_character_id: 7 })
+    await Promise.all([background, afterMove])
+    assert.equal(store.getSnapshot().status, 'ready')
+    assert.equal(store.getSnapshot().roster.characters[0].location_id, 9)
+  }
+})
 test('completion of an invalidated refresh does not release the newer login refresh', async () => {
   const oldRoster = deferred()
   const newRoster = deferred()

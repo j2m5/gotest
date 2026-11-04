@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict'
+import { assertLocations } from './locations.browser-assertions.mjs'
+import { assertPopulatedWorlds } from './world-content.browser-assertions.mjs'
+import { assertNeutralWorlds } from './neutral-worlds.browser-assertions.mjs'
+
+export async function assertGalaxy({ session, command, evaluate, waitFor, click, clickText, fill, checkLayout, screenshot, nextEvent }) {
+  await clickText(session, 'Галактическая война')
+  await waitFor(session, `location.pathname === '/galaxy' && document.querySelectorAll('.planet-list > li').length === 100`, '100 planets')
+  const initial = await evaluate(session, `fetch('/api/characters').then(r=>r.json()).then(r=>r.characters.find(c=>c.id===r.active_character_id))`)
+  const navigation = await evaluate(session, `fetch('/api/world/navigation?character_id=${initial.id}').then(r=>r.json())`)
+  const home = navigation.position.planet.code
+  const destination = home === 'coruscant' ? 'tython' : 'korriban'
+  await waitFor(session, `document.querySelector('.world-position')?.textContent.includes(${JSON.stringify(navigation.position.location.name)})`, 'current location')
+  assert.equal(await evaluate(session, `!!document.querySelector('[data-planet-code="tatooine"] button:not(:disabled)')`), false, 'Neutral planet cannot be visited')
+  await click(session, `[data-planet-code="${destination}"] button`)
+  await waitFor(session, `document.querySelector('.world-position')?.dataset.planetCode === '${destination}' && !document.querySelector('[aria-busy="true"]')`, 'planet travel')
+  await command('Page.reload', {}, session)
+  await waitFor(session, `document.querySelector('.world-position')?.dataset.planetCode === '${destination}'`, 'position persists after reload')
+  const moved = await evaluate(session, `fetch('/api/characters').then(r=>r.json()).then(r=>r.characters.find(c=>c.id===r.active_character_id))`)
+  assert.notEqual(moved.location_id, initial.location_id, 'Travel persists characters.location_id')
+  await click(session, `[data-planet-code="${home}"] button`)
+  await waitFor(session, `document.querySelector('.world-position')?.dataset.planetCode === '${home}' && !document.querySelector('[aria-busy="true"]')`, 'return flight')
+  const worlds = await evaluate(session, `fetch('/api/world/planets').then(r=>r.json()).then(r=>r.planets)`)
+  await assertLocations({ session, command, evaluate, waitFor, click, clickText, checkLayout, nextEvent, characterId: initial.id, planetId: navigation.position.planet.id, otherPlanetId: worlds.find(planet => planet.code === destination).id })
+  await assertPopulatedWorlds({ session, command, evaluate, waitFor, click, clickText, checkLayout, characterId: initial.id, homeCode: home, planets: worlds })
+  await assertNeutralWorlds({ session, command, evaluate, waitFor, click, clickText, checkLayout, characterId: initial.id, homeCode: home })
+  await click(session, '.world-available input')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 25`, 'available worlds')
+  await clickText(session, 'Сбросить фильтры')
+  await fill(session, '#planet-core', 'galactic_republic')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 15`, 'Republic core')
+  await fill(session, '#planet-core', 'outer')
+  await fill(session, '#planet-control', 'sith_empire')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 10`, 'capturable Imperial holdings')
+  await clickText(session, 'Сбросить фильтры')
+  await fill(session, '#planet-search', '  CORUSCANT ')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 1 && document.querySelector('.planet-list')?.textContent.includes('Корускант')`, 'English search')
+  await fill(session, '#planet-search', 'КОРУСКАНТ')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 1`, 'Russian search')
+  await fill(session, '#planet-search', 'несуществующий мир')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 0 && document.querySelector('main')?.textContent.includes('Планеты не найдены')`, 'empty search')
+  await clickText(session, 'Сбросить фильтры')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 100`, 'reset filters')
+  await checkLayout(session, 'galaxy')
+  await screenshot(session, 'galaxy')
+  await command('Page.reload', {}, session)
+  await waitFor(session, `location.pathname === '/galaxy' && document.querySelectorAll('.planet-list > li').length === 100`, 'galaxy reload')
+
+  await command('Network.setExtraHTTPHeaders', { headers: { 'X-Browser-Test-World-Failure': '1' } }, session)
+  await command('Page.reload', {}, session)
+  await waitFor(session, `document.querySelector('main [role="alert"]') && document.querySelector('h1')?.textContent === 'Галактическая война'`, 'world failure')
+  assert.equal(await evaluate(session, `document.querySelectorAll('.planet-list > li').length`), 0, 'Failed request must not show a stale catalog')
+  await command('Network.setExtraHTTPHeaders', { headers: {} }, session)
+  await clickText(session, 'Повторить')
+  await waitFor(session, `document.querySelectorAll('.planet-list > li').length === 100 && !document.querySelector('main [role="alert"]')`, 'world retry')
+  await click(session, '.site-header a')
+  await waitFor(session, `location.pathname === '/game'`, 'return from galaxy')
+}

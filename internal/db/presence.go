@@ -27,22 +27,6 @@ const onlineCharacters = `WITH online AS (
 		AND b.revoked_at IS NULL AND (b.expires_at IS NULL OR b.expires_at>CURRENT_TIMESTAMP))
 ) `
 
-func authenticatePresenceActor(ctx context.Context, tx pgx.Tx, actor character.Actor, lock bool) error {
-	if err := authenticateCharacterActor(ctx, tx, actor, lock); err != nil {
-		return err
-	}
-	var banned bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM user_bans WHERE user_id=$1 AND scope='account'
-		AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp()))`, actor.UserID).Scan(&banned)
-	if err != nil {
-		return err
-	}
-	if banned {
-		return character.ErrUnauthenticated
-	}
-	return nil
-}
-
 // Call after acquiring the account lock and checking the session/selection.
 // force is used for an explicit selection, which is itself a player action.
 func recordCharacterActivity(ctx context.Context, tx pgx.Tx, actor character.Actor, id *int, force bool) error {
@@ -60,7 +44,7 @@ func (r *PresenceRepository) Heartbeat(ctx context.Context, actor character.Acto
 		return err
 	}
 	defer rollbackCharacterTx(tx)
-	if err := authenticatePresenceActor(ctx, tx, actor, true); err != nil {
+	if err := authenticateGameActor(ctx, tx, actor, true); err != nil {
 		return err
 	}
 	var current *int
@@ -81,7 +65,7 @@ func (r *PresenceRepository) read(ctx context.Context, actor character.Actor) (p
 	if err != nil {
 		return nil, err
 	}
-	if err := authenticatePresenceActor(ctx, tx, actor, false); err != nil {
+	if err := authenticateGameActor(ctx, tx, actor, false); err != nil {
 		rollbackCharacterTx(tx)
 		return nil, err
 	}

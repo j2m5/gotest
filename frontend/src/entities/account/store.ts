@@ -58,9 +58,11 @@ export class AccountStore {
     this.update({ status: 'loading', user: null, roster: null, pending: false, error: '' })
     await this.refresh()
   }
-  async refresh() {
+  async refresh({ fresh = false }: { fresh?: boolean } = {}) {
     if (this.state.pending) return
-    if (this.inFlightRefresh?.generation === this.generation) return this.inFlightRefresh.promise
+    // A completed external mutation needs a new snapshot; older reads cannot
+    // be reused or allowed to overwrite the result that follows that mutation.
+    if (!fresh && this.inFlightRefresh?.generation === this.generation) return this.inFlightRefresh.promise
     const generation = ++this.generation
     const request = { generation, promise: this.fetchSnapshot(generation) }
     this.inFlightRefresh = request

@@ -48,10 +48,11 @@ func runTests(m *testing.M) int {
 }
 
 type seedDB struct {
-	pool *pgxpool.Pool
-	ctx  context.Context
-	dsn  string
-	dir  string
+	pool   *pgxpool.Pool
+	ctx    context.Context
+	dsn    string
+	dir    string
+	legacy bool
 }
 
 // Every test owns a schema in an explicitly selected TEST_DATABASE_URL.
@@ -98,7 +99,7 @@ func newSeedDB(t *testing.T, legacy bool) *seedDB {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	s := &seedDB{pool: pool, ctx: ctx, dsn: dsn, dir: t.TempDir()}
+	s := &seedDB{pool: pool, ctx: ctx, dsn: dsn, dir: t.TempDir(), legacy: legacy}
 	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
 	if err != nil || len(files) == 0 {
 		t.Fatalf("find migrations: %v, files=%d", err, len(files))
@@ -146,10 +147,13 @@ func writeFile(t *testing.T, path, sql string) {
 func (s *seedDB) copySeeds(t *testing.T, name string) {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("..", "..", "seeds", "*.sql"))
-	if err != nil || len(files) != 6 {
+	if err != nil || len(files) == 0 {
 		t.Fatalf("find seeds: %v, files=%d", err, len(files))
 	}
 	for _, path := range files {
+		if s.legacy && filepath.Base(path) >= "07_" {
+			continue
+		}
 		writeFile(t, filepath.Join(s.dir, name, filepath.Base(path)), readFile(t, path))
 	}
 }
@@ -163,14 +167,18 @@ func (s *seedDB) run(extraEnv []string, args ...string) (string, error) {
 	return string(output), err
 }
 
-func (s *seedDB) assertCounts(t *testing.T, want [6]int) {
+func (s *seedDB) assertCounts(t *testing.T, want [7]int) {
 	t.Helper()
-	var got [6]int
+	var got [7]int
+	planetCount := `(SELECT count(*) FROM planets)`
+	if s.legacy {
+		planetCount = `0`
+	}
 	err := s.pool.QueryRow(s.ctx, `SELECT
 		(SELECT count(*) FROM factions), (SELECT count(*) FROM classes),
 		(SELECT count(*) FROM abilities), (SELECT count(*) FROM class_roles),
-		(SELECT count(*) FROM class_abilities), (SELECT count(*) FROM levels)`).Scan(
-		&got[0], &got[1], &got[2], &got[3], &got[4], &got[5])
+		(SELECT count(*) FROM class_abilities), (SELECT count(*) FROM levels), `+planetCount).Scan(
+		&got[0], &got[1], &got[2], &got[3], &got[4], &got[5], &got[6])
 	if err != nil || got != want {
 		t.Fatalf("catalog counts = %v, want %v; err=%v", got, want, err)
 	}
@@ -179,13 +187,17 @@ func (s *seedDB) assertCounts(t *testing.T, want [6]int) {
 func (s *seedDB) snapshot(t *testing.T) string {
 	t.Helper()
 	var result string
+	planetSnapshot := `,(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM planets t),(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM locations t),(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM npc_templates t),(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM location_npcs t),(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM npc_spawns t)`
+	if s.legacy {
+		planetSnapshot = ""
+	}
 	err := s.pool.QueryRow(s.ctx, `SELECT jsonb_build_array(
 		(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM factions t),
 		(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM classes t),
 		(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM abilities t),
 		(SELECT jsonb_agg(to_jsonb(t) ORDER BY class_id,role) FROM class_roles t),
 		(SELECT jsonb_agg(to_jsonb(t) ORDER BY class_id,ability_id) FROM class_abilities t),
-		(SELECT jsonb_agg(to_jsonb(t) ORDER BY level) FROM levels t))::text`).Scan(&result)
+		(SELECT jsonb_agg(to_jsonb(t) ORDER BY level) FROM levels t)`+planetSnapshot+`)::text`).Scan(&result)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,8 +210,8 @@ func TestSeedRepeatablePreservesExistingValues(t *testing.T) {
 	if output, err := s.run(nil); err != nil {
 		t.Fatalf("first seed: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{2, 8, 8, 20, 8, 50})
-	s.exec(t, "UPDATE abilities SET damage=123, name='Edited ability'; UPDATE levels SET experience_required=999 WHERE level=2")
+	s.assertCounts(t, [7]int{2, 8, 8, 20, 8, 50, 100})
+	s.exec(t, "UPDATE abilities SET damage=123, name='Edited ability'; UPDATE levels SET experience_required=999 WHERE level=2; UPDATE planets SET controlling_faction_id=(SELECT id FROM factions WHERE code='sith_empire') WHERE code='balmorra'")
 	before := s.snapshot(t)
 	if output, err := s.run(nil); err != nil {
 		t.Fatalf("second seed must succeed: %v\n%s", err, output)
@@ -216,7 +228,7 @@ func TestSeedDoesNotAssumeIDs(t *testing.T) {
 	if output, err := s.run(nil); err != nil {
 		t.Fatalf("seed with advanced sequences: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{2, 8, 8, 20, 8, 50})
+	s.assertCounts(t, [7]int{2, 8, 8, 20, 8, 50, 100})
 	var faction, icon string
 	err := s.pool.QueryRow(s.ctx, `SELECT f.name,a.icon FROM classes c
 		JOIN factions f ON f.id=c.faction_id JOIN class_abilities ca ON ca.class_id=c.id
@@ -234,7 +246,7 @@ func TestSeedRollsBackWholeBatch(t *testing.T) {
 	if err == nil || !strings.Contains(output, "99_failure.sql") {
 		t.Fatalf("expected failure identifying its file: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{})
+	s.assertCounts(t, [7]int{})
 }
 
 func TestSeedRejectsEmptyDirectory(t *testing.T) {
@@ -253,7 +265,7 @@ func TestSeedIndependentOfHTTPAndMail(t *testing.T) {
 	if output, err := s.run([]string{"APP_PORT=invalid", "PUBLIC_URL=invalid", "SMTP_TIMEOUT=invalid", "MAIL_DRIVER=invalid"}); err != nil {
 		t.Fatalf("unrelated settings must not block seed: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{2, 8, 8, 20, 8, 50})
+	s.assertCounts(t, [7]int{2, 8, 8, 20, 8, 50, 100})
 }
 
 func TestSeedCustomDirectory(t *testing.T) {
@@ -262,7 +274,7 @@ func TestSeedCustomDirectory(t *testing.T) {
 	if output, err := s.run(nil, "-dir", filepath.Join(s.dir, "catalog data")); err != nil {
 		t.Fatalf("custom seed directory: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{2, 8, 8, 20, 8, 50})
+	s.assertCounts(t, [7]int{2, 8, 8, 20, 8, 50, 100})
 }
 
 func TestSeedTimeoutRollsBack(t *testing.T) {
@@ -272,7 +284,7 @@ func TestSeedTimeoutRollsBack(t *testing.T) {
 	if output, err := s.run(nil, "-timeout", "750ms"); err == nil {
 		t.Fatalf("timed out seed reported success: %s", output)
 	}
-	s.assertCounts(t, [6]int{})
+	s.assertCounts(t, [7]int{})
 }
 
 func TestSeedParallelRuns(t *testing.T) {
@@ -287,5 +299,5 @@ func TestSeedParallelRuns(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	s.assertCounts(t, [6]int{2, 8, 8, 20, 8, 50})
+	s.assertCounts(t, [7]int{2, 8, 8, 20, 8, 50, 100})
 }

@@ -8,6 +8,8 @@ import { factionArtwork } from '../../../entities/character/appearance'
 import ResourceBars from '../../../entities/character/ResourceBars'
 import { apiError } from '../../../shared/api/errors'
 import Layout from '../../../shared/ui/Layout'
+import WalletProvider from '../../wallet/ui/WalletProvider'
+import WalletSummary from '../../wallet/ui/WalletSummary'
 
 export default function GameLayout({ character, catalog, children }: { character: Character; catalog: CharacterCatalog | null; children: ReactNode }) {
   const { pending, store, user } = useAccount()
@@ -24,10 +26,12 @@ export default function GameLayout({ character, catalog, children }: { character
     try { await store.signOut() }
     catch (error) { setError(apiError(error).message) }
   }
-  return <Layout statusPanel={<ResourceBars character={character} />} footer={<>
+  if (!user) return null
+  return <WalletProvider key={`${user.id}:${character.id}`} accountId={user.id} characterId={character.id}><Layout statusPanel={<ResourceBars character={character} />} footer={<>
     <div className="character-strip">
       <Link to="/profile"><img className="icon" src={factionArtwork(faction).icon} alt="" width={25} height={25} />[{character.level}] {character.name}</Link>
     </div>
+    <WalletSummary />
     <nav className="game-navigation" aria-label="Навигация персонажа">
       <NavLink to="/chat">Чат</NavLink>
       <NavLink to="/forum">Форум</NavLink>
@@ -38,5 +42,5 @@ export default function GameLayout({ character, catalog, children }: { character
   </>}>
     {error && <Alert variant="error" role="alert">{error}</Alert>}
     {children}
-  </Layout>
+  </Layout></WalletProvider>
 }

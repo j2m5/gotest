@@ -20,6 +20,9 @@ import Moderators from '../features/social/pages/Moderators'
 import Forum from '../features/forum/pages/Forum'
 import PresenceProvider from './providers/PresenceProvider'
 import Online from '../features/presence/Online'
+import Galaxy from '../features/world/pages/Galaxy'
+import Locations from '../features/world/pages/Locations'
+import Wallet from '../features/wallet/pages/Wallet'
 
 const UiKit = import.meta.env.DEV ? lazy(() => import('./pages/UiKit')) : null
 
@@ -38,7 +41,11 @@ function App() {
         <Route path="/characters/new" element={<AccountGate><NewCharacter /></AccountGate>} />
         <Route path="/characters/:characterId" element={<AccountGate><PublicProfile /></AccountGate>} />
         <Route path="/game" element={<AccountGate><Game /></AccountGate>} />
+        <Route path="/galaxy" element={<AccountGate><Galaxy /></AccountGate>} />
+        <Route path="/galaxy/planets/:planetId/locations" element={<AccountGate><Locations /></AccountGate>} />
+        <Route path="/galaxy/planets/:planetId/locations/:locationId" element={<AccountGate><Locations /></AccountGate>} />
         <Route path="/profile" element={<AccountGate><Profile /></AccountGate>} />
+        <Route path="/wallet" element={<AccountGate><Wallet /></AccountGate>} />
         <Route path="/chat" element={<AccountGate><Chat /></AccountGate>} />
         <Route path="/chat/moderators" element={<AccountGate><Moderators /></AccountGate>} />
         <Route path="/moderation" element={<AccountGate><Moderation /></AccountGate>} />

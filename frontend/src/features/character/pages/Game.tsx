@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAccount } from '../../../entities/account/context'
 import { factionArtwork } from '../../../entities/character/appearance'
 import { useCharacterCatalog } from '../model/useCharacterCatalog'
@@ -18,10 +18,10 @@ export default function Game() {
     <CatalogFeedback {...catalogState} />
     <nav className="section-menu section-menu--home" aria-labelledby="battles-heading">
       <h2 id="battles-heading">Сражения</h2>
-      <span className="section-menu-inactive" role="link" aria-disabled="true">
+      <Link to="/galaxy">
         <img className="icon" src="/images/icons/galaxy.png" alt="" width={25} height={25} />
         Галактическая война
-      </span>
+      </Link>
     </nav>
   </GameLayout>
 }

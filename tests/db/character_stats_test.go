@@ -191,7 +191,8 @@ func TestCharacterCreationMissingDefaultCatalogRollsBack(t *testing.T) {
 			if kind == "role" {
 				mustExec(t, ctx, s, `DELETE FROM class_roles WHERE class_id=$1 AND role='dd'`, in.ClassID)
 			} else {
-				mustExec(t, ctx, s, `UPDATE characters SET level=2; DELETE FROM levels WHERE level=1`)
+				// Keep valid starting locations while removing only the character's default level.
+				mustExec(t, ctx, s, `UPDATE characters SET level=2; UPDATE locations SET recommended_level=2; UPDATE location_npcs SET level=2; DELETE FROM levels WHERE level=1`)
 				constraint = "characters_level_fkey"
 			}
 			mustExec(t, ctx, s, `UPDATE users SET character_id=1 WHERE id=1`)

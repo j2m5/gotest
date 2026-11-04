@@ -25,10 +25,13 @@ import (
 	"gotest/internal/forum"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
+	"gotest/internal/npc"
 	"gotest/internal/presence"
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/validation"
+	"gotest/internal/wallet"
+	"gotest/internal/world"
 )
 
 func loadOpenAPI(t *testing.T) *openapi3.T {
@@ -68,7 +71,8 @@ type contractCharacters struct {
 
 func (s *contractCharacters) sample() *character.Character {
 	c := &character.Character{ID: 10, Name: "Malgus", FactionID: 2, ClassID: 8,
-		Role: "damage", Level: 1, Experience: 0, HP: 100, HPCurrent: 100, MP: 50, MPCurrent: 50}
+		LocationID: 1,
+		Role:       "damage", Level: 1, Experience: 0, HP: 100, HPCurrent: 100, MP: 50, MPCurrent: 50}
 	c.Regeneration = character.Regeneration{
 		HPBaseline: c.HPCurrent, MPBaseline: c.MPCurrent,
 		HPUpdatedAt: time.Now(), MPUpdatedAt: time.Now(), ObservedAt: time.Now(),
@@ -146,6 +150,9 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 		Social: handlers.NewSocialHandler(&socialStub{filled: tc.filled}, hub.Notify), ChatEvents: hub.ServeHTTP, Lifecycle: lifecycle,
 		Forum:    handlers.NewForumHandler(forum.NewService(&forumStub{filled: tc.filled})),
 		Presence: handlers.NewPresenceHandler(presence.NewService(&presenceStub{filled: tc.filled, err: tc.characterErr})),
+		World:    handlers.NewWorldHandler(world.NewService(&worldStub{empty: tc.empty, err: tc.characterErr})),
+		NPC:      handlers.NewNPCHandler(npc.NewService(&npcStub{empty: tc.empty, err: tc.characterErr})),
+		Wallet:   handlers.NewWalletHandler(wallet.NewService(&walletStub{empty: tc.empty, err: tc.characterErr})),
 		Ready: func(context.Context) error {
 			if tc.notReady {
 				return errors.New("database offline")
@@ -270,6 +277,17 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "roster null avatar", method: "GET", path: "/api/characters", status: 200},
 		{name: "roster with avatar", method: "GET", path: "/api/characters", filled: true, status: 200},
 		{name: "catalog null fields", method: "GET", path: "/api/characters/catalog", status: 200},
+		{name: "world core neutral and captured planets", method: "GET", path: "/api/world/planets", status: 200},
+		{name: "world empty catalog", method: "GET", path: "/api/world/planets", empty: true, status: 200},
+		{name: "world navigation", method: "GET", path: "/api/world/navigation?character_id=10", status: 200},
+		{name: "world travel", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, status: 200},
+		{name: "world locations", method: "GET", path: "/api/world/locations?character_id=10&planet_id=1", status: 200},
+		{name: "NPC instances", method: "GET", path: "/api/npcs?character_id=10&location_id=7", status: 200},
+		{name: "wallet exact bigint balances", method: "GET", path: "/api/wallet?character_id=10", status: 200},
+		{name: "wallet history strings and cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=9007199254740994", status: 200},
+		{name: "wallet empty history", method: "GET", path: "/api/wallet/history?character_id=10", empty: true, status: 200},
+		{name: "empty NPC pool", method: "GET", path: "/api/npcs?character_id=10&location_id=7", empty: true, status: 200},
+		{name: "world move", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8}`, status: 200},
 		{name: "catalog filled fields", method: "GET", path: "/api/characters/catalog", filled: true, status: 200},
 		{name: "public character profile null avatar", method: "GET", path: "/api/characters/profile?character_id=10", status: 200},
 		{name: "public character profile with avatar", method: "GET", path: "/api/characters/profile?character_id=10", filled: true, status: 200},
@@ -382,6 +400,44 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 	cases := []contractCase{
 		{name: "register conflict", method: "POST", path: "/api/auth/register", body: registration, authErr: auth.ErrConflict, status: 409},
 		{name: "presence unauthenticated", method: "GET", path: "/api/presence", noCookie: true, invalidRequest: true, status: 401},
+		{name: "world unauthenticated", method: "GET", path: "/api/world/planets", noCookie: true, invalidRequest: true, status: 401},
+		{name: "world wrong account", method: "GET", path: "/api/world/planets", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "world revoked session", method: "GET", path: "/api/world/planets", authErr: auth.ErrUnauthenticated, status: 401},
+		{name: "world storage failure", method: "GET", path: "/api/world/planets", characterErr: failure, status: 500},
+		{name: "world navigation missing character", method: "GET", path: "/api/world/navigation", invalidRequest: true, status: 400},
+		{name: "world travel missing source", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1}`, invalidRequest: true, status: 400},
+		{name: "world travel unknown field", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7,"faction_id":103}`, invalidRequest: true, status: 400},
+		{name: "world travel account mismatch", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "world travel no cookie", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, noCookie: true, invalidRequest: true, status: 401},
+		{name: "world travel stale selection", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrCharacterChanged, status: 409},
+		{name: "world travel stale position", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrPositionChanged, status: 409},
+		{name: "world travel denied", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrAccessDenied, status: 403},
+		{name: "world travel missing planet", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrNotFound, status: 404},
+		{name: "locations missing planet", method: "GET", path: "/api/world/locations?character_id=10", invalidRequest: true, status: 400},
+		{name: "NPC missing location", method: "GET", path: "/api/npcs?character_id=10", invalidRequest: true, status: 400},
+		{name: "wallet missing character", method: "GET", path: "/api/wallet", invalidRequest: true, status: 400},
+		{name: "wallet invalid character", method: "GET", path: "/api/wallet?character_id=2147483648", invalidRequest: true, status: 400},
+		{name: "wallet invalid cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=0", invalidRequest: true, status: 400},
+		{name: "wallet overflow cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=9223372036854775808", status: 400},
+		{name: "wallet empty cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=", invalidRequest: true, status: 400},
+		{name: "wallet no cookie", method: "GET", path: "/api/wallet?character_id=10", noCookie: true, invalidRequest: true, status: 401},
+		{name: "wallet wrong account", method: "GET", path: "/api/wallet?character_id=10", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "wallet changed character", method: "GET", path: "/api/wallet?character_id=10", characterErr: character.ErrSelectionChanged, status: 409},
+		{name: "wallet no character", method: "GET", path: "/api/wallet/history?character_id=10", characterErr: character.ErrSelectionRequired, status: 409},
+		{name: "wallet storage failure", method: "GET", path: "/api/wallet/history?character_id=10", characterErr: failure, status: 500},
+		{name: "NPC invalid character", method: "GET", path: "/api/npcs?character_id=0&location_id=7", invalidRequest: true, status: 400},
+		{name: "NPC no cookie", method: "GET", path: "/api/npcs?character_id=10&location_id=7", noCookie: true, invalidRequest: true, status: 401},
+		{name: "NPC wrong account", method: "GET", path: "/api/npcs?character_id=10&location_id=7", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "NPC stale position", method: "GET", path: "/api/npcs?character_id=10&location_id=7", characterErr: world.ErrPositionChanged, status: 409},
+		{name: "NPC lost world", method: "GET", path: "/api/npcs?character_id=10&location_id=7", characterErr: world.ErrAccessDenied, status: 403},
+		{name: "NPC storage failure", method: "GET", path: "/api/npcs?character_id=10&location_id=7", characterErr: failure, status: 500},
+		{name: "locations wrong planet", method: "GET", path: "/api/world/locations?character_id=10&planet_id=2", characterErr: world.ErrWrongPlanet, status: 409},
+		{name: "move missing source", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7}`, invalidRequest: true, status: 400},
+		{name: "move unknown field", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8,"planet_id":1}`, invalidRequest: true, status: 400},
+		{name: "move missing location", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8}`, characterErr: world.ErrLocationNotFound, status: 404},
+		{name: "move stale position", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8}`, characterErr: world.ErrPositionChanged, status: 409},
+		{name: "move wrong account", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8}`, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "move no cookie", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":7,"from_location_id":8}`, noCookie: true, invalidRequest: true, status: 401},
 		{name: "presence wrong account", method: "GET", path: "/api/presence", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
 		{name: "presence malformed IDs", method: "GET", path: "/api/presence?character_ids=0", status: 400},
 		{name: "presence missing selection key", method: "POST", path: "/api/presence/heartbeat", body: `{}`, invalidRequest: true, status: 400},

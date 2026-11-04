@@ -6,6 +6,8 @@ import { readFile, readdir, writeFile, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { assertUIControls } from './ui-kit.browser-assertions.mjs'
+import { assertGalaxy } from './world.browser-assertions.mjs'
+import { assertWallet } from './wallet.browser-assertions.mjs'
 
 const [baseURL, browserPath, profilePath, mailDirectory] = process.argv.slice(2)
 assert(baseURL && browserPath && profilePath && mailDirectory, 'Expected test server, browser, temporary profile and local mailbox')
@@ -13,6 +15,7 @@ let browser, browserExited, launchError, socket
 let browserLog = ''
 let nextID = 0
 const pending = new Map()
+const protocolListeners = new Set()
 const exceptions = []
 const networkFailures = []
 const verificationRequests = []
@@ -29,6 +32,13 @@ async function evaluate(session, expression) {
   const result = await command('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, session)
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text)
   return result.result.value
+}
+function nextEvent(session, method) {
+  return new Promise((resolve, reject) => {
+    const listener = message => { if (message.sessionId === session && message.method === method) { clearTimeout(timer); protocolListeners.delete(listener); resolve(message.params) } }
+    const timer = setTimeout(() => { protocolListeners.delete(listener); reject(new Error(`CDP event timeout: ${method}`)) }, 10000)
+    protocolListeners.add(listener)
+  })
 }
 async function waitFor(session, expression, label) {
   const deadline = Date.now() + 10000
@@ -126,6 +136,7 @@ async function startBrowser() {
   socket = new WebSocket(`ws://127.0.0.1:${port}${endpoint}`)
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data)
+    for (const listener of protocolListeners) listener(message)
     if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text)
     if (message.method === 'Network.loadingFailed') networkFailures.push({ error: message.params.errorText, cors: message.params.corsErrorStatus })
     if (message.method === 'Network.requestWillBeSent' && new URL(message.params.request.url).pathname === '/api/auth/verify') {
@@ -378,6 +389,8 @@ try {
   await screenshot(first, 'selected-character')
   await waitFor(first, `!!document.querySelector('main .scene-image')`, 'faction landscape')
   await checkLayout(first, 'game')
+  await assertGalaxy({ session: first, command, evaluate, waitFor, click, clickText, fill, checkLayout, screenshot, nextEvent })
+  await assertWallet({ session: first, command, evaluate, waitFor, click, clickText, checkLayout, nextEvent })
 
   await evaluate(first, `document.querySelector('.character-strip a').click()`)
   await waitFor(first, `location.pathname === '/profile' && document.querySelector('h1')?.textContent === 'Эйла'`, 'own character profile')

@@ -24,6 +24,9 @@ type Options struct {
 	Social                   *handlers.SocialHandler
 	Forum                    *handlers.ForumHandler
 	Presence                 *handlers.PresenceHandler
+	World                    *handlers.WorldHandler
+	NPC                      *handlers.NPCHandler
+	Wallet                   *handlers.WalletHandler
 	ChatEvents               http.HandlerFunc
 }
 
@@ -56,6 +59,37 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	bind("/api/characters/catalog", "GET", m.Auth(characters.Catalog), false)
 	bind("/api/characters/profile", "GET", m.Auth(characters.Profile), false)
 	bind("/api/characters/active", "PUT", m.Auth(characters.SetActive), false)
+	planets := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, http.StatusServiceUnavailable, "not_ready", "Каталог планет недоступен", nil)
+	})
+	navigation, travel := planets, planets
+	locations, move := planets, planets
+	if options.World != nil {
+		planets = options.World.Planets
+		navigation, travel = options.World.Navigation, options.World.Travel
+		locations, move = options.World.Locations, options.World.Move
+	}
+	bind("/api/world/planets", "GET", m.Auth(planets), false)
+	bind("/api/world/navigation", "GET", m.Auth(navigation), false)
+	bind("/api/world/travel", "POST", m.Auth(travel), false)
+	bind("/api/world/locations", "GET", m.Auth(locations), false)
+	bind("/api/world/move", "POST", m.Auth(move), false)
+	npcs := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, http.StatusServiceUnavailable, "not_ready", "Список противников недоступен", nil)
+	})
+	if options.NPC != nil {
+		npcs = options.NPC.List
+	}
+	bind("/api/npcs", "GET", m.Auth(npcs), false)
+	balances := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, 503, "not_ready", "Кошелёк недоступен", nil)
+	})
+	history := balances
+	if options.Wallet != nil {
+		balances, history = options.Wallet.Balances, options.Wallet.History
+	}
+	bind("/api/wallet", "GET", m.Auth(balances), false)
+	bind("/api/wallet/history", "GET", m.Auth(history), false)
 	// Keep route/method semantics stable in test compositions without a social
 	// service. The application always provides both handlers.
 	unavailable := func(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,16 +28,32 @@ func (r *ProgressionRepository) Grant(ctx context.Context, reward progression.Re
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = tx.Rollback(rollbackCtx)
-	}()
+	defer rollbackCharacterTx(tx)
+	result, err := r.GrantInTx(ctx, tx, reward)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GrantInTx lets a trusted reward source commit experience together with money
+// and its own outcome. It never commits; callers must roll back on any error.
+// Acquire character locks before wallet locks when composing reward operations.
+func (r *ProgressionRepository) GrantInTx(ctx context.Context, tx pgx.Tx, reward progression.Reward) (*progression.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := progression.ValidateReward(reward); err != nil {
+		return nil, err
+	}
 
 	// Serialize rewards for this character, including competing first attempts
 	// with the same event key. No account/session lock is needed for server rewards.
 	var current progression.State
-	err = tx.QueryRow(ctx, `SELECT level,experience FROM characters WHERE id=$1 FOR UPDATE`, reward.CharacterID).
+	err := tx.QueryRow(ctx, `SELECT level,experience FROM characters WHERE id=$1 FOR UPDATE`, reward.CharacterID).
 		Scan(&current.Level, &current.Experience)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, progression.ErrNotFound
@@ -57,9 +72,6 @@ func (r *ProgressionRepository) Grant(ctx context.Context, reward progression.Re
 			return nil, progression.ErrRewardConflict
 		}
 		result.Replayed = true
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
-		}
 		return result, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -101,9 +113,6 @@ func (r *ProgressionRepository) Grant(ctx context.Context, reward progression.Re
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, reward.CharacterID, reward.Key, result.Requested, result.Change.Granted,
 		result.Change.Before.Level, result.Change.Before.Experience, result.Change.After.Level, result.Change.After.Experience)
 	if err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return result, nil

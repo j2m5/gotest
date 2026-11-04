@@ -1,0 +1,34 @@
+.world-intro { margin: 0 0 var(--space-3); }
+.world-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.world-filters label { display: grid; gap: var(--space-1); min-width: 0; color: var(--color-muted); font-size: .9rem; }
+.world-filters .ui-field { width: 100%; }
+.world-search { grid-column: 1 / -1; }
+.world-results { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2); margin: var(--space-3) 0; }
+.world-results p { margin: 0; font-size: .9rem; }
+.planet-list { list-style: none; margin: 0; padding: 0; }
+.planet-list > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-3) 0; border-top: var(--divider); }
+.planet-name, .planet-affiliation { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.planet-name strong { font-weight: 600; }
+.planet-name .muted { font-size: .8rem; }
+.planet-affiliation { text-align: right; font-size: .85rem; }
+.planet-control--galactic_republic { color: var(--color-info-text); }
+.planet-control--sith_empire { color: var(--color-error-text); }
+.planet-control--neutral { color: var(--color-muted); }
+.planet-core { color: var(--color-accent); font-size: .75rem; }
+.world-position { padding: var(--space-3); margin-bottom: var(--space-3); border: var(--divider); border-radius: var(--radius-control); background: var(--color-surface-raised); }
+.world-position h2 { margin: var(--space-1) 0; }
+.world-position p { margin: var(--space-1) 0; }
+.world-position .muted { font-size: .85rem; }
+.world-available { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-3); font-size: .9rem; }
+.planet-travel { grid-column: 1 / -1; font-size: .8rem; }
+.planet-travel .ui-button { min-height: 32px; font-size: .85rem; }
+@media (max-width: 359px) { .world-filters { grid-template-columns: minmax(0, 1fr); } }
+.location-navigation, .location-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.location-navigation { margin-bottom: var(--space-3); font-size: .9rem; }
+.location-current { padding: var(--space-3); border: var(--divider); border-radius: var(--radius-control); background: var(--color-surface-raised); }
+.location-list { list-style: none; margin: 0; padding: 0; }
+.location-list > li { padding: var(--space-3) 0; border-top: var(--divider); }
+.location-list h2 { font-size: 1rem; margin: 0 0 var(--space-1); }
+.location-list p { margin: var(--space-2) 0; }
+.location-level { font-size: .85rem; }
+.location-list, .location-detail, .location-current { overflow-wrap: anywhere; }

@@ -418,6 +418,247 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wallet": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read character credits and account-wide cartel coins
+         * @description Selected character required. Balances are decimal strings, never floating-point numbers. Currency operations are internal server calls; no public write endpoint exists.
+         */
+        get: operations["walletBalances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wallet/history": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read private currency history for the selected character and account
+         * @description Up to 20 entries ordered by descending ID. IDs and amounts are decimal strings. Currency credits are character-owned; cartel_coins belong to the account. Source keys remain private.
+         */
+        get: operations["walletHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/npcs": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List shared NPC instances in the selected character's current location
+         * @description Reads never create instances or change position. The character must still occupy the requested location and retain access to its planet. Combat actions are a separate future API.
+         */
+        get: operations["locationNPCs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/navigation": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the selected character's location and travel permissions
+         * @description Reads never move the character. return_required means the next travel action returns to the faction capital.
+         */
+        get: operations["worldNavigation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/travel": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Travel to the lowest recommended-level location of a planet
+         * @description Checks current selection, session, ownership and source location transactionally.
+         *     A repeated flight to the current planet preserves its current location.
+         *     Lost access to the current world causes a return to the faction capital first.
+         */
+        post: operations["worldTravel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/locations": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Read locations on the character's current planet without moving */
+        get: operations["worldLocations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/move": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter a location on the current planet
+         * @description Recommended level is advisory. Rechecks source, actor and control with the same transaction as travel. Lost control returns to the capital on a current action.
+         */
+        post: operations["worldMove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/planets": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List known planets with protected core affiliation and current control
+         * @description Available to verified signed-in accounts. Reading the catalog does not
+         *     select or move a character and grants no travel permission. A null controller
+         *     means neither playable faction controls this world, not that it is uninhabited.
+         */
+        get: operations["worldPlanets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/characters/catalog": {
         parameters: {
             query?: never;
@@ -865,7 +1106,7 @@ export interface components {
         ErrorResponse: {
             error: string;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "ban_active" | "forum_not_found" | "forum_banned" | "forum_closed" | "forum_conflict";
+            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "position_changed" | "world_access_denied" | "planet_changed" | "location_not_found" | "locations_unavailable" | "planet_not_found" | "ban_active" | "forum_not_found" | "forum_banned" | "forum_closed" | "forum_conflict";
             fields?: {
                 [key: string]: string[];
             };
@@ -879,6 +1120,8 @@ export interface components {
             faction_id: number;
             /** Format: int32 */
             class_id: number;
+            /** Format: int32 */
+            location_id: number;
             role: string;
             level: number;
             experience: number;
@@ -921,6 +1164,120 @@ export interface components {
             name: string;
             description: string | null;
             icon: string | null;
+        };
+        WorldFaction: {
+            /** Format: int32 */
+            id: number;
+            code: string;
+            name: string;
+        } | null;
+        Planet: {
+            /** Format: int32 */
+            id: number;
+            code: string;
+            name: string;
+            name_en: string;
+            description: string | null;
+            core_faction: components["schemas"]["WorldFaction"];
+            controlling_faction: components["schemas"]["WorldFaction"];
+        };
+        /** @description Exact nonnegative integer, at most 9223372036854775807. */
+        CurrencyBalance: string;
+        WalletBalances: {
+            /** Format: int32 */
+            character_id: number;
+            credits: components["schemas"]["CurrencyBalance"];
+            cartel_coins: components["schemas"]["CurrencyBalance"];
+        };
+        WalletEntry: {
+            id: string;
+            /** @enum {string} */
+            currency: "credits" | "cartel_coins";
+            /** @description Nonzero signed integer in the range -9223372036854775807 through 9223372036854775807. */
+            amount: string;
+            balance_after: components["schemas"]["CurrencyBalance"];
+            description: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        WalletHistory: {
+            entries: components["schemas"]["WalletEntry"][];
+            next_cursor: string | null;
+        };
+        NPCInstance: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            npc_template_id: number;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            kind: "humanoid" | "droid" | "beast";
+            level: number;
+            /** @enum {string} */
+            rank: "normal" | "strong" | "elite";
+        };
+        NPCList: {
+            /** Format: int32 */
+            location_id: number;
+            npcs: components["schemas"]["NPCInstance"][];
+        };
+        WorldLocation: {
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            planet_id: number;
+            code: string;
+            name: string;
+            description: string;
+            position: number;
+            recommended_level: number;
+        };
+        WorldPosition: {
+            /** Format: int32 */
+            character_id: number;
+            location: components["schemas"]["WorldLocation"];
+            planet: components["schemas"]["Planet"];
+        };
+        WorldDestination: {
+            /** Format: int32 */
+            planet_id: number;
+            can_travel: boolean;
+            /** @enum {string} */
+            reason: "available" | "invasion_required" | "raid_required" | "locations_unavailable";
+        };
+        WorldNavigation: {
+            position: components["schemas"]["WorldPosition"];
+            destinations: components["schemas"]["WorldDestination"][];
+            return_required: boolean;
+        };
+        WorldLocations: {
+            position: components["schemas"]["WorldPosition"];
+            locations: components["schemas"]["WorldLocation"][];
+            return_required: boolean;
+        };
+        WorldMoveRequest: {
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            location_id: number;
+            /** Format: int32 */
+            from_location_id: number;
+        };
+        WorldTravelRequest: {
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            planet_id: number;
+            /** Format: int32 */
+            from_location_id: number;
+        };
+        WorldTravelResult: {
+            position: components["schemas"]["WorldPosition"];
+            returned_home: boolean;
+        };
+        WorldCatalog: {
+            planets: components["schemas"]["Planet"][];
         };
         CharacterCatalog: {
             factions: components["schemas"]["CatalogEntry"][];
@@ -2159,6 +2516,347 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    walletBalances: {
+        parameters: {
+            query: {
+                character_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current private balances */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletBalances"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    walletHistory: {
+        parameters: {
+            query: {
+                character_id: number;
+                /** @description Exclusive entry ID from next_cursor; range 1 through 9223372036854775807, validated by the server. */
+                before?: string;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of immutable entries; null cursor marks the end */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    locationNPCs: {
+        parameters: {
+            query: {
+                character_id: number;
+                location_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Persistent NPC instances ordered by placement and slot */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NPCList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    worldNavigation: {
+        parameters: {
+            query: {
+                character_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current character position and world navigation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldNavigation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    worldTravel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorldTravelRequest"];
+            };
+        };
+        responses: {
+            /** @description Current character position and world navigation */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldTravelResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    worldLocations: {
+        parameters: {
+            query: {
+                character_id: number;
+                planet_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current position and ordered locations; return_required signals lost planet access */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldLocations"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    worldMove: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorldMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted character position */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldTravelResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    worldPlanets: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Galaxy catalog, ordered by display name and stable code */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldCatalog"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
         };
     };
     characterCatalog: {

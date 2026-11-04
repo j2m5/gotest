@@ -151,3 +151,47 @@ export async function checkAccountHeaders() {
   // @ts-expect-error logout never guesses an account
   await logout()
 }
+
+export async function checkWorldContract() {
+  const enemies = await apiRequest('get', '/api/npcs', { query: { character_id: 3, location_id: 2 }, headers: { 'X-Account-ID': 1 } })
+  const money = await apiRequest('get', '/api/wallet', { query: { character_id: 3 } })
+  money.credits satisfies string
+  const ledger = await apiRequest('get', '/api/wallet/history', { query: { character_id: 3, before: '9007199254740993' } })
+  ledger.entries.forEach(entry => entry.amount satisfies string)
+  // @ts-expect-error integer balances are decimal strings, never JS numbers
+  money.cartel_coins.toFixed()
+  // @ts-expect-error event keys are private server details
+  ledger.entries[0].operation_key
+  // @ts-expect-error no public currency mutation
+  await apiRequest('post', '/api/wallet', { body: { amount: 100 } })
+  enemies.npcs.forEach(enemy => enemy.kind satisfies 'humanoid' | 'droid' | 'beast')
+  // @ts-expect-error current location is required
+  await apiRequest('get', '/api/npcs', { query: { character_id: 3 } })
+  // @ts-expect-error instances are shared, not owned by a character
+  enemies.npcs[0].character_id.toFixed()
+  const navigation = await apiRequest('get', '/api/world/navigation', {
+    query: { character_id: 3 }, headers: { 'X-Account-ID': 1 },
+  })
+  navigation.position.location.planet_id.toFixed()
+  navigation.destinations.forEach(destination => destination.can_travel satisfies boolean)
+  const moved = await apiRequest('post', '/api/world/travel', {
+    headers: { 'X-Account-ID': 1 }, body: { character_id: 3, planet_id: 5, from_location_id: 2 },
+  })
+  moved.position.location.id.toFixed()
+  moved.returned_home satisfies boolean
+  const locations = await apiRequest('get', '/api/world/locations', { query: { character_id: 3, planet_id: 5 } })
+  locations.locations.forEach(location => location.recommended_level.toFixed())
+  await apiRequest('post', '/api/world/move', { body: { character_id: 3, location_id: 7, from_location_id: 2 } })
+  // @ts-expect-error browsing is scoped to the requested planet
+  await apiRequest('get', '/api/world/locations', { query: { character_id: 3 } })
+  // @ts-expect-error a local move must carry its starting location
+  await apiRequest('post', '/api/world/move', { body: { character_id: 3, location_id: 7 } })
+  // @ts-expect-error navigation is scoped to the expected selected character
+  await apiRequest('get', '/api/world/navigation')
+  // @ts-expect-error options without the required query are also rejected
+  await apiRequest('get', '/api/world/navigation', { headers: { 'X-Account-ID': 1 } })
+  // @ts-expect-error movement must carry its starting position
+  await apiRequest('post', '/api/world/travel', { body: { character_id: 3, planet_id: 5 } })
+  // @ts-expect-error the server derives faction access, never the client
+  await apiRequest('post', '/api/world/travel', { body: { character_id: 3, planet_id: 5, from_location_id: 2, faction_id: 1 } })
+}

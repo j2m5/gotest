@@ -7,10 +7,12 @@ import (
 )
 
 var (
-	ErrUnauthenticated = errors.New("character: session is not active")
-	ErrNotFound        = errors.New("character: not found")
-	ErrNameTaken       = errors.New("character: name is already in use")
-	ErrInvalidClass    = errors.New("character: class does not belong to faction")
+	ErrUnauthenticated   = errors.New("character: session is not active")
+	ErrNotFound          = errors.New("character: not found")
+	ErrNameTaken         = errors.New("character: name is already in use")
+	ErrInvalidClass      = errors.New("character: class does not belong to faction")
+	ErrSelectionRequired = errors.New("character: select a character")
+	ErrSelectionChanged  = errors.New("character: active character changed")
 )
 
 // Actor identifies the authenticated caller. SessionHash is a storage key, never
@@ -34,6 +36,7 @@ type Character struct {
 	Name         string       `json:"name"`
 	FactionID    int          `json:"faction_id"`
 	ClassID      int          `json:"class_id"`
+	LocationID   int          `json:"location_id"`
 	Role         string       `json:"role"`
 	Level        int16        `json:"level"`
 	Experience   int          `json:"experience"`

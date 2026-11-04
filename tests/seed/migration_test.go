@@ -32,7 +32,7 @@ func TestSeedMigrationPreservesLegacyReferences(t *testing.T) {
 	if output, err := s.run(nil); err != nil {
 		t.Fatalf("seed migrated catalog: %v\n%s", err, output)
 	}
-	s.assertCounts(t, [6]int{3, 9, 9, 20, 8, 50})
+	s.assertCounts(t, [7]int{3, 9, 9, 20, 8, 50, 0})
 	var classID, abilityID, damage int
 	err = s.pool.QueryRow(s.ctx, `SELECT c.class_id,ca.ability_id,a.damage FROM characters c
 		JOIN character_abilities ca ON ca.character_id=c.id JOIN abilities a ON a.id=ca.ability_id

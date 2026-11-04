@@ -2,17 +2,22 @@ package db_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	"gotest/internal/auth"
+	"gotest/internal/db"
 	"gotest/internal/mailer"
 	"gotest/internal/notification"
+	"gotest/internal/wallet"
 	"gotest/tests/testenv"
 )
 
@@ -71,6 +76,78 @@ func TestCharacterBrowserFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		failure := r.Header.Get("X-Browser-Test-Wallet-Failure")
+		if (r.URL.Path == "/api/wallet" && failure == "balance") || (r.URL.Path == "/api/wallet/history" && failure == "history") {
+			http.Error(w, "wallet temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		// Test-only setup: exercise the actual server operation without adding a
+		// production HTTP grant endpoint or changing application database balances.
+		if r.URL.Path == "/api/wallet" && r.Header.Get("X-Browser-Test-Wallet-Setup") == "1" {
+			id, err := strconv.Atoi(r.URL.Query().Get("character_id"))
+			if err != nil {
+				http.Error(w, "bad test character", 400)
+				return
+			}
+			operations := []wallet.Operation{walletOperation(id, wallet.Credits, math.MaxInt64-22, "browser:initial")}
+			for i := range 22 {
+				operations = append(operations, walletOperation(id, wallet.Credits, 1, fmt.Sprintf("browser:grant:%d", i)))
+			}
+			operations = append(operations, walletOperation(id, wallet.Credits, -2, "browser:spend"), walletOperation(id, wallet.CartelCoins, 37, "browser:coins"))
+			for _, operation := range operations {
+				if _, err = db.NewWalletRepository(s.pool).Apply(r.Context(), operation); err != nil {
+					http.Error(w, "wallet fixture failed", 500)
+					return
+				}
+			}
+		}
+		// Populate/restore ownership only in this browser test's isolated schema.
+		// Neutral content is exercised through the real routes without opening a
+		// production control endpoint or changing the application world's owners.
+		control := r.Header.Get("X-Browser-Test-Neutral-Control")
+		if r.URL.Path == "/api/world/navigation" && (control == "claim" || control == "release") {
+			var controller *int
+			if control == "claim" {
+				id, err := strconv.Atoi(r.URL.Query().Get("character_id"))
+				if err != nil {
+					http.Error(w, "bad test character", http.StatusBadRequest)
+					return
+				}
+				var factionID int
+				if err := s.pool.QueryRow(r.Context(), `SELECT faction_id FROM characters WHERE id=$1`, id).Scan(&factionID); err != nil {
+					http.Error(w, "test faction unavailable", http.StatusInternalServerError)
+					return
+				}
+				controller = &factionID
+			}
+			if _, err := s.pool.Exec(r.Context(), `UPDATE planets SET controlling_faction_id=$1 WHERE code=ANY($2) AND core_faction_id IS NULL`, controller, neutralContentPlanets); err != nil {
+				http.Error(w, "neutral world fixture failed", http.StatusInternalServerError)
+				return
+			}
+		}
+		if r.URL.Path == "/api/npcs" && r.Header.Get("X-Browser-Test-NPC-Failure") == "1" {
+			http.Error(w, "NPCs temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		// Exercise the empty UI independently of which worlds already have content.
+		if r.URL.Path == "/api/npcs" && r.Header.Get("X-Browser-Test-NPC-Empty") == "1" {
+			id, err := strconv.Atoi(r.URL.Query().Get("location_id"))
+			if err != nil {
+				http.Error(w, "bad test location", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"location_id":%d,"npcs":[]}`, id)
+			return
+		}
+		if r.URL.Path == "/api/world/locations" && r.Header.Get("X-Browser-Test-Locations-Failure") == "1" {
+			http.Error(w, "locations temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if r.URL.Path == "/api/world/planets" && r.Header.Get("X-Browser-Test-World-Failure") == "1" {
+			http.Error(w, "world temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		if r.URL.Path == "/api/auth/verify" && r.Header.Get("X-Browser-Test-Verification-Failure") == "1" {
 			http.Error(w, "verification temporarily unavailable", http.StatusServiceUnavailable)
 			return

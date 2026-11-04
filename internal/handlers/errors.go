@@ -9,10 +9,13 @@ import (
 	"gotest/internal/character"
 	"gotest/internal/forum"
 	"gotest/internal/httpapi"
+	"gotest/internal/npc"
 	"gotest/internal/observability"
 	"gotest/internal/presence"
 	"gotest/internal/social"
 	"gotest/internal/validation"
+	"gotest/internal/wallet"
+	"gotest/internal/world"
 )
 
 // Domain errors are translated at the HTTP boundary. Modules do not depend on
@@ -21,6 +24,28 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var invalid *validation.Error
 	var banned *auth.AccountBannedError
 	switch {
+	case errors.Is(err, wallet.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры кошелька", nil)
+	case errors.Is(err, world.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры перемещения", nil)
+	case errors.Is(err, npc.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры персонажа и локации", nil)
+	case errors.Is(err, character.ErrSelectionRequired):
+		httpapi.WriteError(w, 409, "character_required", "Сначала выберите персонажа", nil)
+	case errors.Is(err, character.ErrSelectionChanged):
+		httpapi.WriteError(w, 409, "character_changed", "Активный персонаж изменился. Обновите данные", nil)
+	case errors.Is(err, world.ErrPositionChanged):
+		httpapi.WriteError(w, 409, "position_changed", "Персонаж уже переместился. Обновите местоположение", nil)
+	case errors.Is(err, world.ErrWrongPlanet):
+		httpapi.WriteError(w, 409, "planet_changed", "Локации не относятся к текущей планете. Откройте их заново с экрана галактики", nil)
+	case errors.Is(err, world.ErrLocationNotFound):
+		httpapi.WriteError(w, 404, "location_not_found", "Локация не найдена", nil)
+	case errors.Is(err, world.ErrAccessDenied):
+		httpapi.WriteError(w, 403, "world_access_denied", "Планета недоступна для вашей фракции", nil)
+	case errors.Is(err, world.ErrNotFound):
+		httpapi.WriteError(w, 404, "planet_not_found", "Планета не найдена", nil)
+	case errors.Is(err, world.ErrLocationsUnavailable):
+		httpapi.WriteError(w, 409, "locations_unavailable", "На планете нет доступных локаций", nil)
 	case errors.Is(err, presence.ErrInvalidInput):
 		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры персонажа", nil)
 	case errors.Is(err, presence.ErrCharacterChanged):

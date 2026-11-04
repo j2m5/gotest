@@ -95,13 +95,13 @@ func authenticateCharacterActor(ctx context.Context, tx pgx.Tx, actor character.
 	return nil
 }
 
-const characterColumns = `id,name,faction_id,class_id,role,level,experience,avatar,hp,mp,hp_current,mp_current,hp_updated_at,mp_updated_at,clock_timestamp()`
+const characterColumns = `id,name,faction_id,class_id,role,level,experience,avatar,hp,mp,hp_current,mp_current,hp_updated_at,mp_updated_at,clock_timestamp(),location_id`
 
 func scanCharacter(row pgx.Row) (*character.Character, error) {
 	c := &character.Character{}
 	recovery := &c.Regeneration
 	err := row.Scan(&c.ID, &c.Name, &c.FactionID, &c.ClassID, &c.Role, &c.Level, &c.Experience, &c.Avatar, &c.HP, &c.MP, &c.HPCurrent, &c.MPCurrent,
-		&recovery.HPUpdatedAt, &recovery.MPUpdatedAt, &recovery.ObservedAt)
+		&recovery.HPUpdatedAt, &recovery.MPUpdatedAt, &recovery.ObservedAt, &c.LocationID)
 	if err != nil {
 		return nil, err
 	}

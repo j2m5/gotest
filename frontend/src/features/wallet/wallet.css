@@ -1,0 +1,19 @@
+.wallet-strip { margin: var(--space-2) 0 var(--space-3); font-size: .8rem; overflow-wrap: anywhere; }
+.wallet-strip p { margin: var(--space-1) 0; }
+.wallet-strip > a { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.wallet-strip > a > span { max-width: 100%; }
+.wallet-strip strong { font-weight: 600; }
+.wallet-strip [data-currency=cartel_coins] { color: var(--color-info-text); }
+.wallet-strip .ui-button { font-size: .8rem; }
+.wallet-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); font-size: .9rem; }
+.wallet-page { overflow-wrap: anywhere; }
+.wallet-page h2 { font-size: 1.05rem; }
+.wallet-history { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.wallet-history > li { border-top: var(--divider); padding: var(--space-3) 0; }
+.wallet-entry-heading, .wallet-entry-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.wallet-entry-heading strong { font-size: .9rem; font-weight: 600; }
+.wallet-entry-meta { color: var(--color-muted); margin: var(--space-1) 0; font-size: .8rem; }
+.wallet-amount { font-size: .9rem; font-variant-numeric: tabular-nums; }
+.wallet-amount--credit { color: var(--color-success-text); }
+.wallet-amount--debit { color: var(--color-error-text); }
+.wallet-entry-balance { margin: var(--space-1) 0 0; font-size: .8rem; }

@@ -19,6 +19,7 @@ import (
 	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/social"
+	"gotest/internal/wallet"
 	"gotest/tests/testenv"
 )
 
@@ -42,6 +43,7 @@ func TestForumBrowserFlow(t *testing.T) {
 		StaticDir: filepath.Join("..", "..", "frontend", "dist"), Lifecycle: lifecycle, Social: handlers.NewSocialHandler(social.NewService(db.NewSocialRepository(s.pool)), hub.Notify), ChatEvents: hub.ServeHTTP,
 		Forum:    handlers.NewForumHandler(forum.NewService(db.NewForumRepository(s.pool))),
 		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(s.pool))),
+		Wallet:   handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(s.pool))),
 	})
 	if err != nil {
 		t.Fatal(err)

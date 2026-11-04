@@ -1,0 +1,236 @@
+-- Final protected-core batch: core membership/control remain in seed07.
+-- Early Great Galactic War; microdistricts and enemy roles are authored adaptations.
+-- Caamas is alive; Rhinnal has not suffered the Red Reaper attack. No late Imperial
+-- infrastructure on Corulag, late Esseles coup or later Ashas Ree battle is imported.
+-- Kalsunor keeps its configured owner; large silooths inhabit higher-level canyons.
+-- Korriz is industrial. Upekzar's living biomes predate the events of 44 ABY.
+
+INSERT INTO npc_templates(code,name,description,kind) VALUES
+ ('caamas_marsh_hunter','Хищник каамасских топей','Прячется среди корней и заросших протоков Каамаса. Подстерегает добычу у мелководий и узких троп над болотом.','beast'),
+ ('caamas_poacher','Браконьер влажных лесов','Незаконно вывозит животных из отдалённых районов Каамаса. Охраняет ловушки и скрытые стоянки, угрожая оружием любому свидетелю.','humanoid'),
+ ('caamas_supply_raider','Налётчик степных дорог','Грабит обозы на окраинах каамасских поселений. Скрывает добычу в пустующих хозяйственных дворах и покинутых перевалочных пунктах.','humanoid'),
+ ('caamas_survey_droid','Повреждённый полевой дроид','Обслуживал исследовательские площадки и настилы в труднодоступных районах. Неисправные датчики заставляют его применять инструменты против приближающихся существ.','droid'),
+ ('esseles_cargo_raider','Похититель эссельских грузов','Перехватывает товары у морских терминалов и городских складов Эсселеса. Прячет краденое в закрытых погрузочных галереях.','humanoid'),
+ ('esseles_art_smuggler','Контрабандист предметов искусства','Вывозит украденные произведения из старых эссельских коллекций. Защищает подпольные мастерские и склады с помощью оружия и взломанной техники.','humanoid'),
+ ('esseles_service_droid','Сбойный городской сервисный дроид','Ремонтировал фасады, подъёмники и грузовые настилы. Повреждённая программа заставляет машину устранять любые движущиеся помехи рабочими захватами.','droid'),
+ ('esseles_vault_guardian','Взломанный страж галереи','Бывший охранник частного собрания служит похитителям ценностей. Перекрывает проходы к захваченным хранилищам и не распознаёт прежние допуски.','droid'),
+ ('rhinnal_supply_thief','Похититель медицинских грузов','Грабит склады расходных материалов и оборудования на Риннале. Охраняет награбленное в пустующих служебных корпусах вдали от действующих лечебниц.','humanoid'),
+ ('rhinnal_ice_stalker','Хищник ледниковых склонов','Держится у холодных лесных опушек и каменных уступов Риннала. Подстерегает добычу в защищённых от ветра ложбинах.','beast'),
+ ('rhinnal_service_droid','Неисправный инженерный дроид','Обслуживал грузовые сети и климатические установки закрытых комплексов. После сбоя применяет рабочие инструменты против любого подвижного объекта.','droid'),
+ ('rhinnal_security_droid','Захваченный складской страж','Охранная машина перепрограммирована похитителями медицинского оборудования. Защищает их тайники и атакует посетителей без выданного преступниками допуска.','droid'),
+ ('corulag_bamboo_stalker','Хищник бамбуковых зарослей','Прячется в густых лесах между городскими районами Корулага. Выходит к удалённым дорогам и заросшим служебным площадкам в поисках добычи.','beast'),
+ ('corulag_cargo_hijacker','Налётчик корулагских магистралей','Перехватывает грузы на объездах городских транспортных узлов. Использует скрытые стоянки и пустующие склады для хранения добычи.','humanoid'),
+ ('corulag_data_thief','Вооружённый похититель данных','Взламывает архивы торговых и технических предприятий Корулага. Удерживает захваченные помещения и охраняет украденные разработки.','humanoid'),
+ ('corulag_security_droid','Взломанный корпоративный страж','Списанный охранный автомат возвращён к работе нелегальными хозяевами. Патрулирует присвоенные комплексы и блокирует служебные выходы.','droid'),
+ ('ashas_ree_jungle_stalker','Хищник джунглей Ашас-Ри','Двигается среди плотной растительности у скальных выступов. Нападает на добычу у лесных троп и входов в заросшие сооружения.','beast'),
+ ('ashas_ree_relic_raider','Расхититель древних укреплений','Ищет уцелевшие ценности в старых сооружениях Ашас-Ри. Охраняет тайные раскопы и склады, скрытые под пологом джунглей.','humanoid'),
+ ('ashas_ree_renegade','Отступник лесного убежища','Скрывается от имперского надзора в заброшенных каменных залах. Собирает запретные находки и держит вооружённых сообщников у подходов.','humanoid'),
+ ('ashas_ree_sentinel_droid','Повреждённый страж Ашас-Ри','Охранная машина продолжает службу у старого комплекса среди джунглей. Влага и утраченные коды опознавания мешают ей отличить посетителя от нарушителя.','droid'),
+ ('kalsunor_canyon_stalker','Хищник калсунорских каньонов','Скрывается в небольших расселинах и под каменными навесами. Охотится на узких тропах, избегая участков, занятых огромными боевыми зверями.','beast'),
+ ('kalsunor_salvage_raider','Налётчик каньонных стоянок','Грабит экспедиционные лагеря и разбирает старые сооружения Калсунора. Защищает припасы на площадках, куда крупным зверям трудно добраться.','humanoid'),
+ ('kalsunor_sentry_droid','Сбойный экспедиционный часовой','Старая охранная машина патрулирует оставленную стоянку у каньонов. Повреждённые команды заставляют её атаковать всех, кто приближается к оборудованию.','droid'),
+ ('kalsunor_silooth','Боевой зверь Калсунора','Огромное существо происходит от зверей, изменённых алхимией древних ситхов. Обитает в глубоких каньонах и опасно даже для хорошо вооружённых экспедиций.','beast'),
+ ('korriz_metal_raider','Похититель металла Корриза','Присваивает сплавы и оборудование из старых промышленных районов. Охраняет незаконные склады и пути вывоза награбленного.','humanoid'),
+ ('korriz_illicit_smith','Подпольный оружейник Корриза','Использует заброшенные мастерские для производства нелегального оружия. Защищает чертежи, инструменты и заказы вместе с переделанной охраной.','humanoid'),
+ ('korriz_forge_droid','Сбойный кузнечный дроид','Работал у литейных линий и тяжёлых формовочных станков. После повреждения управляющих цепей применяет рабочие захваты против движущихся целей.','droid'),
+ ('korriz_workshop_guardian','Взломанный страж мастерской','Охранный автомат получил чужие коды после захвата промышленного корпуса. Контролирует проходы к производственным залам и тайным оружейным складам.','droid'),
+ ('upekzar_forest_stalker','Хищник лесных склонов Упекзара','Прячется среди корней и густой растительности у горных троп. Подстерегает добычу рядом с водопоями и покинутыми лесными стоянками.','beast'),
+ ('upekzar_relic_raider','Расхититель обрядовых площадок','Разбирает старые сооружения Упекзара в поисках древних предметов. Охраняет тайники у побережья и скрытые проходы к вулканическим пещерам.','humanoid'),
+ ('upekzar_rhak_skuri','Пещерный хищник Упекзара','Обитает колониями в вулканических пещерах и охотится в узких проходах. Выделяемые им вещества способны вызывать пугающие видения у некоторых гуманоидов.','beast'),
+ ('upekzar_sentry_droid','Повреждённый обрядовый страж','Оставленная охранная машина патрулирует древние площадки и каменные галереи. Изношенная система опознавания считает любого посетителя вторжением.','droid')
+ON CONFLICT (code) DO NOTHING;
+
+-- Republic core: Caamas, Esseles, Rhinnal and Corulag.
+INSERT INTO locations(planet_id,code,name,description,position,recommended_level)
+SELECT p.id,v.code,v.name,v.description,v.position,v.recommended_level FROM (VALUES
+ ('caamas','marsh_landing','Посадочная площадка у болот','Расчищенные опоры стоят на твёрдом участке среди влажных низин. У дальних навесов налётчики высматривают грузы, предназначенные местным поселениям.',1,1),
+ ('caamas','rainforest_trails','Тропы дождевого леса','Густая растительность скрывает узкие пути между лесными участками. Браконьеры устраивают здесь ловушки и прячут стоянки от законных патрулей.',2,6),
+ ('caamas','reed_causeways','Тростниковые настилы','Деревянные и металлические переходы соединяют сухие островки над протоками. В зарослях под ними скрываются хищники, а старые обслуживающие дроиды мешают проходу.',3,11),
+ ('caamas','steppe_caravan_route','Степной караванный путь','Открытые травянистые участки сменяют болотистые низины у жилых районов. На удалённых поворотах налётчики поджидают обозы с припасами.',4,16),
+ ('caamas','flooded_storehouses','Подтопленные хозяйственные склады','Старые грузовые дворы частично скрыты водой и зарослями. Похитители припасов заняли уцелевшие настилы, избегая зверей у нижних проходов.',5,21),
+ ('caamas','overgrown_field_station','Заросшая полевая станция','Лианы оплели корпуса покинутой исследовательской площадки. Неисправные дроиды продолжают обслуживать приборы, а браконьеры присваивают полезное оборудование.',6,26),
+ ('caamas','poacher_capture_yard','Браконьерский отловочный двор','Под густыми кронами скрыты клетки и погрузочные платформы. Торговцы животными держат вооружённые посты у троп и подготовленных к вывозу грузов.',7,31),
+ ('caamas','hilltop_supply_post','Складской пост на холмах','Заброшенные хозяйственные постройки возвышаются над влажной равниной. Налётчики превратили их в укреплённый перевалочный пункт для награбленного.',8,36),
+ ('caamas','hidden_marsh_docks','Тайные болотные причалы','Скрытые настилы соединяют закрытые ангары с узкими протоками. Преступники перегружают здесь добычу, а под причалами обосновались крупные хищники.',9,41),
+ ('caamas','seized_research_compound','Захваченный исследовательский комплекс','Группа браконьеров заняла пустующие корпуса за оградой полевой базы. Внутри собраны украденное оборудование, грузы и восстановленная опасная автоматика.',10,46),
+ ('esseles','seaside_landing','Приморская посадочная площадка','Грузовые дороги выходят к морским терминалам и городским кварталам. В стороне от главных потоков действуют похитители небольших торговых партий.',1,1),
+ ('esseles','old_city_quays','Старые городские набережные','Закрытые пристани соседствуют с украшенными фасадами складских зданий. Налётчики используют пустующие погрузочные проходы для тайного вывоза краденого.',2,6),
+ ('esseles','artisan_backstreets','Переулки старых мастерских','Узкие дворы соединяют покинутые ремесленные корпуса. Контрабандисты предметов искусства прячут здесь добычу и взломанную сервисную технику.',3,11),
+ ('esseles','volcanic_ridge_road','Дорога вулканического хребта','Старая транспортная полоса проходит между крутыми каменными склонами. Похитители грузов устроили склады у неиспользуемых съездов.',4,16),
+ ('esseles','closed_cultural_storehouses','Закрытые склады коллекций','За глухими воротами сохранились помещения хранения декоративных панелей и скульптур. Вооружённые скупщики охраняют вскрытые залы и украденные предметы.',5,21),
+ ('esseles','mountain_service_tunnels','Горные служебные тоннели','Технические переходы ведут под старые складские террасы. По ним перемещают незаконные грузы, обходя действующие дороги и пункты досмотра.',6,26),
+ ('esseles','abandoned_cargo_lifts','Покинутые грузовые подъёмники','Высокие эстакады соединяют приморские ангары с верхними площадками. Сбойные машины продолжают работу рядом с тайниками контрабандистов.',7,31),
+ ('esseles','illicit_restoration_halls','Подпольные реставрационные залы','В пустующих мастерских восстанавливают похищенные произведения и подделывают их происхождение. Хозяева охраняют рабочие столы и архивы незаконных заказов.',8,36),
+ ('esseles','sealed_collection_galleries','Закрытые галереи коллекций','Несколько рядов дверей отделяют старое собрание от пустого жилого крыла. Похитители подчинили себе стражей и превратили залы в перевалочное хранилище.',9,41),
+ ('esseles','smugglers_cliff_estate','Убежище контрабандистов на скале','Заброшенная резиденция возвышается над закрытыми морскими причалами. Её новые хозяева собрали здесь похищенные ценности и взломанную охрану.',10,46),
+ ('rhinnal','cold_supply_landing','Холодная площадка снабжения','Утеплённые грузовые модули стоят у дорог к городским служебным районам. В дальних дворах похитители вскрывают контейнеры с оборудованием.',1,1),
+ ('rhinnal','evergreen_margins','Опушки холодных лесов','Вечнозелёные деревья покрывают защищённые склоны у транспортных путей. Хищники следят за тропами, а налётчики прячут припасы среди пустых навесов.',2,6),
+ ('rhinnal','frozen_river_road','Дорога у замёрзшей реки','Расчищенный путь проходит над обледеневшими берегами. На старых служебных съездах встречаются неисправная техника и укрытия похитителей грузов.',3,11),
+ ('rhinnal','medical_freight_yards','Дворы медицинского снабжения','Закрытые складские секции соседствуют с действующими грузовыми маршрутами. Преступники удерживают пустующие помещения, где спрятано украденное оборудование.',4,16),
+ ('rhinnal','glacier_foothills','Предгорья ледника','Холодный ветер проходит между ледяными стенами и каменными уступами. В укрытых ложбинах охотятся звери, а у старых стоянок лежат брошенные припасы.',5,21),
+ ('rhinnal','closed_climate_station','Закрытая климатическая станция','Неиспользуемый инженерный узел обслуживал склады и служебные переходы. Повреждённые дроиды продолжают работу у отключённых установок и пустых корпусов.',6,26),
+ ('rhinnal','abandoned_textile_storehouses','Покинутые текстильные склады','Ряды утеплённых ангаров хранят остатки старого грузового оборудования. Похитители приспособили площадки для хранения тканей, медикаментов и краденой техники.',7,31),
+ ('rhinnal','highland_service_pass','Горный служебный проход','Узкая дорога связывает закрытые инженерные площадки над лесной границей. Вооружённые перевозчики держат здесь посты и взломанную охрану.',8,36),
+ ('rhinnal','sealed_supply_archive','Закрытый архив снабжения','За усиленными дверями сохранились схемы складов и старые грузовые допуски. Преступная группа удерживает архив вместе с перепрограммированными стражами.',9,41),
+ ('rhinnal','seized_medical_depot','Захваченная база медицинского оборудования','Пустующий служебный комплекс занят похитителями крупных партий техники. Здесь находятся их склады и мастерские, а подходы перекрыты механической охраной.',10,46),
+ ('corulag','urban_cargo_landing','Городская грузовая площадка','Транспортные эстакады связывают терминал с торговыми и техническими районами. На дальних стоянках налётчики высматривают ценные грузы.',1,1),
+ ('corulag','bamboo_outskirts','Бамбуковые окраины','Густые заросли заполняют участки между городскими кварталами. В стороне от обжитых дорог скрываются хищники и стоянки грузовых воров.',2,6),
+ ('corulag','service_magistrals','Служебные магистрали','Нижние проезды проходят под оживлёнными транспортными линиями. Банды перевозят по ним краденое и перекрывают удобные съезды взломанными стражами.',3,11),
+ ('corulag','old_exhibition_pavilions','Старые выставочные павильоны','Закрытые залы хранят стенды и оборудование прежних торговых выставок. Похитители разработок разыскивают уцелевшие образцы и охраняют свои находки.',4,16),
+ ('corulag','forest_detour','Лесной объезд','Неиспользуемая дорога огибает городские районы через бамбуковые заросли. Налётчики устраивают засады у старых навесов, избегая логов местных зверей.',5,21),
+ ('corulag','technical_warehouse_rows','Склады технических предприятий','Ряды закрытых ангаров разделены узкими грузовыми дворами. Преступники присвоили уцелевшее оборудование и восстановили часть охранных автоматов.',6,26),
+ ('corulag','closed_data_station','Закрытая станция обработки данных','За пустующими рабочими залами сохранились архивные серверные отсеки. Взломщики удерживают доступ к старым торговым записям и техническим разработкам.',7,31),
+ ('corulag','illicit_luxury_workshops','Подпольные мастерские дорогих товаров','В закрытых цехах переделывают украденные изделия и оборудование. Вооружённые хозяева защищают заказы и документы нелегальных поставщиков.',8,36),
+ ('corulag','seized_research_annex','Захваченный исследовательский корпус','Пустующее крыло технического предприятия занято похитителями данных. Рабочие помещения превращены в тайные лаборатории и склады краденых образцов.',9,41),
+ ('corulag','hidden_corporate_compound','Тайная база в корпоративном квартале','Группа налётчиков закрепилась за стенами заброшенного служебного комплекса. Здесь сходятся украденные грузы, похищенные разработки и взломанная охранная техника.',10,46)
+) AS v(planet_code,code,name,description,position,recommended_level) JOIN planets p ON p.code=v.planet_code
+ON CONFLICT (planet_id,code) DO NOTHING;
+
+-- Imperial core: Ashas Ree, Kalsunor, Korriz and Upekzar.
+INSERT INTO locations(planet_id,code,name,description,position,recommended_level)
+SELECT p.id,v.code,v.name,v.description,v.position,v.recommended_level FROM (VALUES
+ ('ashas_ree','jungle_supply_landing','Площадка снабжения у джунглей','Небольшой терминал окружён густой растительностью и каменными грядами. За дальними навесами расхитители устраивают тайники экспедиционных грузов.',1,1),
+ ('ashas_ree','rootbound_tracks','Тропы среди корней','Переплетённые корни скрывают старые пути через джунгли. В зарослях охотятся звери, а искатели древностей прячут снаряжение у скальных выступов.',2,6),
+ ('ashas_ree','rocky_forest_gaps','Скальные просветы леса','Каменные уступы разрывают плотный полог растительности. В естественных нишах скрываются хищники и небольшие стоянки расхитителей.',3,11),
+ ('ashas_ree','overgrown_supply_yards','Заросшие дворы снабжения','Лес поглотил часть старого хозяйственного комплекса. Преступники разбирают уцелевшие склады, избегая повреждённых механических стражей.',4,16),
+ ('ashas_ree','ancient_stone_road','Древняя каменная дорога','Разбитая кладка ведёт между заросшими остатками укреплений. Расхитители охраняют найденные проходы и скрытые склады среди старых стен.',5,21),
+ ('ashas_ree','hidden_relic_camp','Тайный лагерь искателей древностей','Под пологом джунглей спрятаны исследовательские модули и грузовые платформы. Отступники изучают находки и не допускают посторонних к своим записям.',6,26),
+ ('ashas_ree','ruined_watchterraces','Разрушенные сторожевые террасы','Каменные площадки возвышаются над лесными подходами. Взломанные стражи и вооружённые расхитители удерживают пути к уцелевшим сооружениям.',7,31),
+ ('ashas_ree','sealed_stone_galleries','Закрытые каменные галереи','Тяжёлые двери отделяют старые служебные залы от заросших дворов. Отступники восстановили несколько проходов и спрятали внутри свои находки.',8,36),
+ ('ashas_ree','jungle_redoubt','Лесной редут','Заброшенное укрепление скрыто среди густой растительности. Его новые хозяева перекрыли подходы и вернули к работе повреждённую охрану.',9,41),
+ ('ashas_ree','renegade_stone_refuge','Каменное убежище отступников','Глубокие залы древнего комплекса заняты искателями запретных знаний. Они удерживают найденные помещения вместе с расхитителями и восстановленными стражами.',10,46),
+ ('kalsunor','canyon_rim_landing','Посадочная площадка над каньоном','Грузовые опоры закреплены на широком каменном уступе. У дальних складов налётчики следят за небольшими экспедициями.',1,1),
+ ('kalsunor','narrow_ravine_tracks','Тропы узких расселин','Проходы петляют между высокими стенами и нависающими плитами. Небольшие хищники используют тесные участки для засад.',2,6),
+ ('kalsunor','abandoned_survey_camp','Покинутая разведочная стоянка','Старые модули стоят на площадке между каменными грядами. Расхитители разбирают оборудование, а неисправные часовые продолжают патрулировать лагерь.',3,11),
+ ('kalsunor','rock_shelter_chain','Цепь скальных укрытий','Глубокие ниши соединены узкими уступами над каньоном. Среди звериных логовищ встречаются тайники похитителей экспедиционных запасов.',4,16),
+ ('kalsunor','broken_supply_terraces','Разбитые складские террасы','Обломки старых площадок выступают из стен ущелья. Налётчики удерживают уцелевшие склады и восстанавливают оставленную охранную технику.',5,21),
+ ('kalsunor','outer_watchstations','Внешние наблюдательные посты','Неиспользуемые посты следят за широкими проходами в глубине каньонов. Расхитители заняли укреплённые помещения, откуда удобно наблюдать за крупными зверями.',6,26),
+ ('kalsunor','warbeast_canyon','Каньон боевых зверей','Широкое дно ущелья покрыто следами огромных существ. Потомки древних боевых зверей удерживают просторные участки, вытесняя мелких хищников к стенам.',7,31),
+ ('kalsunor','deep_canyon_shelves','Уступы глубокого каньона','Каменные полки спускаются к удалённым впадинам. Расхитители ищут старые склады, стараясь не приближаться к кормовым участкам боевых зверей.',8,36),
+ ('kalsunor','buried_defense_yards','Заваленные оборонительные дворы','Осыпь частично скрыла древние укрепления в глубине ущелья. Среди широких проходов бродят огромные звери, а на верхних площадках действуют сбойные часовые.',9,41),
+ ('kalsunor','great_beast_hollow','Лощина огромных зверей','Высокие стены замыкают просторный участок глубокого каньона. Здесь обосновались особенно опасные боевые звери, к чьим владениям ведут редкие узкие тропы.',10,46),
+ ('korriz','industrial_supply_landing','Промышленная площадка снабжения','Грузовые пути расходятся к литейным и ремесленным районам Корриза. В стороне от рабочих маршрутов похитители вскрывают контейнеры со сплавами.',1,1),
+ ('korriz','old_metal_depots','Старые склады металла','Ряды закрытых ангаров хранят остатки сырья и оборудования. Налётчики охраняют незаконные запасы вместе с переделанными рабочими машинами.',2,6),
+ ('korriz','abandoned_foundry_yards','Покинутые литейные дворы','Остановленные линии окружены формами и тяжёлыми грузовыми стойками. Неисправные кузнечные дроиды продолжают работу у пустых производственных участков.',3,11),
+ ('korriz','workshop_service_passages','Служебные проходы мастерских','Крытые переходы связывают старые промышленные корпуса. Подпольные оружейники перевозят через них материалы и готовые заказы.',4,16),
+ ('korriz','sealed_tool_storehouses','Закрытые хранилища инструментов','Усиленные двери скрывают оборудование заброшенных мастерских. Вооружённые разборщики удерживают вскрытые помещения и взломанную охрану.',5,21),
+ ('korriz','illicit_forging_halls','Подпольные кузнечные залы','В старых корпусах снова работают формовочные станки и нагревательные установки. Незаконные мастера охраняют производство оружия и украденные чертежи.',6,26),
+ ('korriz','industrial_pattern_archive','Архив промышленных образцов','Закрытые комнаты содержат старые схемы и образцы сплавов. Подпольные оружейники удерживают архив, защищая доступ к полезным технологиям.',7,31),
+ ('korriz','automaton_maintenance_depot','База обслуживания автоматов','Сервисные боксы окружают площадку проверки тяжёлых машин. Преступники переделывают здесь рабочих дроидов и охрану для нелегальных мастерских.',8,36),
+ ('korriz','seized_weapons_storehouse','Захваченный оружейный склад','Несколько рядов ворот отделяют тайные запасы от старых грузовых путей. Вооружённые хозяева контролируют проходы вместе с взломанными стражами.',9,41),
+ ('korriz','hidden_forge_compound','Тайный кузнечный комплекс','Замкнутые производственные дворы заняты крупной подпольной мастерской. Здесь собраны украденные материалы, оружейные разработки и переделанная автоматика.',10,46),
+ ('upekzar','coastal_landing','Прибрежная посадочная площадка','Небольшой терминал стоит между морем и зелёными склонами. У дальних складов скрываются похитители припасов исследовательских групп.',1,1),
+ ('upekzar','rainforest_paths','Тропы влажного леса','Густая растительность окружает пути к старым стоянкам. Хищники подстерегают добычу у ручьёв и закрытых боковых проходов.',2,6),
+ ('upekzar','wooded_foothills','Лесистые предгорья','Покрытые деревьями склоны поднимаются от побережья к каменным грядам. Среди естественных укрытий встречаются звериные логова и тайники расхитителей.',3,11),
+ ('upekzar','old_supply_camp','Старый экспедиционный лагерь','Пустые модули окружают расчищенную площадку у горной тропы. Незаконные искатели древностей заняли склады и восстановили часть охранной техники.',4,16),
+ ('upekzar','volcanic_rock_pass','Проход вулканических скал','Тёмные каменные уступы разделены узкими переходами. Расхитители охраняют пути к старым сооружениям, избегая хищников у лесной границы.',5,21),
+ ('upekzar','abandoned_stone_courts','Покинутые каменные дворы','Растительность заполнила промежутки между древними постройками. Искатели реликвий удерживают найденные проходы, а старые стражи патрулируют закрытые участки.',6,26),
+ ('upekzar','coastal_cave_mouths','Входы в прибрежные пещеры','Вулканические полости открываются над каменным берегом. В тёмных боковых ходах обитают опасные колонии пещерных хищников.',7,31),
+ ('upekzar','outer_ritual_galleries','Внешние обрядовые галереи','Каменные переходы ведут к одному из прибрежных участков Круга Видений. Расхитители пробираются между старыми стражами и населёнными пещерными ходами.',8,36),
+ ('upekzar','deep_lava_tunnels','Глубокие лавовые тоннели','Давно остывшие вулканические ходы уходят под каменные площадки. Пещерные хищники занимают просторные камеры и узкие проходы между ними.',9,41),
+ ('upekzar','old_ritual_enclosure','Древняя обрядовая ограда','Каменные стены окружают площадки у входов в глубокие пещеры. Расхитители удерживают уцелевшие сооружения, пока механическая охрана и пещерные звери преграждают остальные пути.',10,46)
+) AS v(planet_code,code,name,description,position,recommended_level) JOIN planets p ON p.code=v.planet_code
+ON CONFLICT (planet_id,code) DO NOTHING;
+
+-- Three placements per location; two normal slots and one each of strong/elite.
+INSERT INTO location_npcs(location_id,npc_template_id,code,position,level,rank)
+SELECT l.id,t.id,r.code,r.position,LEAST(l.recommended_level+r.level_offset,(SELECT max(level) FROM levels)),r.rank
+FROM (VALUES
+ ('caamas','marsh_landing','caamas_supply_raider','caamas_survey_droid','caamas_supply_raider'),
+ ('caamas','rainforest_trails','caamas_poacher','caamas_marsh_hunter','caamas_poacher'),
+ ('caamas','reed_causeways','caamas_marsh_hunter','caamas_survey_droid','caamas_marsh_hunter'),
+ ('caamas','steppe_caravan_route','caamas_supply_raider','caamas_survey_droid','caamas_supply_raider'),
+ ('caamas','flooded_storehouses','caamas_supply_raider','caamas_marsh_hunter','caamas_poacher'),
+ ('caamas','overgrown_field_station','caamas_survey_droid','caamas_poacher','caamas_survey_droid'),
+ ('caamas','poacher_capture_yard','caamas_poacher','caamas_supply_raider','caamas_poacher'),
+ ('caamas','hilltop_supply_post','caamas_supply_raider','caamas_survey_droid','caamas_poacher'),
+ ('caamas','hidden_marsh_docks','caamas_supply_raider','caamas_poacher','caamas_marsh_hunter'),
+ ('caamas','seized_research_compound','caamas_poacher','caamas_supply_raider','caamas_survey_droid'),
+ ('esseles','seaside_landing','esseles_cargo_raider','rogue_loader','esseles_service_droid'),
+ ('esseles','old_city_quays','esseles_cargo_raider','esseles_service_droid','esseles_art_smuggler'),
+ ('esseles','artisan_backstreets','esseles_art_smuggler','esseles_service_droid','esseles_art_smuggler'),
+ ('esseles','volcanic_ridge_road','esseles_cargo_raider','esseles_service_droid','esseles_cargo_raider'),
+ ('esseles','closed_cultural_storehouses','esseles_art_smuggler','esseles_vault_guardian','esseles_art_smuggler'),
+ ('esseles','mountain_service_tunnels','esseles_cargo_raider','esseles_service_droid','esseles_art_smuggler'),
+ ('esseles','abandoned_cargo_lifts','esseles_service_droid','esseles_cargo_raider','esseles_service_droid'),
+ ('esseles','illicit_restoration_halls','esseles_art_smuggler','esseles_service_droid','esseles_vault_guardian'),
+ ('esseles','sealed_collection_galleries','esseles_art_smuggler','esseles_vault_guardian','esseles_vault_guardian'),
+ ('esseles','smugglers_cliff_estate','esseles_cargo_raider','esseles_art_smuggler','esseles_vault_guardian'),
+ ('rhinnal','cold_supply_landing','rhinnal_supply_thief','rhinnal_service_droid','rhinnal_supply_thief'),
+ ('rhinnal','evergreen_margins','rhinnal_ice_stalker','rhinnal_supply_thief','rhinnal_ice_stalker'),
+ ('rhinnal','frozen_river_road','rhinnal_supply_thief','rhinnal_service_droid','rhinnal_service_droid'),
+ ('rhinnal','medical_freight_yards','rhinnal_supply_thief','rhinnal_service_droid','rhinnal_security_droid'),
+ ('rhinnal','glacier_foothills','rhinnal_ice_stalker','rhinnal_supply_thief','rhinnal_ice_stalker'),
+ ('rhinnal','closed_climate_station','rhinnal_service_droid','rhinnal_supply_thief','rhinnal_service_droid'),
+ ('rhinnal','abandoned_textile_storehouses','rhinnal_supply_thief','rhinnal_service_droid','rhinnal_security_droid'),
+ ('rhinnal','highland_service_pass','rhinnal_supply_thief','rhinnal_security_droid','rhinnal_security_droid'),
+ ('rhinnal','sealed_supply_archive','rhinnal_supply_thief','rhinnal_security_droid','rhinnal_supply_thief'),
+ ('rhinnal','seized_medical_depot','rhinnal_supply_thief','rhinnal_service_droid','rhinnal_security_droid'),
+ ('corulag','urban_cargo_landing','corulag_cargo_hijacker','rogue_loader','corulag_cargo_hijacker'),
+ ('corulag','bamboo_outskirts','corulag_bamboo_stalker','corulag_cargo_hijacker','corulag_bamboo_stalker'),
+ ('corulag','service_magistrals','corulag_cargo_hijacker','corulag_security_droid','corulag_cargo_hijacker'),
+ ('corulag','old_exhibition_pavilions','corulag_data_thief','corulag_cargo_hijacker','corulag_security_droid'),
+ ('corulag','forest_detour','corulag_bamboo_stalker','corulag_cargo_hijacker','corulag_bamboo_stalker'),
+ ('corulag','technical_warehouse_rows','corulag_cargo_hijacker','corulag_security_droid','corulag_data_thief'),
+ ('corulag','closed_data_station','corulag_data_thief','corulag_security_droid','corulag_data_thief'),
+ ('corulag','illicit_luxury_workshops','corulag_cargo_hijacker','corulag_data_thief','corulag_security_droid'),
+ ('corulag','seized_research_annex','corulag_data_thief','corulag_security_droid','corulag_data_thief'),
+ ('corulag','hidden_corporate_compound','corulag_cargo_hijacker','corulag_data_thief','corulag_security_droid'),
+ ('ashas_ree','jungle_supply_landing','ashas_ree_relic_raider','ashas_ree_jungle_stalker','ashas_ree_relic_raider'),
+ ('ashas_ree','rootbound_tracks','ashas_ree_jungle_stalker','ashas_ree_relic_raider','ashas_ree_jungle_stalker'),
+ ('ashas_ree','rocky_forest_gaps','ashas_ree_jungle_stalker','ashas_ree_relic_raider','ashas_ree_jungle_stalker'),
+ ('ashas_ree','overgrown_supply_yards','ashas_ree_relic_raider','ashas_ree_sentinel_droid','ashas_ree_relic_raider'),
+ ('ashas_ree','ancient_stone_road','ashas_ree_relic_raider','ashas_ree_jungle_stalker','ashas_ree_sentinel_droid'),
+ ('ashas_ree','hidden_relic_camp','ashas_ree_relic_raider','ashas_ree_sentinel_droid','ashas_ree_renegade'),
+ ('ashas_ree','ruined_watchterraces','ashas_ree_relic_raider','ashas_ree_sentinel_droid','ashas_ree_sentinel_droid'),
+ ('ashas_ree','sealed_stone_galleries','ashas_ree_renegade','ashas_ree_relic_raider','ashas_ree_sentinel_droid'),
+ ('ashas_ree','jungle_redoubt','ashas_ree_relic_raider','ashas_ree_sentinel_droid','ashas_ree_renegade'),
+ ('ashas_ree','renegade_stone_refuge','ashas_ree_renegade','ashas_ree_sentinel_droid','ashas_ree_renegade'),
+ ('kalsunor','canyon_rim_landing','kalsunor_salvage_raider','kalsunor_canyon_stalker','kalsunor_sentry_droid'),
+ ('kalsunor','narrow_ravine_tracks','kalsunor_canyon_stalker','kalsunor_salvage_raider','kalsunor_canyon_stalker'),
+ ('kalsunor','abandoned_survey_camp','kalsunor_salvage_raider','kalsunor_sentry_droid','kalsunor_salvage_raider'),
+ ('kalsunor','rock_shelter_chain','kalsunor_canyon_stalker','kalsunor_salvage_raider','kalsunor_canyon_stalker'),
+ ('kalsunor','broken_supply_terraces','kalsunor_salvage_raider','kalsunor_sentry_droid','kalsunor_sentry_droid'),
+ ('kalsunor','outer_watchstations','kalsunor_salvage_raider','kalsunor_sentry_droid','kalsunor_salvage_raider'),
+ ('kalsunor','warbeast_canyon','kalsunor_canyon_stalker','kalsunor_silooth','kalsunor_silooth'),
+ ('kalsunor','deep_canyon_shelves','kalsunor_salvage_raider','kalsunor_sentry_droid','kalsunor_silooth'),
+ ('kalsunor','buried_defense_yards','kalsunor_sentry_droid','kalsunor_salvage_raider','kalsunor_silooth'),
+ ('kalsunor','great_beast_hollow','kalsunor_canyon_stalker','kalsunor_silooth','kalsunor_silooth'),
+ ('korriz','industrial_supply_landing','korriz_metal_raider','rogue_loader','korriz_forge_droid'),
+ ('korriz','old_metal_depots','korriz_metal_raider','korriz_forge_droid','korriz_illicit_smith'),
+ ('korriz','abandoned_foundry_yards','korriz_forge_droid','korriz_metal_raider','korriz_forge_droid'),
+ ('korriz','workshop_service_passages','korriz_metal_raider','korriz_forge_droid','korriz_illicit_smith'),
+ ('korriz','sealed_tool_storehouses','korriz_metal_raider','korriz_workshop_guardian','korriz_workshop_guardian'),
+ ('korriz','illicit_forging_halls','korriz_illicit_smith','korriz_forge_droid','korriz_workshop_guardian'),
+ ('korriz','industrial_pattern_archive','korriz_illicit_smith','korriz_workshop_guardian','korriz_illicit_smith'),
+ ('korriz','automaton_maintenance_depot','korriz_forge_droid','korriz_illicit_smith','korriz_workshop_guardian'),
+ ('korriz','seized_weapons_storehouse','korriz_illicit_smith','korriz_workshop_guardian','korriz_workshop_guardian'),
+ ('korriz','hidden_forge_compound','korriz_metal_raider','korriz_illicit_smith','korriz_workshop_guardian'),
+ ('upekzar','coastal_landing','upekzar_relic_raider','upekzar_forest_stalker','upekzar_relic_raider'),
+ ('upekzar','rainforest_paths','upekzar_forest_stalker','upekzar_relic_raider','upekzar_forest_stalker'),
+ ('upekzar','wooded_foothills','upekzar_forest_stalker','upekzar_relic_raider','upekzar_forest_stalker'),
+ ('upekzar','old_supply_camp','upekzar_relic_raider','upekzar_sentry_droid','upekzar_relic_raider'),
+ ('upekzar','volcanic_rock_pass','upekzar_relic_raider','upekzar_forest_stalker','upekzar_sentry_droid'),
+ ('upekzar','abandoned_stone_courts','upekzar_relic_raider','upekzar_sentry_droid','upekzar_sentry_droid'),
+ ('upekzar','coastal_cave_mouths','upekzar_rhak_skuri','upekzar_relic_raider','upekzar_rhak_skuri'),
+ ('upekzar','outer_ritual_galleries','upekzar_relic_raider','upekzar_sentry_droid','upekzar_rhak_skuri'),
+ ('upekzar','deep_lava_tunnels','upekzar_rhak_skuri','upekzar_rhak_skuri','upekzar_rhak_skuri'),
+ ('upekzar','old_ritual_enclosure','upekzar_relic_raider','upekzar_sentry_droid','upekzar_rhak_skuri')
+) AS v(planet_code,location_code,normal_template,strong_template,elite_template)
+JOIN planets p ON p.code=v.planet_code
+JOIN locations l ON l.planet_id=p.id AND l.code=v.location_code
+CROSS JOIN LATERAL (VALUES
+ ('normal',1,0,'normal',v.normal_template),
+ ('strong',2,2,'strong',v.strong_template),
+ ('elite',3,4,'elite',v.elite_template)
+) AS r(code,position,level_offset,rank,template_code)
+JOIN npc_templates t ON t.code=r.template_code
+ON CONFLICT (location_id,code) DO NOTHING;
+
+INSERT INTO npc_spawns(location_npc_id,slot)
+SELECT n.id,slots.slot FROM location_npcs n
+JOIN locations l ON l.id=n.location_id
+JOIN planets p ON p.id=l.planet_id
+CROSS JOIN LATERAL generate_series(1,CASE n.code WHEN 'normal' THEN 2 ELSE 1 END) AS slots(slot)
+WHERE p.code IN ('caamas','esseles','rhinnal','corulag','ashas_ree','kalsunor','korriz','upekzar') AND n.code IN ('normal','strong','elite')
+ON CONFLICT (location_npc_id,slot) DO NOTHING;

@@ -11,14 +11,15 @@ type PathFor<M extends Method> = {
 type JSONBody<T> = T extends { content: { 'application/json': infer Body } } ? Body : never
 type HeaderOptions<Operation> = Operation extends { parameters: { header?: infer Headers } }
   ? { headers?: Headers } : { headers?: never }
-type QueryOptions<Operation> = Operation extends { parameters: { query?: infer Query } }
-  ? { query?: Query } : { query?: never }
+type QueryOptions<Operation> = Operation extends { parameters: { query: infer Query } }
+  ? { query: Query }
+  : Operation extends { parameters: { query?: infer Query } } ? { query?: Query } : { query?: never }
 type RequestOptions<Operation> = { signal?: AbortSignal } & HeaderOptions<Operation> & QueryOptions<Operation> & (
   Operation extends { requestBody: infer Body } ? { body: JSONBody<Body> }
     : Operation extends { requestBody?: infer Body } ? { body?: JSONBody<NonNullable<Body>> }
       : { body?: never }
 )
-type RequestArgs<Operation> = Operation extends { requestBody: unknown }
+type RequestArgs<Operation> = Operation extends { requestBody: unknown } | { parameters: { query: unknown } }
   ? [options: RequestOptions<Operation>]
   : [options?: RequestOptions<Operation>]
 type SuccessStatus<Responses> = {

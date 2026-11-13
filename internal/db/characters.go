@@ -95,21 +95,21 @@ func authenticateCharacterActor(ctx context.Context, tx pgx.Tx, actor character.
 	return nil
 }
 
-const characterColumns = `id,name,faction_id,class_id,role,level,experience,avatar,hp,mp,hp_current,mp_current,hp_updated_at,mp_updated_at,clock_timestamp(),location_id`
+const characterColumns = `id,name,faction_id,class_id,role,level,experience,avatar,hp,mp,hp_current,mp_current,hp_updated_at,mp_updated_at,clock_timestamp(),location_id,hp_regen_remainder,mp_regen_remainder`
 
 func scanCharacter(row pgx.Row) (*character.Character, error) {
 	c := &character.Character{}
 	recovery := &c.Regeneration
 	err := row.Scan(&c.ID, &c.Name, &c.FactionID, &c.ClassID, &c.Role, &c.Level, &c.Experience, &c.Avatar, &c.HP, &c.MP, &c.HPCurrent, &c.MPCurrent,
-		&recovery.HPUpdatedAt, &recovery.MPUpdatedAt, &recovery.ObservedAt, &c.LocationID)
+		&recovery.HPUpdatedAt, &recovery.MPUpdatedAt, &recovery.ObservedAt, &c.LocationID, &recovery.HPRemainder, &recovery.MPRemainder)
 	if err != nil {
 		return nil, err
 	}
 	recovery.HPBaseline, recovery.MPBaseline = c.HPCurrent, c.MPCurrent
 	recovery.HPFullRestoreMS = character.HealthRecoveryPeriod.Milliseconds()
 	recovery.MPFullRestoreMS = character.EnergyRecoveryPeriod.Milliseconds()
-	c.HPCurrent = character.RecoverResource(recovery.HPBaseline, c.HP, recovery.HPUpdatedAt, recovery.ObservedAt, character.HealthRecoveryPeriod)
-	c.MPCurrent = character.RecoverResource(recovery.MPBaseline, c.MP, recovery.MPUpdatedAt, recovery.ObservedAt, character.EnergyRecoveryPeriod)
+	c.HPCurrent, _ = character.RecoverResourceWithRemainder(recovery.HPBaseline, c.HP, recovery.HPRemainder, recovery.HPUpdatedAt, recovery.ObservedAt, character.HealthRecoveryPeriod)
+	c.MPCurrent, _ = character.RecoverResourceWithRemainder(recovery.MPBaseline, c.MP, recovery.MPRemainder, recovery.MPUpdatedAt, recovery.ObservedAt, character.EnergyRecoveryPeriod)
 	return c, nil
 }
 

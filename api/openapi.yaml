@@ -628,6 +628,210 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/Unavailable' }
+  /api/battles/current:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: currentBattle
+      tags: [Combat]
+      summary: Read the selected character and their active battle
+      description: Read-only consistent snapshot. A battle survives logout and character selection changes. Lost planet access does not prevent reading an owned battle. NPC actions run independently in the server worker.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: character_id
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+      responses:
+        '200':
+          description: Character resources and active battle, or null when no battle is active
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BattleState' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/battles/start:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    post:
+      operationId: startBattle
+      tags: [Combat]
+      summary: Start an encounter with a shared NPC
+      description: Checks session, selected character, source location, planet access and NPC availability under locks. Rules and timers are fixed on the server. Retrying the same request_key and target returns the original encounter.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BattleStartRequest' }
+      responses:
+        '200':
+          description: Authoritative character and encounter state
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BattleResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/battles/use:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    post:
+      operationId: useBattleAbility
+      tags: [Combat]
+      summary: Use a learned ability in an owned encounter
+      description: Applies due NPC actions first, then checks energy and cooldowns. Rejected uses still commit due NPC actions. A successful request_key is applied once; reusing it for a different ability conflicts. Damage, healing, rewards and deadlines cannot be supplied by the client.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BattleUseRequest' }
+      responses:
+        '200':
+          description: Authoritative character and encounter state
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BattleResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/battles/retreat:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    post:
+      operationId: retreatBattle
+      tags: [Combat]
+      summary: Retreat from an owned encounter
+      description: Applies due NPC actions first; a lethal hit takes precedence. Retreat fully restores and releases the NPC, preserving player resources and cooldowns. Repeated retreat on an ended battle is harmless. Planet access is not required.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BattleRetreatRequest' }
+      responses:
+        '200':
+          description: Authoritative character and encounter state
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BattleResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/battles/detail:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: battleDetail
+      tags: [Combat]
+      summary: Read an owned encounter and its event journal
+      description: Read-only consistent snapshot, including ended battles. Returns up to 50 events after after_sequence; next_after is the cursor for the next page or null. When log_cleared_at is set, events contains only the retained final event regardless of after_sequence, next_after is null, and clients must replace cached history. Planet access is not required.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: battle_id
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/BattleID' }
+        - name: character_id
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        - name: after_sequence
+          in: query
+          description: Last received event sequence; omit to read from the beginning. An explicit empty value is invalid.
+          schema: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+      responses:
+        '200':
+          description: Authoritative character and encounter state
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BattleDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/abilities:
+    parameters:
+      - $ref: '#/components/parameters/ExpectedAccount'
+    get:
+      operationId: characterAbilities
+      tags: [Abilities]
+      summary: Read learned abilities and current readiness for the selected character
+      description: Only learned abilities available to the character's class are returned. Reading never spends resources or starts cooldowns. Casting uses the combat API.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: character_id
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+      responses:
+        '200':
+          description: Learned abilities with one consistent character resource snapshot
+          headers:
+            Cache-Control: { $ref: '#/components/headers/NoStore' }
+            X-Request-ID: { $ref: '#/components/headers/RequestID' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AbilityLoadout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
   /api/npcs:
     parameters:
       - $ref: '#/components/parameters/ExpectedAccount'
@@ -635,7 +839,7 @@ paths:
       operationId: locationNPCs
       tags: [NPCs]
       summary: List shared NPC instances in the selected character's current location
-      description: Reads never create instances or change position. The character must still occupy the requested location and retain access to its planet. Combat actions are a separate future API.
+      description: Reads never create instances or change position. Occupied instances and NPCs waiting for respawn are hidden. The character must still occupy the requested location and retain access to its planet. Combat actions use the separate combat API.
       security:
         - sessionCookie: []
       parameters:
@@ -1367,6 +1571,39 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/Unavailable'
+  /api/battles/events:
+    get:
+      operationId: combatEvents
+      tags: [Combat]
+      description: >-
+        WebSocket upgrade requiring an allowed Origin, account_id, selected character_id and session cookie.
+        Text frames contain {"type":"changed"} only for that character after committed combat changes.
+        Reconnecting clients fetch HTTP snapshots. Selection and session are rechecked before notifications.
+        Single-process delivery; clients also reconcile periodically while visible.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        - name: character_id
+          in: query
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+      responses:
+        '101':
+          description: WebSocket connection accepted
+        '426':
+          description: WebSocket Upgrade headers required
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/Unavailable' }
   /api/chat/events:
     get:
       operationId: chatEvents
@@ -1626,6 +1863,16 @@ components:
             - chat_banned
             - character_required
             - character_changed
+            - character_in_battle
+            - npc_unavailable
+            - combat_conflict
+            - battle_not_found
+            - battle_finished
+            - character_defeated
+            - ability_unavailable
+            - ability_cooldown
+            - global_cooldown
+            - insufficient_energy
             - position_changed
             - world_access_denied
             - planet_changed
@@ -1672,10 +1919,12 @@ components:
         are projected from these anchors; reads never reset fractional recovery.
         Durations describe full 0-to-maximum recovery. For display only; the server
         calculates authoritative values independently of the browser clock.
-      required: [hp_baseline, mp_baseline, hp_updated_at, mp_updated_at, observed_at, hp_full_restore_ms, mp_full_restore_ms]
+      required: [hp_baseline, mp_baseline, hp_remainder, mp_remainder, hp_updated_at, mp_updated_at, observed_at, hp_full_restore_ms, mp_full_restore_ms]
       properties:
         hp_baseline: { type: integer, minimum: 0 }
         mp_baseline: { type: integer, minimum: 0 }
+        hp_remainder: { type: integer, minimum: 0, maximum: 299999, description: Fractional recovery numerator; denominator is hp_full_restore_ms. }
+        mp_remainder: { type: integer, minimum: 0, maximum: 59999, description: Fractional recovery numerator; denominator is mp_full_restore_ms. }
         hp_updated_at: { type: string, format: date-time }
         mp_updated_at: { type: string, format: date-time }
         observed_at: { type: string, format: date-time }
@@ -1728,6 +1977,174 @@ components:
       description: Exact nonnegative integer, at most 9223372036854775807.
       pattern: '^(0|[1-9][0-9]{0,18})$'
       maxLength: 19
+    BattleState:
+      type: object
+      additionalProperties: false
+      required: [character, battle]
+      properties:
+        character: { $ref: '#/components/schemas/Character' }
+        battle: { $ref: '#/components/schemas/CurrentBattle' }
+    CurrentBattle:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [id, character_id, location_id, status, npc, created_at, ended_at]
+      properties:
+        id:
+          type: string
+          pattern: '^[1-9][0-9]{0,18}$'
+          maxLength: 19
+          description: Exact positive BIGINT identifier; never a JavaScript number.
+        character_id: { type: integer, format: int32, minimum: 1 }
+        location_id: { type: integer, format: int32, minimum: 1 }
+        status: { type: string, enum: [active, retreated, defeated, won, expired] }
+        npc: { $ref: '#/components/schemas/BattleOpponent' }
+        created_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+    BattleID:
+      type: string
+      pattern: '^[1-9][0-9]{0,18}$'
+      maxLength: 19
+      description: Exact positive BIGINT identifier, at most 9223372036854775807; never a JavaScript number.
+    BattleRequestKey:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9:._/-]*$'
+      description: Stable client-generated action key; use the same key when retrying the same action.
+    Battle:
+      type: object
+      additionalProperties: false
+      required: [id, character_id, location_id, status, npc, created_at, ended_at]
+      properties:
+        id: { $ref: '#/components/schemas/BattleID' }
+        character_id: { type: integer, format: int32, minimum: 1 }
+        location_id: { type: integer, format: int32, minimum: 1 }
+        status: { type: string, enum: [active, retreated, defeated, won, expired] }
+        npc: { $ref: '#/components/schemas/BattleOpponent' }
+        created_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+    BattleStartRequest:
+      type: object
+      additionalProperties: false
+      required: [character_id, location_id, npc_spawn_id, request_key]
+      properties:
+        character_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        location_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        npc_spawn_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        request_key: { $ref: '#/components/schemas/BattleRequestKey' }
+    BattleUseRequest:
+      type: object
+      additionalProperties: false
+      required: [battle_id, character_id, ability_id, request_key]
+      properties:
+        battle_id: { $ref: '#/components/schemas/BattleID' }
+        character_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        ability_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        request_key: { $ref: '#/components/schemas/BattleRequestKey' }
+    BattleRetreatRequest:
+      type: object
+      additionalProperties: false
+      required: [battle_id, character_id]
+      properties:
+        battle_id: { $ref: '#/components/schemas/BattleID' }
+        character_id: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+    BattleResult:
+      type: object
+      additionalProperties: false
+      required: [character, battle, replayed, event_sequence]
+      properties:
+        character: { $ref: '#/components/schemas/Character' }
+        battle: { $ref: '#/components/schemas/Battle' }
+        replayed: { type: boolean }
+        event_sequence:
+          type: integer
+          minimum: 1
+          description: Sequence of the accepted action, or the original action on replay.
+    BattleDetail:
+      type: object
+      additionalProperties: false
+      required: [character, battle, next_action_at, expires_at, events, next_after, log_cleared_at]
+      properties:
+        character: { $ref: '#/components/schemas/Character' }
+        battle: { $ref: '#/components/schemas/Battle' }
+        next_action_at: { type: string, format: date-time, nullable: true }
+        expires_at: { type: string, format: date-time }
+        log_cleared_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When set, detailed history has expired; events replaces cached history with the retained outcome.
+        events:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/BattleEvent' }
+        next_after: { type: integer, format: int32, minimum: 1, nullable: true }
+    BattleEvent:
+      type: object
+      additionalProperties: false
+      required: [sequence, kind, actor, ability_code, ability_name, damage, healing, character_hp, character_mp, npc_hp, experience, credits, occurred_at]
+      properties:
+        sequence: { type: integer, format: int32, minimum: 1 }
+        kind: { type: string, enum: [started, npc_ability, player_ability, won, retreated, defeated, expired] }
+        actor: { type: string, enum: [player, npc, system] }
+        ability_code: { type: string }
+        ability_name: { type: string }
+        damage: { type: integer, format: int32, minimum: 0 }
+        healing: { type: integer, format: int32, minimum: 0 }
+        character_hp: { type: integer, format: int32, minimum: 0 }
+        character_mp: { type: integer, format: int32, minimum: 0 }
+        npc_hp: { type: integer, format: int32, minimum: 0 }
+        experience: { $ref: '#/components/schemas/CurrencyBalance' }
+        credits: { $ref: '#/components/schemas/CurrencyBalance' }
+        occurred_at: { type: string, format: date-time }
+    BattleOpponent:
+      type: object
+      additionalProperties: false
+      required: [npc_spawn_id, npc_template_id, name, level, rank, hp, hp_current]
+      properties:
+        npc_spawn_id: { type: integer, format: int32, minimum: 1 }
+        npc_template_id: { type: integer, format: int32, minimum: 1 }
+        name: { type: string }
+        level: { type: integer, minimum: 1 }
+        rank: { type: string, enum: [normal, strong, elite] }
+        hp: { type: integer, format: int32, minimum: 1 }
+        hp_current: { type: integer, format: int32, minimum: 0 }
+    AbilityLoadout:
+      type: object
+      additionalProperties: false
+      required: [character, observed_at, global_ready_at, global_cooldown_ms, abilities]
+      properties:
+        character: { $ref: '#/components/schemas/Character' }
+        observed_at: { type: string, format: date-time }
+        global_ready_at: { type: string, format: date-time, nullable: true }
+        global_cooldown_ms: { type: integer, minimum: 0 }
+        abilities:
+          type: array
+          items: { $ref: '#/components/schemas/LearnedAbility' }
+    LearnedAbility:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, description, icon, damage, heal, mp_cost, cooldown_ms, ready_at, availability]
+      properties:
+        id: { type: integer, format: int32, minimum: 1 }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        icon: { type: string, nullable: true }
+        damage:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Base damage amount; combat applies attacker and target formulas.
+        heal: { type: integer, format: int32, minimum: 0, description: Base healing amount. }
+        mp_cost: { type: integer, format: int32, minimum: 0 }
+        cooldown_ms: { type: integer, minimum: 0, maximum: 86400000 }
+        ready_at: { type: string, format: date-time, nullable: true }
+        availability:
+          type: string
+          enum: [ready, cooldown, global_cooldown, insufficient_energy, defeated]
+          description: Readiness at observed_at, rechecked by the server on use; ready does not imply a valid combat target.
     WalletBalances:
       type: object
       additionalProperties: false

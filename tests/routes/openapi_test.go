@@ -20,8 +20,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	openapirouters "github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/legacy"
+	"gotest/internal/ability"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/forum"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
@@ -139,6 +141,7 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 	lifecycle, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	hub := realtime.New(lifecycle, a, "http://localhost:5173")
+	combatHub := realtime.NewCharacterHub(lifecycle, a, "http://localhost:5173")
 	c := &contractCharacters{characterStub: characterStub{err: tc.characterErr}, empty: tc.empty, populated: tc.filled}
 	limit := 1000
 	if tc.limited {
@@ -148,11 +151,14 @@ func contractServer(t *testing.T, tc contractCase) *httptest.Server {
 		StaticDir: t.TempDir(), AuthLimit: limit, TrustedOrigin: "http://localhost:5173",
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Social: handlers.NewSocialHandler(&socialStub{filled: tc.filled}, hub.Notify), ChatEvents: hub.ServeHTTP, Lifecycle: lifecycle,
-		Forum:    handlers.NewForumHandler(forum.NewService(&forumStub{filled: tc.filled})),
-		Presence: handlers.NewPresenceHandler(presence.NewService(&presenceStub{filled: tc.filled, err: tc.characterErr})),
-		World:    handlers.NewWorldHandler(world.NewService(&worldStub{empty: tc.empty, err: tc.characterErr})),
-		NPC:      handlers.NewNPCHandler(npc.NewService(&npcStub{empty: tc.empty, err: tc.characterErr})),
-		Wallet:   handlers.NewWalletHandler(wallet.NewService(&walletStub{empty: tc.empty, err: tc.characterErr})),
+		Forum:        handlers.NewForumHandler(forum.NewService(&forumStub{filled: tc.filled})),
+		Presence:     handlers.NewPresenceHandler(presence.NewService(&presenceStub{filled: tc.filled, err: tc.characterErr})),
+		World:        handlers.NewWorldHandler(world.NewService(&worldStub{empty: tc.empty, err: tc.characterErr})),
+		NPC:          handlers.NewNPCHandler(npc.NewService(&npcStub{empty: tc.empty, err: tc.characterErr})),
+		Wallet:       handlers.NewWalletHandler(wallet.NewService(&walletStub{empty: tc.empty, err: tc.characterErr})),
+		Abilities:    handlers.NewAbilityHandler(ability.NewService(&abilityStub{empty: tc.empty, filled: tc.filled, err: tc.characterErr})),
+		Combat:       handlers.NewCombatHandler(combat.NewService(&combatStub{empty: tc.empty, err: tc.characterErr})),
+		CombatEvents: combatHub.ServeHTTP,
 		Ready: func(context.Context) error {
 			if tc.notReady {
 				return errors.New("database offline")
@@ -283,6 +289,17 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "world travel", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, status: 200},
 		{name: "world locations", method: "GET", path: "/api/world/locations?character_id=10&planet_id=1", status: 200},
 		{name: "NPC instances", method: "GET", path: "/api/npcs?character_id=10&location_id=7", status: 200},
+		{name: "learned abilities", method: "GET", path: "/api/abilities?character_id=10", status: 200},
+		{name: "abilities on cooldown", method: "GET", path: "/api/abilities?character_id=10", filled: true, status: 200},
+		{name: "empty abilities", method: "GET", path: "/api/abilities?character_id=10", empty: true, status: 200},
+		{name: "current battle bigint string", method: "GET", path: "/api/battles/current?character_id=10", status: 200},
+		{name: "no current battle", method: "GET", path: "/api/battles/current?character_id=10", empty: true, status: 200},
+		{name: "start battle", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1"}`, status: 200},
+		{name: "use battle ability", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, status: 200},
+		{name: "replayed winning ability", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, empty: true, status: 200},
+		{name: "retreat battle", method: "POST", path: "/api/battles/retreat", body: `{"battle_id":"9007199254740993","character_id":10}`, status: 200},
+		{name: "battle events with cursor", method: "GET", path: "/api/battles/detail?battle_id=9007199254740993&character_id=10&after_sequence=1", status: 200},
+		{name: "ended battle empty page", method: "GET", path: "/api/battles/detail?battle_id=9007199254740993&character_id=10", empty: true, status: 200},
 		{name: "wallet exact bigint balances", method: "GET", path: "/api/wallet?character_id=10", status: 200},
 		{name: "wallet history strings and cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=9007199254740994", status: 200},
 		{name: "wallet empty history", method: "GET", path: "/api/wallet/history?character_id=10", empty: true, status: 200},
@@ -305,6 +322,7 @@ func TestOpenAPIOperations(t *testing.T) {
 		{name: "revoke ban", method: "POST", path: "/api/moderation/revoke", body: `{"ban_id":1,"reason":"Appeal"}`, status: 200},
 		{name: "moderation journal", method: "GET", path: "/api/moderation/actions", filled: true, status: 200},
 		{name: "chat events", method: "GET", path: "/api/chat/events?account_id=1", status: 101},
+		{name: "combat events", method: "GET", path: "/api/battles/events?account_id=1&character_id=10", filled: true, status: 101},
 		{name: "forum categories", method: "GET", path: "/api/forum/categories", status: 200},
 		{name: "forum empty category", method: "GET", path: "/api/forum/topics?category_id=2", status: 200},
 		{name: "forum topics and ban", method: "GET", path: "/api/forum/topics?category_id=2&cursor=p:5&include_hidden=true", filled: true, status: 200},
@@ -412,9 +430,52 @@ func TestOpenAPIErrorResponses(t *testing.T) {
 		{name: "world travel stale selection", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrCharacterChanged, status: 409},
 		{name: "world travel stale position", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrPositionChanged, status: 409},
 		{name: "world travel denied", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrAccessDenied, status: 403},
+		{name: "world travel during battle", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: combat.ErrInBattle, status: 409},
+		{name: "local move during battle", method: "POST", path: "/api/world/move", body: `{"character_id":10,"location_id":8,"from_location_id":7}`, characterErr: combat.ErrInBattle, status: 409},
 		{name: "world travel missing planet", method: "POST", path: "/api/world/travel", body: `{"character_id":10,"planet_id":1,"from_location_id":7}`, characterErr: world.ErrNotFound, status: 404},
 		{name: "locations missing planet", method: "GET", path: "/api/world/locations?character_id=10", invalidRequest: true, status: 400},
 		{name: "NPC missing location", method: "GET", path: "/api/npcs?character_id=10", invalidRequest: true, status: 400},
+		{name: "abilities missing character", method: "GET", path: "/api/abilities", invalidRequest: true, status: 400},
+		{name: "abilities invalid character", method: "GET", path: "/api/abilities?character_id=0", invalidRequest: true, status: 400},
+		{name: "abilities overflow character", method: "GET", path: "/api/abilities?character_id=2147483648", invalidRequest: true, status: 400},
+		{name: "abilities no cookie", method: "GET", path: "/api/abilities?character_id=10", noCookie: true, invalidRequest: true, status: 401},
+		{name: "abilities wrong account", method: "GET", path: "/api/abilities?character_id=10", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "abilities stale selection", method: "GET", path: "/api/abilities?character_id=10", characterErr: character.ErrSelectionChanged, status: 409},
+		{name: "abilities no selection", method: "GET", path: "/api/abilities?character_id=10", characterErr: character.ErrSelectionRequired, status: 409},
+		{name: "abilities revoked session", method: "GET", path: "/api/abilities?character_id=10", characterErr: character.ErrUnauthenticated, status: 401},
+		{name: "abilities storage failure", method: "GET", path: "/api/abilities?character_id=10", characterErr: failure, status: 500},
+		{name: "battle missing character", method: "GET", path: "/api/battles/current", invalidRequest: true, status: 400},
+		{name: "combat socket missing character", method: "GET", path: "/api/battles/events?account_id=1", headers: http.Header{"Origin": {"http://localhost:5173"}}, invalidRequest: true, status: 400},
+		{name: "combat socket foreign selection", method: "GET", path: "/api/battles/events?account_id=1&character_id=11", headers: http.Header{"Origin": {"http://localhost:5173"}}, filled: true, status: 409},
+		{name: "combat socket untrusted origin", method: "GET", path: "/api/battles/events?account_id=1&character_id=10", headers: http.Header{"Origin": {"https://evil.example"}}, filled: true, status: 403},
+		{name: "battle invalid character", method: "GET", path: "/api/battles/current?character_id=-1", invalidRequest: true, status: 400},
+		{name: "battle overflow character", method: "GET", path: "/api/battles/current?character_id=2147483648", invalidRequest: true, status: 400},
+		{name: "battle no cookie", method: "GET", path: "/api/battles/current?character_id=10", noCookie: true, invalidRequest: true, status: 401},
+		{name: "battle wrong account", method: "GET", path: "/api/battles/current?character_id=10", headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "battle no selection", method: "GET", path: "/api/battles/current?character_id=10", characterErr: character.ErrSelectionRequired, status: 409},
+		{name: "battle changed character", method: "GET", path: "/api/battles/current?character_id=10", characterErr: character.ErrSelectionChanged, status: 409},
+		{name: "battle session revoked", method: "GET", path: "/api/battles/current?character_id=10", characterErr: character.ErrUnauthenticated, status: 401},
+		{name: "battle storage failure", method: "GET", path: "/api/battles/current?character_id=10", characterErr: failure, status: 500},
+		{name: "start no cookie", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1"}`, noCookie: true, invalidRequest: true, status: 401},
+		{name: "start wrong account", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1"}`, headers: http.Header{"X-Account-ID": {"2"}}, status: 409},
+		{name: "start missing key", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4}`, invalidRequest: true, status: 400},
+		{name: "start forbidden client HP", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1","hp":1}`, invalidRequest: true, status: 400},
+		{name: "battle numeric bigint", method: "POST", path: "/api/battles/use", body: `{"battle_id":9007199254740993,"character_id":10,"ability_id":1,"request_key":"cast:1"}`, invalidRequest: true, status: 400},
+		{name: "battle leading zero", method: "POST", path: "/api/battles/use", body: `{"battle_id":"01","character_id":10,"ability_id":1,"request_key":"cast:1"}`, invalidRequest: true, status: 400},
+		{name: "battle overflow bigint", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9223372036854775808","character_id":10,"ability_id":1,"request_key":"cast:1"}`, status: 400},
+		{name: "battle empty cursor", method: "GET", path: "/api/battles/detail?battle_id=1&character_id=10&after_sequence=", invalidRequest: true, status: 400},
+		{name: "battle missing ID", method: "GET", path: "/api/battles/detail?character_id=10", invalidRequest: true, status: 400},
+		{name: "NPC busy", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1"}`, characterErr: combat.ErrNPCUnavailable, status: 409},
+		{name: "character defeated", method: "POST", path: "/api/battles/start", body: `{"character_id":10,"location_id":1,"npc_spawn_id":4,"request_key":"start:1"}`, characterErr: combat.ErrDefeated, status: 409},
+		{name: "battle key conflict", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: combat.ErrConflict, status: 409},
+		{name: "cast missing battle", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: combat.ErrNotFound, status: 404},
+		{name: "battle finished", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: combat.ErrFinished, status: 409},
+		{name: "ability unavailable", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: ability.ErrUnavailable, status: 409},
+		{name: "ability cooldown", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: ability.ErrCooldown, status: 409},
+		{name: "ability global cooldown", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: ability.ErrGlobalCooldown, status: 409},
+		{name: "ability insufficient energy", method: "POST", path: "/api/battles/use", body: `{"battle_id":"9007199254740993","character_id":10,"ability_id":1,"request_key":"cast:1"}`, characterErr: character.ErrInsufficientEnergy, status: 409},
+		{name: "retreat stale selection", method: "POST", path: "/api/battles/retreat", body: `{"battle_id":"9007199254740993","character_id":10}`, characterErr: character.ErrSelectionChanged, status: 409},
+		{name: "view foreign battle", method: "GET", path: "/api/battles/detail?battle_id=1&character_id=10", characterErr: combat.ErrNotFound, status: 404},
 		{name: "wallet missing character", method: "GET", path: "/api/wallet", invalidRequest: true, status: 400},
 		{name: "wallet invalid character", method: "GET", path: "/api/wallet?character_id=2147483648", invalidRequest: true, status: 400},
 		{name: "wallet invalid cursor", method: "GET", path: "/api/wallet/history?character_id=10&before=0", invalidRequest: true, status: 400},

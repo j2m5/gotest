@@ -16,26 +16,54 @@ import (
 )
 
 type Hub struct {
-	lifecycle   context.Context
-	auth        middleware.Authenticator
-	origin      string
-	mu          sync.Mutex
-	subscribers map[chan struct{}]int
+	lifecycle       context.Context
+	auth            middleware.Authenticator
+	origin          string
+	mu              sync.Mutex
+	subscribers     map[chan struct{}]subscription
+	characterScoped bool
 }
+
+type subscription struct{ userID, characterID int }
 
 func New(lifecycle context.Context, authenticator middleware.Authenticator, origin string) *Hub {
 	if lifecycle == nil {
 		lifecycle = context.Background()
 	}
-	return &Hub{lifecycle: lifecycle, auth: authenticator, origin: origin, subscribers: make(map[chan struct{}]int)}
+	return &Hub{lifecycle: lifecycle, auth: authenticator, origin: origin, subscribers: make(map[chan struct{}]subscription)}
+}
+
+// NewCharacterHub sends invalidations only to the selected owning character.
+// The notification contains no battle data; HTTP remains authoritative.
+func NewCharacterHub(lifecycle context.Context, authenticator middleware.Authenticator, origin string) *Hub {
+	h := New(lifecycle, authenticator, origin)
+	h.characterScoped = true
+	return h
 }
 
 // Notify coalesces bursts. Slow clients cannot block a committed write or grow
 // an unbounded event queue. Reconnecting clients always receive a fresh event.
 func (h *Hub) Notify() {
+	if h.characterScoped {
+		return
+	}
+	h.notify(0)
+}
+
+func (h *Hub) NotifyCharacter(characterID int) {
+	if !h.characterScoped || characterID <= 0 {
+		return
+	}
+	h.notify(characterID)
+}
+
+func (h *Hub) notify(characterID int) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for ch := range h.subscribers {
+	for ch, subscriber := range h.subscribers {
+		if h.characterScoped && subscriber.characterID != characterID {
+			continue
+		}
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -43,12 +71,12 @@ func (h *Hub) Notify() {
 	}
 }
 
-func (h *Hub) subscribe(userID int) (chan struct{}, bool) {
+func (h *Hub) subscribe(userID, characterID int) (chan struct{}, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	count := 0
-	for _, id := range h.subscribers {
-		if id == userID {
+	for _, subscriber := range h.subscribers {
+		if subscriber.userID == userID {
 			count++
 		}
 	}
@@ -56,7 +84,7 @@ func (h *Hub) subscribe(userID int) (chan struct{}, bool) {
 		return nil, false
 	}
 	ch := make(chan struct{}, 1)
-	h.subscribers[ch] = userID
+	h.subscribers[ch] = subscription{userID: userID, characterID: characterID}
 	ch <- struct{}{}
 	return ch, true
 }
@@ -110,10 +138,27 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, 409, httpapi.CodeAccountChanged, "Аккаунт изменился. Обновите страницу", nil)
 		return
 	}
-	ch, ok := h.subscribe(user.ID)
+	var characterID int
+	if h.characterScoped {
+		values := r.URL.Query()["character_id"]
+		var parsed int64
+		if len(values) == 1 {
+			parsed, _ = strconv.ParseInt(values[0], 10, 32)
+		}
+		if parsed <= 0 {
+			httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите персонажа для соединения", nil)
+			return
+		}
+		characterID = int(parsed)
+		if user.CharacterID == nil || *user.CharacterID != characterID {
+			httpapi.WriteError(w, 409, "character_changed", "Активный персонаж изменился. Обновите данные", nil)
+			return
+		}
+	}
+	ch, ok := h.subscribe(user.ID, characterID)
 	if !ok {
 		w.Header().Set("Retry-After", "5")
-		httpapi.WriteError(w, 429, "rate_limited", "Слишком много открытых соединений чата", nil)
+		httpapi.WriteError(w, 429, "rate_limited", "Слишком много открытых соединений", nil)
 		return
 	}
 	defer h.unsubscribe(ch)
@@ -138,7 +183,8 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		check, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		current, err := h.auth.CurrentUser(check, cookie.Value)
-		return err == nil && current != nil && current.ID == user.ID
+		return err == nil && current != nil && current.ID == user.ID &&
+			(!h.characterScoped || current.CharacterID != nil && *current.CharacterID == characterID)
 	}
 	for {
 		select {

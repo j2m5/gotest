@@ -44,7 +44,9 @@ func (r *NPCRepository) List(ctx context.Context, actor character.Actor, expecte
 	result := &npc.List{LocationID: locationID, NPCs: []npc.Instance{}}
 	rows, err := tx.Query(ctx, `SELECT s.id,t.id,t.name,t.description,t.kind,n.level,n.rank
  FROM npc_spawns s JOIN location_npcs n ON n.id=s.location_npc_id JOIN npc_templates t ON t.id=n.npc_template_id
- WHERE n.location_id=$1 ORDER BY n.position,s.slot,s.id`, locationID)
+ WHERE n.location_id=$1 AND (s.respawn_at IS NULL OR s.respawn_at<=statement_timestamp())
+ AND NOT EXISTS(SELECT 1 FROM battles b WHERE b.npc_spawn_id=s.id AND b.status='active')
+ ORDER BY n.position,s.slot,s.id`, locationID)
 	if err != nil {
 		return nil, err
 	}

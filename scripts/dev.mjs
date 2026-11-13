@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const frontend = path.join(root, 'frontend')
 const goPackages = ['./cmd/...', './internal/...', './tests/...']
-const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'audit:go', 'api:generate', 'api:check', 'migrate', 'seed', 'cleanup', 'mail:status', 'db:backup', 'db:restore', 'test', 'test:integration', 'test:race', 'check', 'test:db:up', 'test:db:down']
+const commands = ['help', 'setup', 'dev:api', 'dev:web', 'build', 'lint', 'audit', 'audit:go', 'api:generate', 'api:check', 'migrate', 'seed', 'cleanup', 'mail:status', 'db:backup', 'db:restore', 'test', 'test:integration', 'test:race', 'test:combat-load', 'check', 'test:db:up', 'test:db:down']
 
 function run(label, command, args, { cwd = root, capture = false, secrets = [] } = {}) {
   console.log(`> ${label}`)
@@ -44,14 +44,14 @@ function loadEnvironment(name) {
 
 function testEnvironment(task) {
   loadEnvironment('.env.test')
-  if (['check', 'test:integration', 'test:race'].includes(task)) process.env.REQUIRE_DATABASE_TESTS = '1'
+  if (['check', 'test:integration', 'test:race', 'test:combat-load'].includes(task)) process.env.REQUIRE_DATABASE_TESTS = '1'
   if (task === 'check') process.env.REQUIRE_BROWSER_TESTS = '1'
   const ci = ['true', '1'].includes(process.env.CI?.trim().toLowerCase())
   if ((ci || process.env.REQUIRE_DATABASE_TESTS === '1') && !process.env.TEST_DATABASE_URL?.trim()) {
     throw new Error('TEST_DATABASE_URL is required; configure .env.test or the environment (see .env.test.example)')
   }
   // The browser has its own smoke test in check; race checks exercise Go + SQL.
-  if (task === 'test:race') return
+  if (['test:race', 'test:combat-load'].includes(task)) return
   const browser = process.env.CHARACTER_BROWSER_BINARY?.trim()
   if ((ci || process.env.REQUIRE_BROWSER_TESTS === '1') && !browser) {
     throw new Error('CHARACTER_BROWSER_BINARY is required; set the path to Chrome, Chromium or Edge')
@@ -118,7 +118,7 @@ function main() {
   if (task === 'migrate') {
     if (args.length > 1 || (args[0] && !['up', 'version'].includes(args[0]))) throw new Error('migrate accepts only up or version; use the native CLI for an explicit rollback')
   } else if (args.length && !['seed', 'cleanup', 'mail:status', 'db:backup', 'db:restore', 'dev:api'].includes(task)) throw new Error(`${task} does not accept extra arguments`)
-  if (['test', 'test:integration', 'test:race', 'check'].includes(task)) testEnvironment(task)
+  if (['test', 'test:integration', 'test:race', 'test:combat-load', 'check'].includes(task)) testEnvironment(task)
   switch (task) {
     case 'help':
       console.log('Commands: npm run <name>\n' + commands.join('\n'))
@@ -163,6 +163,8 @@ function main() {
     case 'test:race':
       process.env.CGO_ENABLED = '1'
       return run('Go race tests (requires a C compiler)', 'go', ['test', '-race', '-count=1', '-v', '-skip', '^Test(Character|Social|Forum)BrowserFlow$', './tests/...'])
+    case 'test:combat-load':
+      return run('Combat load benchmarks (isolated test schemas)', 'go', ['test', './tests/db', '-run', '^$', '-bench', '^BenchmarkCombatLoad$', '-benchtime=1x', '-count=1', '-timeout=10m', '-v'])
     default: return compose(task)
   }
 }

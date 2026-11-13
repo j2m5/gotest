@@ -10,9 +10,22 @@ import { apiError } from '../../../shared/api/errors'
 import Layout from '../../../shared/ui/Layout'
 import WalletProvider from '../../wallet/ui/WalletProvider'
 import WalletSummary from '../../wallet/ui/WalletSummary'
+import CombatProvider from '../../combat/ui/CombatProvider'
+import ActiveBattleBanner from '../../combat/ui/ActiveBattleBanner'
+import { useCombat } from '../../combat/model/context'
 
-export default function GameLayout({ character, catalog, children }: { character: Character; catalog: CharacterCatalog | null; children: ReactNode }) {
+type GameLayoutProps = { character: Character; catalog: CharacterCatalog | null; children: ReactNode }
+export default function GameLayout(props: GameLayoutProps) {
+  const { user } = useAccount()
+  if (!user) return null
+  return <CombatProvider key={`${user.id}:${props.character.id}`} accountId={user.id} characterId={props.character.id}>
+    <WalletProvider accountId={user.id} characterId={props.character.id}><GameFrame {...props} /></WalletProvider>
+  </CombatProvider>
+}
+function GameFrame({ character: fallback, catalog, children }: GameLayoutProps) {
   const { pending, store, user } = useAccount()
+  const { snapshot } = useCombat()
+  const character = snapshot.character ?? fallback
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const faction = catalog?.factions.find(item => item.id === character.faction_id)
@@ -27,7 +40,7 @@ export default function GameLayout({ character, catalog, children }: { character
     catch (error) { setError(apiError(error).message) }
   }
   if (!user) return null
-  return <WalletProvider key={`${user.id}:${character.id}`} accountId={user.id} characterId={character.id}><Layout statusPanel={<ResourceBars character={character} />} footer={<>
+  return <Layout statusPanel={<ResourceBars character={character} />} footer={<>
     <div className="character-strip">
       <Link to="/profile"><img className="icon" src={factionArtwork(faction).icon} alt="" width={25} height={25} />[{character.level}] {character.name}</Link>
     </div>
@@ -41,6 +54,7 @@ export default function GameLayout({ character, catalog, children }: { character
     </nav>
   </>}>
     {error && <Alert variant="error" role="alert">{error}</Alert>}
+    <ActiveBattleBanner />
     {children}
-  </Layout></WalletProvider>
+  </Layout>
 }

@@ -166,11 +166,16 @@ func TestCharacterBrowserFlow(t *testing.T) {
 		h.ServeHTTP(w, r)
 	})
 	server.Start()
-	browserCtx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	// This flow visits the full world catalog at several viewport sizes. Allow
+	// slower CI and optional screenshots; individual browser steps still time out.
+	browserCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	command := exec.CommandContext(browserCtx, "node", filepath.Join("..", "frontend", "characters.browser.mjs"), server.URL, browser, t.TempDir(), mailDirectory)
 	output, err := command.CombinedOutput()
 	if err != nil {
+		if browserCtx.Err() != nil {
+			err = fmt.Errorf("%w: %v", browserCtx.Err(), err)
+		}
 		t.Fatalf("browser smoke test: %v\n%s", err, output)
 	}
 	t.Log(string(output))

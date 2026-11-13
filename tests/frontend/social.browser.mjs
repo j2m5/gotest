@@ -32,7 +32,9 @@ async function fill(session, selector, value) {
   await evaluate(session, `(() => { const el=document.querySelector(${JSON.stringify(selector)}); if(!el)throw new Error('Missing field'); const proto=el.tagName==='SELECT'?HTMLSelectElement.prototype:el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto,'value').set.call(el,${JSON.stringify(value)}); el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true})); })()`)
 }
 async function click(session, text) {
-  await evaluate(session, `(() => { const el=[...document.querySelectorAll('button,a')].find(e=>e.textContent.trim()===${JSON.stringify(text)}); if(!el||el.disabled)throw new Error('Button unavailable: '+${JSON.stringify(text)});el.click(); })()`)
+  // A server event can reach another tab before this page finishes refreshing.
+  // Wait for an actionable control and click it in the same browser evaluation.
+  await wait(session, `(() => { const el=[...document.querySelectorAll('button,a')].find(e=>e.textContent.trim()===${JSON.stringify(text)}); if(!el||el.disabled)return false;el.click();return true; })()`, `Button ready: ${text}`)
 }
 async function request(session, url, method = 'GET', body, accountId) {
   return evaluate(session, `(async()=>{const r=await fetch(${JSON.stringify(url)},{method:${JSON.stringify(method)},headers:{'Content-Type':'application/json',${accountId ? `'X-Account-ID':'${accountId}'` : ''}},${body ? `body:JSON.stringify(${JSON.stringify(body)}),` : ''}});return {status:r.status,body:await r.json()};})()`)

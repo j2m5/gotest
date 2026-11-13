@@ -5,8 +5,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"gotest/internal/ability"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/config"
 	"gotest/internal/db"
 	"gotest/internal/forum"
@@ -108,16 +110,22 @@ func run(logger *slog.Logger) error {
 	characterService := character.NewService(db.NewCharacterRepository(pool))
 	socialService := social.NewService(db.NewSocialRepository(pool))
 	forumService := forum.NewService(db.NewForumRepository(pool))
+	combatHub := realtime.NewCharacterHub(ctx, service, cfg.PublicURL)
+	combatRepository := db.NewCombatRepository(pool).WithNotifications(combatHub.NotifyCharacter)
+	combatWorker := combat.NewWorker(combatRepository, logger)
 	hub := realtime.New(ctx, service, cfg.PublicURL)
 	handler, err := routes.New(handlers.NewHandler(service, strings.HasPrefix(cfg.PublicURL, "https://"), service), handlers.NewCharacterHandler(characterService), middleware.NewMiddleware(service), routes.Options{
 		StaticDir: cfg.StaticDir, RequireStatic: cfg.AppEnv == "production", TrustedOrigin: cfg.PublicURL, TrustedProxies: cfg.TrustedProxies, Logger: logger,
 		Ready: pool.Ping, Lifecycle: ctx,
 		Social: handlers.NewSocialHandler(socialService, hub.Notify), ChatEvents: hub.ServeHTTP,
-		Forum:    handlers.NewForumHandler(forumService),
-		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(pool))),
-		World:    handlers.NewWorldHandler(world.NewService(db.NewWorldRepository(pool))),
-		NPC:      handlers.NewNPCHandler(npc.NewService(db.NewNPCRepository(pool))),
-		Wallet:   handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(pool))),
+		Forum:        handlers.NewForumHandler(forumService),
+		Presence:     handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(pool))),
+		World:        handlers.NewWorldHandler(world.NewService(db.NewWorldRepository(pool))),
+		NPC:          handlers.NewNPCHandler(npc.NewService(db.NewNPCRepository(pool))),
+		Wallet:       handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(pool))),
+		Abilities:    handlers.NewAbilityHandler(ability.NewService(db.NewAbilityRepository(pool))),
+		Combat:       handlers.NewCombatHandler(combat.NewService(combatRepository)),
+		CombatEvents: combatHub.ServeHTTP,
 	})
 	if err != nil {
 		return applicationFailure(logger, "routes", err, slog.String("reason", "cannot configure HTTP routes; check PUBLIC_URL and STATIC_DIR"))
@@ -131,8 +139,10 @@ func run(logger *slog.Logger) error {
 	defer listener.Close()
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	workerDone := make(chan struct{})
+	combatDone := make(chan struct{})
 	go func() { defer close(workerDone); worker.Run(workerCtx) }()
-	defer func() { stopWorker(); <-workerDone }()
+	go func() { defer close(combatDone); combatWorker.Run(workerCtx) }()
+	defer func() { stopWorker(); <-workerDone; <-combatDone }()
 	finished := make(chan error, 1)
 	go func() { finished <- server.Serve(listener) }()
 	logger.Info("http_started", "port", cfg.AppPort, "mail_driver", cfg.Mail.Driver)

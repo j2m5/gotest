@@ -29,6 +29,15 @@ test('fractional progress is retained across repeated projections', () => {
   assert.equal(projectResource(3, 0, 10000, 10000), 3)
 })
 
+test('server carry survives resource changes and is included in both projections', () => {
+  assert.equal(projectResource(7, 1, 2000, 300000, 290000), 2)
+  const character = snapshot()
+  character.regeneration.hp_remainder = 9000
+  character.regeneration.mp_remainder = 7000
+  assert.deepEqual(projectCharacterResources(character, 100), { hp: 21, mp: 6 })
+  assert.equal(projectResource(100, 100, 1000, 300000, 299999), 100)
+})
+
 test('zero maximum, future timestamps and large int32 maxima stay bounded', () => {
   assert.equal(projectResource(0, 0, 1e20, 10000), 0)
   assert.equal(projectResource(2147483647, 0, 5000, 10000), 1073741823)
@@ -69,12 +78,40 @@ test('character APIs observe every returned snapshot before callers receive it',
   let now = 1000
   t.mock.method(performance, 'now', () => now)
   const adapter = axios.defaults.adapter
-  axios.defaults.adapter = async config => ({
-    status: 200, statusText: 'OK', headers: {}, config,
-    data: config.method === 'get'
-      ? { characters: [snapshot(), snapshot()], active_character_id: null }
-      : { character: config.data === '{"character_id":null}' ? null : snapshot() },
-  })
+  axios.defaults.adapter = async config => {
+    if (config.url === '/api/battles/current') {
+      assert.equal(config.headers.get('X-Account-ID'), '7')
+      assert.deepEqual(config.params, { character_id: 12 })
+      return { status: 200, statusText: 'OK', headers: {}, config, data: { character: snapshot(), battle: null } }
+    }
+    if (config.url.startsWith('/api/battles/')) {
+      assert.equal(config.headers.get('X-Account-ID'), '7')
+      if (config.url.endsWith('/detail')) {
+        assert.equal(config.method, 'get')
+        assert.deepEqual(config.params, { battle_id: '9007199254740993', character_id: 12, after_sequence: 5 })
+      } else {
+        assert.equal(config.method, 'post')
+        const bodies = {
+          '/api/battles/start': { character_id: 12, location_id: 2, npc_spawn_id: 4, request_key: 'start:1' },
+          '/api/battles/use': { character_id: 12, battle_id: '9007199254740993', ability_id: 3, request_key: 'cast:1' },
+          '/api/battles/retreat': { battle_id: '9007199254740993', character_id: 12 },
+        }
+        assert.deepEqual(JSON.parse(config.data), bodies[config.url])
+      }
+      return { status: 200, statusText: 'OK', headers: {}, config, data: { character: snapshot(), battle: { id: '9007199254740993' } } }
+    }
+    if (config.url === '/api/abilities') {
+      assert.equal(config.headers.get('X-Account-ID'), '7')
+      assert.deepEqual(config.params, { character_id: 12 })
+      return { status: 200, statusText: 'OK', headers: {}, config, data: { character: snapshot(), abilities: [] } }
+    }
+    return {
+      status: 200, statusText: 'OK', headers: {}, config,
+      data: config.method === 'get'
+        ? { characters: [snapshot(), snapshot()], active_character_id: null }
+        : { character: config.data === '{"character_id":null}' ? null : snapshot() },
+    }
+  }
   try {
     const { listCharacters, createCharacter, setActiveCharacter } = await import('../../frontend/src/features/character/api.ts')
     const roster = await listCharacters(1)
@@ -87,5 +124,22 @@ test('character APIs observe every returned snapshot before callers receive it',
     assert.deepEqual(characterResources(created.character), { hp: 40, mp: 15 })
     assert.deepEqual(characterResources(selected.character), { hp: 30, mp: 10 })
     assert.equal((await setActiveCharacter(1, null)).character, null)
+    const { characterAbilities } = await import('../../frontend/src/features/abilities/api.ts')
+    const loadout = await characterAbilities(7, 12)
+    now = 6000
+    assert.deepEqual(characterResources(loadout.character), { hp: 40, mp: 15 })
+    const { currentBattle, startBattle, useBattleAbility, retreatBattle, battleDetail } = await import('../../frontend/src/features/combat/api.ts')
+    const battleState = await currentBattle(7, 12)
+    now = 8000
+    assert.equal(battleState.battle, null)
+    assert.deepEqual(characterResources(battleState.character), { hp: 40, mp: 15 })
+    const started = await startBattle(7, { character_id: 12, location_id: 2, npc_spawn_id: 4, request_key: 'start:1' })
+    const used = await useBattleAbility(7, { character_id: 12, battle_id: started.battle.id, ability_id: 3, request_key: 'cast:1' })
+    const retreated = await retreatBattle(7, started.battle.id, 12)
+    const detail = await battleDetail(7, started.battle.id, 12, 5)
+    now = 10000
+    for (const state of [started, used, retreated, detail]) {
+      assert.deepEqual(characterResources(state.character), { hp: 40, mp: 15 })
+    }
   } finally { axios.defaults.adapter = adapter }
 })

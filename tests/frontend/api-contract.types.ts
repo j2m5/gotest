@@ -195,3 +195,70 @@ export async function checkWorldContract() {
   // @ts-expect-error the server derives faction access, never the client
   await apiRequest('post', '/api/world/travel', { body: { character_id: 3, planet_id: 5, from_location_id: 2, faction_id: 1 } })
 }
+
+export async function checkAbilityContract() {
+  const { characterAbilities } = await import('../../frontend/src/features/abilities/api')
+  const loadout = await characterAbilities(1, 3)
+  loadout.character.regeneration.hp_remainder.toFixed()
+  loadout.global_ready_at?.toUpperCase()
+  loadout.global_cooldown_ms.toFixed()
+  loadout.abilities.forEach(ability => {
+    ability.ready_at?.toUpperCase()
+    ability.availability satisfies 'ready' | 'cooldown' | 'global_cooldown' | 'insufficient_energy' | 'defeated'
+    ability.mp_cost.toFixed()
+  })
+  // @ts-expect-error casting requires an encounter via the combat API
+  await apiRequest('post', '/api/abilities', { body: { character_id: 3, ability_id: 1 } })
+  // @ts-expect-error the expected selected character is required
+  await apiRequest('get', '/api/abilities')
+  // @ts-expect-error account and character are explicit, not inferred from a stale screen
+  await characterAbilities(1)
+}
+
+export async function checkCombatContract() {
+  const { currentBattle } = await import('../../frontend/src/features/combat/api')
+  const state = await currentBattle(1, 3)
+  state.character.regeneration.hp_remainder.toFixed()
+  if (state.battle) {
+    state.battle.id satisfies string
+    state.battle.npc.hp_current.toFixed()
+    state.battle.status satisfies 'active' | 'retreated' | 'defeated' | 'won' | 'expired'
+    // @ts-expect-error BIGINT IDs cannot be represented safely as JS numbers
+    state.battle.id.toFixed()
+  }
+  // @ts-expect-error current is read-only; start has a separate endpoint
+  await apiRequest('post', '/api/battles/current', { body: { character_id: 3, npc_spawn_id: 1 } })
+  // @ts-expect-error the expected character is required
+  await apiRequest('get', '/api/battles/current')
+  // @ts-expect-error no battle is represented by null
+  state.battle.id.toUpperCase()
+}
+
+export async function checkCombatExecutionContract() {
+  const { startBattle, useBattleAbility, retreatBattle, battleDetail } = await import('../../frontend/src/features/combat/api')
+  const start = await startBattle(1, { character_id: 3, location_id: 7, npc_spawn_id: 4, request_key: 'start:1' })
+  start.battle.id satisfies string
+  start.replayed satisfies boolean
+  start.event_sequence.toFixed()
+  const used = await useBattleAbility(1, { character_id: 3, battle_id: start.battle.id, ability_id: 1, request_key: 'cast:1' })
+  used.battle.npc.hp_current.toFixed()
+  await retreatBattle(1, start.battle.id, 3)
+  const detail = await battleDetail(1, start.battle.id, 3, 5)
+  detail.next_action_at?.toUpperCase()
+  detail.next_after?.toFixed()
+  detail.log_cleared_at?.toUpperCase()
+  detail.events.forEach(event => {
+    event.credits satisfies string
+    event.experience satisfies string
+    event.damage.toFixed()
+    event.actor satisfies 'player' | 'npc' | 'system'
+  })
+  // @ts-expect-error a request key is required for safe retries
+  await startBattle(1, { character_id: 3, location_id: 7, npc_spawn_id: 4 })
+  // @ts-expect-error BIGINT remains a string on writes and reads
+  await retreatBattle(1, 9007199254740993, 3)
+  // @ts-expect-error character precondition is mandatory
+  await battleDetail(1, start.battle.id)
+  // @ts-expect-error effects are calculated on the server
+  await apiRequest('post', '/api/battles/use', { body: { character_id: 3, battle_id: '1', ability_id: 1, request_key: 'cast:1', damage: 100 } })
+}

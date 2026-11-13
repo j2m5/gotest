@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/world"
 )
 
@@ -121,6 +122,13 @@ func (r *WorldRepository) move(ctx context.Context, a character.Actor, in world.
 	faction, locationID, err := worldCharacter(ctx, tx, a, in.CharacterID, true)
 	if err != nil {
 		return nil, err
+	}
+	active, err := characterInBattle(ctx, tx, in.CharacterID)
+	if err != nil {
+		return nil, err
+	}
+	if active {
+		return nil, combat.ErrInBattle
 	}
 	// Hold the current location while determining its planet, preventing content
 	// edits from reparenting it beneath the access check.

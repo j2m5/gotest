@@ -478,6 +478,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/battles/current": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the selected character and their active battle
+         * @description Read-only consistent snapshot. A battle survives logout and character selection changes. Lost planet access does not prevent reading an owned battle. NPC actions run independently in the server worker.
+         */
+        get: operations["currentBattle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/battles/start": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an encounter with a shared NPC
+         * @description Checks session, selected character, source location, planet access and NPC availability under locks. Rules and timers are fixed on the server. Retrying the same request_key and target returns the original encounter.
+         */
+        post: operations["startBattle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/battles/use": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a learned ability in an owned encounter
+         * @description Applies due NPC actions first, then checks energy and cooldowns. Rejected uses still commit due NPC actions. A successful request_key is applied once; reusing it for a different ability conflicts. Damage, healing, rewards and deadlines cannot be supplied by the client.
+         */
+        post: operations["useBattleAbility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/battles/retreat": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retreat from an owned encounter
+         * @description Applies due NPC actions first; a lethal hit takes precedence. Retreat fully restores and releases the NPC, preserving player resources and cooldowns. Repeated retreat on an ended battle is harmless. Planet access is not required.
+         */
+        post: operations["retreatBattle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/battles/detail": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an owned encounter and its event journal
+         * @description Read-only consistent snapshot, including ended battles. Returns up to 50 events after after_sequence; next_after is the cursor for the next page or null. When log_cleared_at is set, events contains only the retained final event regardless of after_sequence, next_after is null, and clients must replace cached history. Planet access is not required.
+         */
+        get: operations["battleDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/abilities": {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read learned abilities and current readiness for the selected character
+         * @description Only learned abilities available to the character's class are returned. Reading never spends resources or starts cooldowns. Casting uses the combat API.
+         */
+        get: operations["characterAbilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/npcs": {
         parameters: {
             query?: never;
@@ -497,7 +677,7 @@ export interface paths {
         };
         /**
          * List shared NPC instances in the selected character's current location
-         * @description Reads never create instances or change position. The character must still occupy the requested location and retain access to its planet. Combat actions are a separate future API.
+         * @description Reads never create instances or change position. Occupied instances and NPCs waiting for respawn are hidden. The character must still occupy the requested location and retain access to its planet. Combat actions use the separate combat API.
          */
         get: operations["locationNPCs"];
         put?: never;
@@ -1007,6 +1187,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/battles/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description WebSocket upgrade requiring an allowed Origin, account_id, selected character_id and session cookie. Text frames contain {"type":"changed"} only for that character after committed combat changes. Reconnecting clients fetch HTTP snapshots. Selection and session are rechecked before notifications. Single-process delivery; clients also reconcile periodically while visible. */
+        get: operations["combatEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chat/events": {
         parameters: {
             query?: never;
@@ -1106,7 +1303,7 @@ export interface components {
         ErrorResponse: {
             error: string;
             /** @enum {string} */
-            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "position_changed" | "world_access_denied" | "planet_changed" | "location_not_found" | "locations_unavailable" | "planet_not_found" | "ban_active" | "forum_not_found" | "forum_banned" | "forum_closed" | "forum_conflict";
+            code: "invalid_json" | "invalid_request" | "unsupported_media_type" | "request_too_large" | "method_not_allowed" | "route_not_found" | "origin_forbidden" | "rate_limited" | "internal_error" | "unauthenticated" | "validation_failed" | "invalid_credentials" | "email_unverified" | "account_conflict" | "account_changed" | "email_already_verified" | "verification_token_invalid" | "password_reset_unavailable" | "password_reset_token_invalid" | "character_not_found" | "character_name_taken" | "character_class_mismatch" | "not_ready" | "account_banned" | "forbidden" | "social_not_found" | "chat_banned" | "character_required" | "character_changed" | "character_in_battle" | "npc_unavailable" | "combat_conflict" | "battle_not_found" | "battle_finished" | "character_defeated" | "ability_unavailable" | "ability_cooldown" | "global_cooldown" | "insufficient_energy" | "position_changed" | "world_access_denied" | "planet_changed" | "location_not_found" | "locations_unavailable" | "planet_not_found" | "ban_active" | "forum_not_found" | "forum_banned" | "forum_closed" | "forum_conflict";
             fields?: {
                 [key: string]: string[];
             };
@@ -1136,6 +1333,10 @@ export interface components {
         ResourceRegeneration: {
             hp_baseline: number;
             mp_baseline: number;
+            /** @description Fractional recovery numerator; denominator is hp_full_restore_ms. */
+            hp_remainder: number;
+            /** @description Fractional recovery numerator; denominator is mp_full_restore_ms. */
+            mp_remainder: number;
             /** Format: date-time */
             hp_updated_at: string;
             /** Format: date-time */
@@ -1183,6 +1384,163 @@ export interface components {
         };
         /** @description Exact nonnegative integer, at most 9223372036854775807. */
         CurrencyBalance: string;
+        BattleState: {
+            character: components["schemas"]["Character"];
+            battle: components["schemas"]["CurrentBattle"];
+        };
+        CurrentBattle: {
+            /** @description Exact positive BIGINT identifier; never a JavaScript number. */
+            id: string;
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            location_id: number;
+            /** @enum {string} */
+            status: "active" | "retreated" | "defeated" | "won" | "expired";
+            npc: components["schemas"]["BattleOpponent"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            ended_at: string | null;
+        } | null;
+        /** @description Exact positive BIGINT identifier, at most 9223372036854775807; never a JavaScript number. */
+        BattleID: string;
+        /** @description Stable client-generated action key; use the same key when retrying the same action. */
+        BattleRequestKey: string;
+        Battle: {
+            id: components["schemas"]["BattleID"];
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            location_id: number;
+            /** @enum {string} */
+            status: "active" | "retreated" | "defeated" | "won" | "expired";
+            npc: components["schemas"]["BattleOpponent"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            ended_at: string | null;
+        };
+        BattleStartRequest: {
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            location_id: number;
+            /** Format: int32 */
+            npc_spawn_id: number;
+            request_key: components["schemas"]["BattleRequestKey"];
+        };
+        BattleUseRequest: {
+            battle_id: components["schemas"]["BattleID"];
+            /** Format: int32 */
+            character_id: number;
+            /** Format: int32 */
+            ability_id: number;
+            request_key: components["schemas"]["BattleRequestKey"];
+        };
+        BattleRetreatRequest: {
+            battle_id: components["schemas"]["BattleID"];
+            /** Format: int32 */
+            character_id: number;
+        };
+        BattleResult: {
+            character: components["schemas"]["Character"];
+            battle: components["schemas"]["Battle"];
+            replayed: boolean;
+            /** @description Sequence of the accepted action, or the original action on replay. */
+            event_sequence: number;
+        };
+        BattleDetail: {
+            character: components["schemas"]["Character"];
+            battle: components["schemas"]["Battle"];
+            /** Format: date-time */
+            next_action_at: string | null;
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * Format: date-time
+             * @description When set, detailed history has expired; events replaces cached history with the retained outcome.
+             */
+            log_cleared_at: string | null;
+            events: components["schemas"]["BattleEvent"][];
+            /** Format: int32 */
+            next_after: number | null;
+        };
+        BattleEvent: {
+            /** Format: int32 */
+            sequence: number;
+            /** @enum {string} */
+            kind: "started" | "npc_ability" | "player_ability" | "won" | "retreated" | "defeated" | "expired";
+            /** @enum {string} */
+            actor: "player" | "npc" | "system";
+            ability_code: string;
+            ability_name: string;
+            /** Format: int32 */
+            damage: number;
+            /** Format: int32 */
+            healing: number;
+            /** Format: int32 */
+            character_hp: number;
+            /** Format: int32 */
+            character_mp: number;
+            /** Format: int32 */
+            npc_hp: number;
+            experience: components["schemas"]["CurrencyBalance"];
+            credits: components["schemas"]["CurrencyBalance"];
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        BattleOpponent: {
+            /** Format: int32 */
+            npc_spawn_id: number;
+            /** Format: int32 */
+            npc_template_id: number;
+            name: string;
+            level: number;
+            /** @enum {string} */
+            rank: "normal" | "strong" | "elite";
+            /** Format: int32 */
+            hp: number;
+            /** Format: int32 */
+            hp_current: number;
+        };
+        AbilityLoadout: {
+            character: components["schemas"]["Character"];
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: date-time */
+            global_ready_at: string | null;
+            global_cooldown_ms: number;
+            abilities: components["schemas"]["LearnedAbility"][];
+        };
+        LearnedAbility: {
+            /** Format: int32 */
+            id: number;
+            code: string;
+            name: string;
+            description: string;
+            icon: string | null;
+            /**
+             * Format: int32
+             * @description Base damage amount; combat applies attacker and target formulas.
+             */
+            damage: number;
+            /**
+             * Format: int32
+             * @description Base healing amount.
+             */
+            heal: number;
+            /** Format: int32 */
+            mp_cost: number;
+            cooldown_ms: number;
+            /** Format: date-time */
+            ready_at: string | null;
+            /**
+             * @description Readiness at observed_at, rechecked by the server on use; ready does not imply a valid combat target.
+             * @enum {string}
+             */
+            availability: "ready" | "cooldown" | "global_cooldown" | "insufficient_energy" | "defeated";
+        };
         WalletBalances: {
             /** Format: int32 */
             character_id: number;
@@ -2602,6 +2960,271 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    currentBattle: {
+        parameters: {
+            query: {
+                character_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Character resources and active battle, or null when no battle is active */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    startBattle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BattleStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative character and encounter state */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    useBattleAbility: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BattleUseRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative character and encounter state */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    retreatBattle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BattleRetreatRequest"];
+            };
+        };
+        responses: {
+            /** @description Authoritative character and encounter state */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    battleDetail: {
+        parameters: {
+            query: {
+                battle_id: components["schemas"]["BattleID"];
+                character_id: number;
+                /** @description Last received event sequence; omit to read from the beginning. An explicit empty value is invalid. */
+                after_sequence?: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative character and encounter state */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BattleDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    characterAbilities: {
+        parameters: {
+            query: {
+                character_id: number;
+            };
+            header?: {
+                /**
+                 * @description Optional precondition matching the account last displayed by the client.
+                 *     Authentication still uses the session cookie. A different authenticated
+                 *     account returns 409/account_changed before performing the operation or
+                 *     clearing a cookie. Missing/expired sessions retain normal 401 or idempotent
+                 *     logout behavior. The first-party UI supplies this header on account-scoped
+                 *     requests and reads /me without it to discover the current account.
+                 */
+                "X-Account-ID"?: components["parameters"]["ExpectedAccount"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Learned abilities with one consistent character resource snapshot */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    "X-Request-ID": components["headers"]["RequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AbilityLoadout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     locationNPCs: {
         parameters: {
             query: {
@@ -3486,6 +4109,42 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    combatEvents: {
+        parameters: {
+            query: {
+                account_id: number;
+                character_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebSocket connection accepted */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            /** @description WebSocket Upgrade headers required */
+            426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["Unavailable"];

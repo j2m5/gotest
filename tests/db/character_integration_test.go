@@ -19,7 +19,7 @@ import (
 
 const characterMigration = "20261025000300_character_integrity"
 
-func characterTestStorage(t *testing.T, latest bool) (*testStorage, context.Context) {
+func characterTestStorage(t testing.TB, latest bool) (*testStorage, context.Context) {
 	t.Helper()
 	before := ""
 	if !latest {
@@ -28,13 +28,13 @@ func characterTestStorage(t *testing.T, latest bool) (*testStorage, context.Cont
 	return characterTestStorageBefore(t, before)
 }
 
-func characterTestStorageBefore(t *testing.T, before string) (*testStorage, context.Context) {
+func characterTestStorageBefore(t testing.TB, before string) (*testStorage, context.Context) {
 	t.Helper()
 	return characterTestStorageThroughSeed(t, before, "")
 }
 
 // throughSeed bounds content only; before independently bounds schema migrations.
-func characterTestStorageThroughSeed(t *testing.T, before, throughSeed string) (*testStorage, context.Context) {
+func characterTestStorageThroughSeed(t testing.TB, before, throughSeed string) (*testStorage, context.Context) {
 	t.Helper()
 	s, ctx := authTestStorage(t, true)
 	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
@@ -94,7 +94,7 @@ func characterTestStorageThroughSeed(t *testing.T, before, throughSeed string) (
 	return s, ctx
 }
 
-func mustExec(t *testing.T, ctx context.Context, s *testStorage, sql string, args ...any) {
+func mustExec(t testing.TB, ctx context.Context, s *testStorage, sql string, args ...any) {
 	t.Helper()
 	if _, err := s.pool.Exec(ctx, sql, args...); err != nil {
 		t.Fatal(err)

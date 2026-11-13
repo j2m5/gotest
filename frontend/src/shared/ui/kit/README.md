@@ -28,6 +28,8 @@ import { Alert, Button, ButtonLink, Checkbox, Divider, Input, Select, Textarea }
 - `Alert`: `info`, `success`, `warning`, `error`. Ошибка имеет `role="alert"`,
   остальные варианты — `role="status"`. Роль можно переопределить.
 - `Divider`: семантический `hr`; рамки разделов используют тот же `--divider`.
+- `ResourceMeter`: полоса ресурса с `label`, `value`, `max` и `kind` (`health`/`energy`).
+  Не вычисляет регенерацию: готовое значение передаёт вызывающий экран.
 - `Breadcrumbs`: массив `items` с `label` и необязательным `to`. Предки — ссылки,
   последняя запись — текущая страница с `aria-current="page"`; для неё можно
   опустить `to`. Разделители `›` скрыты от скринридеров, длинные названия переносятся.

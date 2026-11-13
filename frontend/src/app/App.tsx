@@ -23,6 +23,7 @@ import Online from '../features/presence/Online'
 import Galaxy from '../features/world/pages/Galaxy'
 import Locations from '../features/world/pages/Locations'
 import Wallet from '../features/wallet/pages/Wallet'
+import Battle from '../features/combat/pages/Battle'
 
 const UiKit = import.meta.env.DEV ? lazy(() => import('./pages/UiKit')) : null
 
@@ -46,6 +47,7 @@ function App() {
         <Route path="/galaxy/planets/:planetId/locations/:locationId" element={<AccountGate><Locations /></AccountGate>} />
         <Route path="/profile" element={<AccountGate><Profile /></AccountGate>} />
         <Route path="/wallet" element={<AccountGate><Wallet /></AccountGate>} />
+        <Route path="/battle/:battleId" element={<AccountGate><Battle /></AccountGate>} />
         <Route path="/chat" element={<AccountGate><Chat /></AccountGate>} />
         <Route path="/chat/moderators" element={<AccountGate><Moderators /></AccountGate>} />
         <Route path="/moderation" element={<AccountGate><Moderation /></AccountGate>} />

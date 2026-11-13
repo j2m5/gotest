@@ -6,7 +6,7 @@ import (
 	"gotest/internal/character"
 )
 
-// Presence and world actions share account-wide session and ban checks.
+// Gameplay reads and commands share account-wide session and ban checks.
 func authenticateGameActor(ctx context.Context, tx pgx.Tx, actor character.Actor, lock bool) error {
 	if err := authenticateCharacterActor(ctx, tx, actor, lock); err != nil {
 		return err

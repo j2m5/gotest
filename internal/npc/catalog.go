@@ -1,5 +1,5 @@
 // Package npc owns reusable enemy templates, placements and shared instances.
-// Battle ownership, respawn and rewards will be connected by the combat module.
+// Shared instances are filtered by combat occupancy and respawn deadlines.
 package npc
 
 import (

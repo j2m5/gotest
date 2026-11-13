@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	"gotest/internal/ability"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/forum"
 	"gotest/internal/httpapi"
 	"gotest/internal/npc"
@@ -24,6 +26,30 @@ func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var invalid *validation.Error
 	var banned *auth.AccountBannedError
 	switch {
+	case errors.Is(err, combat.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры боя", nil)
+	case errors.Is(err, combat.ErrInBattle):
+		httpapi.WriteError(w, 409, "character_in_battle", "Сначала завершите бой или отступите", nil)
+	case errors.Is(err, combat.ErrNPCUnavailable):
+		httpapi.WriteError(w, 409, "npc_unavailable", "Противник сейчас недоступен", nil)
+	case errors.Is(err, combat.ErrConflict):
+		httpapi.WriteError(w, 409, "combat_conflict", "Этот запрос уже использован для другого действия", nil)
+	case errors.Is(err, combat.ErrNotFound):
+		httpapi.WriteError(w, 404, "battle_not_found", "Бой не найден", nil)
+	case errors.Is(err, combat.ErrFinished):
+		httpapi.WriteError(w, 409, "battle_finished", "Бой уже завершён", nil)
+	case errors.Is(err, combat.ErrDefeated), errors.Is(err, ability.ErrDefeated):
+		httpapi.WriteError(w, 409, "character_defeated", "Дождитесь восстановления здоровья", nil)
+	case errors.Is(err, ability.ErrUnavailable):
+		httpapi.WriteError(w, 409, "ability_unavailable", "Умение недоступно этому персонажу", nil)
+	case errors.Is(err, ability.ErrCooldown):
+		httpapi.WriteError(w, 409, "ability_cooldown", "Умение ещё восстанавливается", nil)
+	case errors.Is(err, ability.ErrGlobalCooldown):
+		httpapi.WriteError(w, 409, "global_cooldown", "Дождитесь окончания общего кулдауна", nil)
+	case errors.Is(err, character.ErrInsufficientEnergy):
+		httpapi.WriteError(w, 409, "insufficient_energy", "Недостаточно энергии", nil)
+	case errors.Is(err, ability.ErrInvalidInput):
+		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры персонажа", nil)
 	case errors.Is(err, wallet.ErrInvalidInput):
 		httpapi.WriteError(w, 400, httpapi.CodeInvalidRequest, "Укажите корректные параметры кошелька", nil)
 	case errors.Is(err, world.ErrInvalidInput):

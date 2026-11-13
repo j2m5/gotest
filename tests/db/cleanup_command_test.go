@@ -122,8 +122,8 @@ func TestCleanupCommand(t *testing.T) {
 	})
 	t.Run("help without configuration", func(t *testing.T) {
 		output, err := run("", "-help")
-		if err != nil || !strings.Contains(string(output), "dry-run") {
-			t.Fatal("help requires database configuration")
+		if err != nil || !strings.Contains(string(output), "dry-run") || !strings.Contains(string(output), "battle-logs") {
+			t.Fatal("help lacks expected flags or requires database configuration")
 		}
 	})
 }

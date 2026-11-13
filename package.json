@@ -24,6 +24,7 @@
     "test": "node scripts/dev.mjs test",
     "test:integration": "node scripts/dev.mjs test:integration",
     "test:race": "node scripts/dev.mjs test:race",
+    "test:combat-load": "node scripts/dev.mjs test:combat-load",
     "check": "node scripts/dev.mjs check",
     "test:db:up": "node scripts/dev.mjs test:db:up",
     "test:db:down": "node scripts/dev.mjs test:db:down"

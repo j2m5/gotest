@@ -39,10 +39,11 @@ func run(logger *slog.Logger) error {
 	batch := flags.Int("batch-size", maintenance.DefaultBatchSize, "maximum rows per DELETE (1..10000)")
 	timeout := flags.Duration("timeout", time.Minute, "time limit including database connection")
 	dryRun := flags.Bool("dry-run", false, "count cleanup candidates without deleting")
+	battleLogs := flags.Bool("battle-logs", false, "also clear detailed logs of battles ended at least 30 days ago")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			flags.SetOutput(os.Stdout)
-			fmt.Fprintln(os.Stdout, "Usage: cleanup [-dry-run] [-batch-size 1000] [-timeout 1m]")
+			fmt.Fprintln(os.Stdout, "Usage: cleanup [-dry-run] [-battle-logs] [-batch-size 1000] [-timeout 1m]")
 			flags.PrintDefaults()
 			return nil
 		}
@@ -51,7 +52,7 @@ func run(logger *slog.Logger) error {
 	if flags.NArg() != 0 {
 		return failure(logger, "arguments", errors.New("unexpected arguments"), slog.String("reason", "unexpected arguments; use -help"))
 	}
-	options := maintenance.Options{BatchSize: *batch, DryRun: *dryRun}
+	options := maintenance.Options{BatchSize: *batch, DryRun: *dryRun, BattleLogs: *battleLogs}
 	if err := options.Validate(); err != nil {
 		return failure(logger, "arguments", err, slog.String("reason", err.Error()))
 	}
@@ -87,6 +88,14 @@ func run(logger *slog.Logger) error {
 		attrs = append(attrs, slog.Int64("sessions_matched", result.Sessions), slog.Int64("verifications_matched", result.Verifications), slog.Int64("password_resets_matched", result.PasswordResets), slog.Int64("mail_jobs_matched", result.MailJobs))
 	} else {
 		attrs = append(attrs, slog.Int64("sessions_deleted", result.Sessions), slog.Int64("verifications_deleted", result.Verifications), slog.Int64("password_resets_deleted", result.PasswordResets), slog.Int64("mail_jobs_deleted", result.MailJobs))
+	}
+	if options.BattleLogs {
+		attrs = append(attrs, slog.Time("battle_log_cutoff", result.BattleLogCutoff))
+		if options.DryRun {
+			attrs = append(attrs, slog.Int64("battle_logs_matched", result.BattleLogs), slog.Int64("battle_events_matched", result.BattleEvents))
+		} else {
+			attrs = append(attrs, slog.Int64("battle_logs_cleared", result.BattleLogs), slog.Int64("battle_events_deleted", result.BattleEvents))
+		}
 	}
 	if err != nil {
 		return failure(logger, "cleanup", err, attrs...)

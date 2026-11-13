@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/db"
 	"gotest/internal/forum"
 	"gotest/internal/handlers"
@@ -39,11 +40,14 @@ func TestForumBrowserFlow(t *testing.T) {
 	defer cancel()
 	a := auth.NewService(s.AuthRepository, auth.Options{})
 	hub := realtime.New(lifecycle, a, "")
+	combatHub := realtime.NewCharacterHub(lifecycle, a, "")
 	h, err := routes.New(handlers.NewHandler(a, false, a), handlers.NewCharacterHandler(character.NewService(db.NewCharacterRepository(s.pool))), middleware.NewMiddleware(a), routes.Options{
 		StaticDir: filepath.Join("..", "..", "frontend", "dist"), Lifecycle: lifecycle, Social: handlers.NewSocialHandler(social.NewService(db.NewSocialRepository(s.pool)), hub.Notify), ChatEvents: hub.ServeHTTP,
-		Forum:    handlers.NewForumHandler(forum.NewService(db.NewForumRepository(s.pool))),
-		Presence: handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(s.pool))),
-		Wallet:   handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(s.pool))),
+		Forum:        handlers.NewForumHandler(forum.NewService(db.NewForumRepository(s.pool))),
+		Presence:     handlers.NewPresenceHandler(presence.NewService(db.NewPresenceRepository(s.pool))),
+		Wallet:       handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(s.pool))),
+		Combat:       handlers.NewCombatHandler(combat.NewService(db.NewCombatRepository(s.pool).WithNotifications(combatHub.NotifyCharacter))),
+		CombatEvents: combatHub.ServeHTTP,
 	})
 	if err != nil {
 		t.Fatal(err)

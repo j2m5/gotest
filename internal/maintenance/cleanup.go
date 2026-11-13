@@ -12,10 +12,12 @@ import (
 
 const DefaultBatchSize = 1000
 const MaxBatchSize = 10000
+const BattleLogRetention = 30 * 24 * time.Hour
 
 type Options struct {
-	BatchSize int
-	DryRun    bool
+	BatchSize  int
+	DryRun     bool
+	BattleLogs bool
 }
 
 // Result counts confirmed deletions, or matching rows when DryRun is enabled.
@@ -25,6 +27,8 @@ type Result struct {
 	Sessions, Verifications  int64
 	PasswordResets, MailJobs int64
 	Batches                  int
+	BattleLogCutoff          time.Time
+	BattleLogs, BattleEvents int64
 }
 
 func (o Options) Validate() error {
@@ -34,9 +38,9 @@ func (o Options) Validate() error {
 	return nil
 }
 
-// Run uses one database-clock cutoff for the entire pass. Each DELETE is its own
-// transaction: cancellation retains earlier committed batches. Locked rows are
-// skipped and may be picked up by a later run; accounts/characters are not changed.
+// Run uses one database-clock cutoff for the entire pass. Each credential DELETE
+// or battle-log cleanup is a transaction; cancellation retains committed batches.
+// Locked rows are skipped for a later run; accounts/characters are not changed.
 func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, error) {
 	var result Result
 	if err := options.Validate(); err != nil {
@@ -49,6 +53,9 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 		return result, fmt.Errorf("read cleanup cutoff: %w", err)
 	}
 	result.Cutoff = result.Cutoff.UTC()
+	if options.BattleLogs {
+		result.BattleLogCutoff = result.Cutoff.Add(-BattleLogRetention)
+	}
 	if options.DryRun {
 		err := pool.QueryRow(ctx, `SELECT
 			(SELECT count(*) FROM sessions WHERE expires_at <= $1),
@@ -60,6 +67,12 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 			Scan(&result.Sessions, &result.Verifications, &result.PasswordResets, &result.MailJobs)
 		if err != nil {
 			return result, fmt.Errorf("preview cleanup: %w", err)
+		}
+		if options.BattleLogs {
+			result.BattleLogs, result.BattleEvents, err = previewBattleLogs(ctx, pool, result.BattleLogCutoff)
+			if err != nil {
+				return result, fmt.Errorf("preview combat logs: %w", err)
+			}
 		}
 		return result, nil
 	}
@@ -87,6 +100,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 			ORDER BY expires_at,id LIMIT $2 FOR UPDATE SKIP LOCKED
 		) DELETE FROM mail_jobs USING expired WHERE mail_jobs.id=expired.id`, "mail jobs", &result.MailJobs, true},
 	}
+	moreBattleLogs := options.BattleLogs
 	for more := true; more; {
 		more = false
 		for i := range jobs {
@@ -105,6 +119,19 @@ func Run(ctx context.Context, pool *pgxpool.Pool, options Options) (Result, erro
 			}
 			job.more = count == int64(options.BatchSize)
 			more = more || job.more
+		}
+		if moreBattleLogs {
+			logs, events, err := clearBattleLog(ctx, pool, result.BattleLogCutoff, result.Cutoff)
+			if err != nil {
+				return result, fmt.Errorf("clean combat logs: %w", err)
+			}
+			result.BattleLogs += logs
+			result.BattleEvents += events
+			if logs > 0 {
+				result.Batches++
+			}
+			moreBattleLogs = logs > 0
+			more = more || moreBattleLogs
 		}
 	}
 	return result, nil

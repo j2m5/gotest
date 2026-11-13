@@ -27,7 +27,10 @@ type Options struct {
 	World                    *handlers.WorldHandler
 	NPC                      *handlers.NPCHandler
 	Wallet                   *handlers.WalletHandler
+	Abilities                *handlers.AbilityHandler
+	Combat                   *handlers.CombatHandler
 	ChatEvents               http.HandlerFunc
+	CombatEvents             http.HandlerFunc
 }
 
 func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middleware.Middleware, options Options) (http.Handler, error) {
@@ -81,6 +84,14 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		npcs = options.NPC.List
 	}
 	bind("/api/npcs", "GET", m.Auth(npcs), false)
+	abilities := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpapi.WriteError(w, 503, "not_ready", "Список умений недоступен", nil)
+	})
+	if options.Abilities != nil {
+		abilities = options.Abilities.List
+	}
+	bind("/api/abilities", "GET", m.Auth(abilities), false)
+	registerCombatRoutes(api, options.Combat, m)
 	balances := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteError(w, 503, "not_ready", "Кошелёк недоступен", nil)
 	})
@@ -114,6 +125,11 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 		events = unavailable
 	}
 	bind("/api/chat/events", "GET", m.Auth(events), false)
+	combatEvents := options.CombatEvents
+	if combatEvents == nil {
+		combatEvents = unavailable
+	}
+	bind("/api/battles/events", "GET", m.Auth(combatEvents), false)
 	registerForumRoutes(api, options.Forum, m)
 	registerPresenceRoutes(api, options.Presence, m)
 	api.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -125,7 +141,7 @@ func New(h *handlers.Handler, characters *handlers.CharacterHandler, m *middlewa
 	mux.Handle("/readyz", methodHandler(map[string]http.HandlerFunc{"GET": ready, "HEAD": ready}))
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if r.URL.Path == "/api/chat/events" {
+		if r.URL.Path == "/api/chat/events" || r.URL.Path == "/api/battles/events" {
 			// Bound cookie lookup/handshake; the upgraded connection uses the
 			// application lifecycle and its own write/ping deadlines.
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)

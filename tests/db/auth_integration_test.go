@@ -28,7 +28,7 @@ type testStorage struct {
 }
 
 // Tests never use the application's DATABASE_URL. Every test owns a random schema.
-func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context) {
+func authTestStorage(t testing.TB, migrate bool) (*testStorage, context.Context) {
 	t.Helper()
 	dsn := testenv.DatabaseURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -76,7 +76,7 @@ func authTestStorage(t *testing.T, migrate bool) (*testStorage, context.Context)
 	return s, ctx
 }
 
-func migrationSQL(t *testing.T, name string) string {
+func migrationSQL(t testing.TB, name string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
 	if err != nil {
@@ -85,7 +85,7 @@ func migrationSQL(t *testing.T, name string) string {
 	return string(b)
 }
 
-func executeMigration(t *testing.T, ctx context.Context, s *testStorage, name string) {
+func executeMigration(t testing.TB, ctx context.Context, s *testStorage, name string) {
 	t.Helper()
 	if _, err := s.pool.Exec(ctx, migrationSQL(t, name)); err != nil {
 		t.Fatal(err)

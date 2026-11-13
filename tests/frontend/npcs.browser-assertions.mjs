@@ -11,7 +11,7 @@ export async function assertNPCs({ session, command, evaluate, waitFor, click, c
   const fromAPI = await evaluate(session, `fetch('/api/npcs?character_id=${characterId}&location_id=${first.id}').then(r=>r.json())`)
   assert.deepEqual(initialIDs, fromAPI.npcs.map(npc => npc.id))
   assert.deepEqual(fromAPI.npcs.map(npc => npc.rank), ['normal', 'normal', 'strong', 'elite'])
-  assert.equal(await evaluate(session, `[...document.querySelectorAll('.npc-section button')].some(button=>button.textContent.includes('Атаковать'))`), false)
+  assert.equal(await evaluate(session, `document.querySelectorAll('[data-attack-npc]').length`), 4)
   await checkLayout(session, 'npc-list')
   await clickText(session, 'Обновить список')
   await waitFor(session, `document.querySelectorAll('.npc-list > li').length === 4`, 'NPC refresh')

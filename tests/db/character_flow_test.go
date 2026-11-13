@@ -12,14 +12,17 @@ import (
 	"testing"
 	"time"
 
+	"gotest/internal/ability"
 	"gotest/internal/auth"
 	"gotest/internal/character"
+	"gotest/internal/combat"
 	"gotest/internal/db"
 	"gotest/internal/handlers"
 	"gotest/internal/middleware"
 	"gotest/internal/notification"
 	"gotest/internal/npc"
 	"gotest/internal/presence"
+	"gotest/internal/realtime"
 	"gotest/internal/routes"
 	"gotest/internal/wallet"
 	"gotest/internal/world"
@@ -67,9 +70,13 @@ func characterFlowRouter(t *testing.T, s *testStorage, mail notification.Sender,
 		return authService.ProcessPasswordReset(ctx, auth.QueuedResetRequest{ID: job.ID, Lease: job.Lease, Email: content.Email})
 	}, nil)
 	workerCtx, cancel := context.WithCancel(context.Background())
+	combatHub := realtime.NewCharacterHub(workerCtx, authService, "")
+	combatRepository := db.NewCombatRepository(s.pool).WithNotifications(combatHub.NotifyCharacter)
+	combatDone := make(chan struct{})
+	go func() { defer close(combatDone); combat.NewWorker(combatRepository, nil).Run(workerCtx) }()
 	done := make(chan struct{})
 	go func() { defer close(done); worker.Run(workerCtx) }()
-	t.Cleanup(func() { cancel(); <-done })
+	t.Cleanup(func() { cancel(); <-done; <-combatDone })
 	characters := character.NewService(db.NewCharacterRepository(s.pool))
 	h, err := routes.New(handlers.NewHandler(authService, false, authService), handlers.NewCharacterHandler(characters), middleware.NewMiddleware(authService), routes.Options{
 		StaticDir: filepath.Join("..", "..", "frontend", "dist"),
@@ -77,6 +84,8 @@ func characterFlowRouter(t *testing.T, s *testStorage, mail notification.Sender,
 		World:     handlers.NewWorldHandler(world.NewService(db.NewWorldRepository(s.pool))),
 		NPC:       handlers.NewNPCHandler(npc.NewService(db.NewNPCRepository(s.pool))),
 		Wallet:    handlers.NewWalletHandler(wallet.NewService(db.NewWalletRepository(s.pool))),
+		Abilities: handlers.NewAbilityHandler(ability.NewService(db.NewAbilityRepository(s.pool))),
+		Combat:    handlers.NewCombatHandler(combat.NewService(combatRepository)), CombatEvents: combatHub.ServeHTTP,
 	})
 	if err != nil {
 		t.Fatal(err)

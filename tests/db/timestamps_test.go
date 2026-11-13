@@ -280,8 +280,10 @@ func TestDatabaseTimestampsHaveTimezone(t *testing.T) {
 		FROM information_schema.columns WHERE table_schema=current_schema()`).Scan(&withZone, &withoutZone); err != nil {
 		t.Fatal(err)
 	}
-	if withZone != 63 || withoutZone != 0 {
-		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want 63/0", withZone, withoutZone)
+	// New timestamp columns are allowed; the invariant is their timezone type,
+	// not the schema's current size. Keep a nonempty check to avoid a vacuous pass.
+	if withZone == 0 || withoutZone != 0 {
+		t.Fatalf("timestamp columns: with zone=%d without zone=%d; want nonempty timestamps with no timezone-less columns", withZone, withoutZone)
 	}
 }
 

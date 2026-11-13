@@ -60,6 +60,29 @@ test('integration task and direct CI test task both require database configurati
   failure(f.run('test', { CI: 'true' }), /TEST_DATABASE_URL/)
 })
 
+test('combat load command requires only the test database and propagates benchmark failure', t => {
+  const f = fixture(t)
+  f.write('.env', 'DATABASE_URL=postgres://private-app\nTEST_DATABASE_URL=postgres://private-app-test\n')
+  const missing = f.run('test:combat-load')
+  failure(missing, /TEST_DATABASE_URL/)
+  assert.doesNotMatch(missing.stdout + missing.stderr, /private-app/)
+  f.write('go-probe.go', `package main
+import("encoding/json";"fmt";"os";"strconv")
+func main(){ data,_:=json.Marshal(map[string]any{"args":os.Args[1:],"databaseRequired":os.Getenv("REQUIRE_DATABASE_TESTS")});fmt.Printf("PROBE:%s\\n",data);code,_:=strconv.Atoi(os.Getenv("PROBE_EXIT"));os.Exit(code) }
+`)
+  const binary = path.join(f.root, process.platform === 'win32' ? 'go.exe' : 'go')
+  const build = spawnSync('go', ['build', '-o', binary, path.join(f.root, 'go-probe.go')], { env: environment(), encoding: 'utf8', windowsHide: true })
+  assert.equal(build.status, 0, build.stderr)
+  f.write('.env.test', 'TEST_DATABASE_URL=postgres://test\n')
+  const env = { PATH: f.root + path.delimiter + environment().PATH, CI: 'true', REQUIRE_BROWSER_TESTS: '1', CHARACTER_BROWSER_BINARY: 'missing-browser' }
+  const result = f.run('test:combat-load', env)
+  assert.equal(result.status, 0, result.stderr)
+  const probe = JSON.parse(result.stdout.split('\n').find(line => line.startsWith('PROBE:')).slice(6))
+  assert.deepEqual(probe.args, ['test', './tests/db', '-run', '^$', '-bench', '^BenchmarkCombatLoad$', '-benchtime=1x', '-count=1', '-timeout=10m', '-v'])
+  assert.equal(probe.databaseRequired, '1')
+  failure(f.run('test:combat-load', { ...env, PROBE_EXIT: '4' }), /exit 4/)
+})
+
 test('Go security and race commands enforce prerequisites and propagate tool failures', t => {
   const f = fixture(t)
   failure(f.run('test:race'), /TEST_DATABASE_URL/)

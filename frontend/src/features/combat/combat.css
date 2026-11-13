@@ -1,0 +1,21 @@
+.active-battle-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.combat-page { min-width: 0; }
+.combat-page h1 { margin-bottom: 8px; }
+.combat-page h2 { margin: 0; font-size: 15px; }
+.combat-opponent { border: var(--divider); border-radius: var(--radius-control); background: var(--color-surface-raised); padding: 12px; margin: 14px 0 18px; }
+.combat-opponent-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; justify-content: space-between; margin-bottom: 9px; }
+.combat-opponent h2 { color: var(--color-accent); overflow-wrap: anywhere; }
+.combat-rank { color: var(--color-muted); font-size: 12px; }
+.combat-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 16px; }
+.combat-rewards { font-variant-numeric: tabular-nums; }
+.combat-connection { font-size: 12px; }
+.combat-section-heading { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.battle-log { margin-top: 16px; border-top: var(--divider); padding-top: 12px; }
+.battle-log-scroll { max-height: 280px; overflow: auto; overflow-wrap: anywhere; scrollbar-color: var(--color-field-border) var(--color-surface); border-radius: 4px; }
+.battle-log ol { list-style: none; padding: 0; margin: 0; }
+.battle-log li { display: grid; grid-template-columns: 55px minmax(0,1fr); gap: 8px; padding: 7px 3px; border-bottom: var(--divider); font-size: 12px; line-height: 1.45; }
+.battle-log time { color: var(--color-muted); font-size: 10px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.battle-log [data-event-kind="won"] { color: var(--color-success-text); }
+.battle-log [data-event-kind="defeated"] { color: var(--color-error-text); }
+.battle-log [data-event-kind="npc_ability"] { color: var(--color-error-text); }
+.npc-attack { margin-top: 9px; }
